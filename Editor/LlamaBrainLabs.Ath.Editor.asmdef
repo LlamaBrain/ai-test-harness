@@ -1,0 +1,33 @@
+{
+    "name": "LlamaBrainLabs.Ath.Editor",
+    "rootNamespace": "LlamaBrainLabs.Ath.Editor",
+    "references": [
+        "LlamaBrainLabs.Ath.Runtime",
+        "com.IvanMurzak.Unity.MCP.Editor",
+        "com.IvanMurzak.Unity.MCP.Runtime",
+        "IngameDebugConsole.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "ReflectorNet.dll",
+        "McpPlugin.dll",
+        "McpPlugin.Common.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_MCP_READY"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.ivanmurzak.unity.mcp",
+            "expression": "0.0.1",
+            "define": "UNITY_MCP_READY"
+        }
+    ],
+    "noEngineReferences": false
+}
