@@ -1,0 +1,14 @@
+{
+    "name": "LlamaBrainLabs.Ath.Runtime",
+    "rootNamespace": "LlamaBrainLabs.Ath",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
