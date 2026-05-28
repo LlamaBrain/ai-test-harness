@@ -1,0 +1,16 @@
+{
+    "name": "LlamaBrainLabs.Ath.Samples.MinimalHostAdapter",
+    "rootNamespace": "LlamaBrainLabs.Ath.Samples",
+    "references": [
+        "LlamaBrainLabs.Ath.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

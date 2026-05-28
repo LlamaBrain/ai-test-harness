@@ -18,5 +18,12 @@
   "dependencies": {
     "com.ivanmurzak.unity.mcp": "0.76.0"
   },
+  "samples": [
+    {
+      "displayName": "Minimal Host Adapter",
+      "description": "No-op IAthHostAdapter that proves the Runtime asmdef is independent of Commands/Editor/IngameDebugConsole/MCP. Used for the fresh-project dry-run.",
+      "path": "Samples~/MinimalHostAdapter"
+    }
+  ],
   "documentationUrl": "https://github.com/LlamaBrain/ai-test-harness"
 }
