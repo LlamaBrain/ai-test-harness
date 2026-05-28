@@ -49,7 +49,13 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             "Status=failed. Pass tagId=false for fire-and-forget commands that " +
             "do NOT define a correlation-id overload — the id won't be appended, " +
             "no log capture is attempted, and Status=success means the command " +
-            "was dispatched without throwing.")]
+            "was dispatched without throwing. " +
+            "On Status=failed with FailReason=no_response or command_error — or " +
+            "whenever the bridge appears stuck — fetch /console-get-logs before " +
+            "retrying: dispatched-command exceptions land in the Unity console " +
+            "even when the correlation-id capture misses them. (FailReason " +
+            "starting with `exception:` already carries the root cause; no log " +
+            "fetch needed for that path.)")]
         public Result Execute(
             [Description("Console command with arguments. Example: 'test.echo hello' or 'player.tp 0 1'.")]
             string command,

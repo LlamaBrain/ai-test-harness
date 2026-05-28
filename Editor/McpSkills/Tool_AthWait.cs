@@ -49,7 +49,11 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             "state_equals:<key>=<value>, log_match:<regex>, " +
             "spawn_attempts_at_least:<int>. " +
             "Returns rich diagnostics on timeout (LastEvaluatedValue + on-exit playmode/bridge/adapter " +
-            "flags) so a missed convergence localizes quickly.")]
+            "flags) so a missed convergence localizes quickly. " +
+            "On Status=timeout — or whenever the bridge appears stuck — fetch /console-get-logs " +
+            "before retrying: Editor-side exceptions (NullRef in a predicate path, missing scene " +
+            "actor, mid-playmode compile error) surface in the Unity console but not in this " +
+            "result, and retrying without reading them just burns turns.")]
         public Result Wait(
             [Description("Predicate name. Supports arg via 'predicate:arg' colon syntax.")]
             string predicate,
