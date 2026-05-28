@@ -15,6 +15,12 @@ namespace LlamaBrainLabs.Ath
     public static class AthRuntimeFlag
     {
         public static AthLogLevel LogLevel = AthLogLevel.Info;
+
+        // Bumped in lockstep with package.json's version field. The smoke
+        // skills compare this against their frontmatter version constant to
+        // detect stale .claude/skills/ copies that did not get re-copied
+        // after a package update.
+        public const string PackageVersion = "0.1.0-preview.2";
     }
 }
 #endif

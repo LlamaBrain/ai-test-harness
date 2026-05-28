@@ -44,6 +44,10 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                     value = SceneManager.GetActiveScene().name;
                     return;
 
+                case "package_version":
+                    value = AthRuntimeFlag.PackageVersion;
+                    return;
+
                 case "host_name":
                     value = adapter?.HostName ?? "<none>";
                     return;
