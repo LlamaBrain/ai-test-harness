@@ -1,0 +1,39 @@
+# Unity generated
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Visual Studio / Rider / generated solutions
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vs/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Crashlogs
+sysinfo.txt
+
+# DO NOT IGNORE: *.meta files MUST be tracked for Unity package GUID stability.
+# Do not add `*.meta` to this file.
