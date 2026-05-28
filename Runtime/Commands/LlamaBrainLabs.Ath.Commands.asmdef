@@ -1,0 +1,17 @@
+{
+    "name": "LlamaBrainLabs.Ath.Commands",
+    "rootNamespace": "LlamaBrainLabs.Ath.Commands",
+    "references": [
+        "LlamaBrainLabs.Ath.Runtime",
+        "IngameDebugConsole.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
