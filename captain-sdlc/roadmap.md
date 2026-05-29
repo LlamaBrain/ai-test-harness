@@ -19,13 +19,10 @@ Two orthogonal axes (ADR-0002 — *SemVer is process, milestones are design*):
 ## 1.0 Thesis
 Captain SDLC is a series of independently-versioned tools — like a swiss army knife — that enable creatives to smooth away the processy bits of solo Unity game development that do matter (SemVer maintenance, roadmaps, mechanical QA, contract enforcement) but don't deserve human attention. Each tool bridges idea-space to plan-space via Socratic interview. Tools eat the process; the human eats the design. — anchor: `./README.md`
 
-## Release Milestones (MRC)
-MRC milestones are the project's release pushes. Each closes when its gating build milestones (M) ship; the version at close is whatever claude-release has tagged by then. The ladder itself is a design choice — Captain SDLC's is likely **MVP → Alpha → Beta → Release** — but only the two anchors below are fixed; intermediate rungs and their gates get set when their scope firms up.
+## MIN PLAY Waypoint
+RC: M5_RELEASE_GATES_MINIMAL. Criterion: claude-release refuses to publish a release when configured ATH smokes fail or the dependency audit reports any blocking CVE, with override recorded in commit message and trace. Proves the idea-to-plan-to-mechanical-verify-to-gated-release chain on the lightest possible payload.
 
-| MRC | Gate | Criterion |
-|---|---|---|
-| First push (MVP-equivalent) | M5 + its chain | **MIN PLAY** — claude-release refuses to publish when configured ATH smokes fail or the dependency audit reports any blocking CVE, with override recorded in commit message + trace. Proves the idea→plan→mechanical-verify→gated-release chain on the lightest possible payload. |
-| Terminal push (Release) | M27 (DoD end-to-end) | Minimum-viable end-to-end pipeline shipped — constitution enforcement, design↔code drift, contract testing, CICD deploy, and baseline Live-Ops dedup all holding (the M27 aggregation). |
+In the orthogonal model this is the first release milestone — the MVP-equivalent push. Further release milestones (the MRC ladder, likely MVP → Alpha → Beta → Release) are added as MRC-prefixed rows in the milestone table below once their scope firms up; per ADR-0002, build (M) and release (MRC) milestones share that one table, distinguished by prefix.
 
 ## MToolKit Re-Disposition (2026-05-28)
 MToolKit was ratified as a *runtime blade* of the knife (ADR-0010). Crediting the developer's existing back-tech (MToolKit + the `TemplateGameBuildScript` build template) and deferring what's premature for solo dogfooding, the 26 open milestones re-disposition four ways. Principle: **process blades detect MToolKit and lean on it when present, degrade gracefully when absent** — so these dispositions hold for MToolKit projects (Dirigible) and fall back toward Build / not-applicable for small ones (BeforeTheShade).
@@ -52,7 +49,7 @@ MToolKit was ratified as a *runtime blade* of the knife (ADR-0010). Crediting th
 
 Net: ~8–9 active novel milestones once back-tech is credited and the live-ops tail is deferred — concentrated in the cross-tool seams.
 
-## Build Milestones (M)
+## Release Candidates
 | Milestone | Name | Status | Anchor | Marketing |
 |---|---|---|---|---|
 | M1 | CONVENTIONS_ESTABLISHED | Shipped | captain-sdlc-conventions.md | — |
