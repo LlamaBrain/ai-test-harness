@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-29
+
 ### Added
 - Captain SDLC trace emitter (Seam 1, milestone M2). New editor MCP tool
   `ath-trace-emit` appends one `ath.smoke.completed` event to the consuming
@@ -26,8 +28,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Documentation~/trace-events.md`. `ath-smoke-fullloop` SKILL gains a Step 8
   that emits the trace on both pass and fail before PlayMode exit. Perf
   "envelope summary", `parents`/`links`, and additional event kinds are
-  deferred (see the M2 milestone doc). Live verification in a Unity editor is
-  the M2 close-out gate.
+  deferred (see the M2 milestone doc). Verified in the BeforeTheShade editor
+  (compile + a live pass/fail emit).
+
+### Changed
+- MCP tool invocation is now documented as `unity-mcp-cli run-tool <tool> --input '<json>'`
+  across the smoke SKILL, `using-ath.md`, and `trace-events.md`. The `/ath-*`
+  slash form is flagged as conditional on `unity-mcp-cli setup-skills`, with the
+  "Unknown skill" error and its fix called out.
+
+### Removed
+- The Captain SDLC nerve-center docs (`captain-sdlc/`) no longer ship in the
+  package — extracted to their own repo (`LlamaBrain/captain-sdlc`) along with
+  the 76 Unity `.meta` files they had generated and the interrogate config. The
+  package now contains only the ATH runtime, editor tools, skills, and
+  `Documentation~/` (resolves TD-001).
 
 ## [0.1.0] - 2026-05-29
 

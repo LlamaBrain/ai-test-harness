@@ -79,13 +79,13 @@ event it tested (per the schema's linking conventions). Tracked as a follow-up.
 ### Example
 
 ```json
-{"schema_version":1,"event_id":"f1c2a3b4-5d6e-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-05-29T15:42:08.123Z","tool":"ath","tool_version":"0.1.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"26e6d1a","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.1.0","result":"pass","failed_step":null,"summary":"full death→ghost→finish→restart loop green","artifacts":[]}}
+{"schema_version":1,"event_id":"f1c2a3b4-5d6e-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-05-29T15:42:08.123Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"26e6d1a","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"pass","failed_step":null,"summary":"full death→ghost→finish→restart loop green","artifacts":[]}}
 ```
 
 ### Failure example
 
 ```json
-{"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.1.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.1.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["fullloop_FAIL_gameview.png","fullloop_FAIL_sceneview.png"]}}
+{"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["fullloop_FAIL_gameview.png","fullloop_FAIL_sceneview.png"]}}
 ```
 
 ## Deferred (not in the first cut)

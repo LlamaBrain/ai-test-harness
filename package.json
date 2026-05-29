@@ -1,6 +1,6 @@
 {
   "name": "com.llamabrainlabs.ai-test-harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "AI Test Harness",
   "description": "Three-layer MCP-driven dev test harness for Unity: in-game IngameDebugConsole commands with CMD/OK/ERR sentinels, editor-only MCP tools (ath-cmd, ath-state, ath-wait), and Claude SKILL.md workflows. Mirrors the dirigible2D pattern documented at https://metagrue.com/2026/05/25/ai-test-harness/.",
   "unity": "2022.3",

@@ -1,7 +1,7 @@
 ---
 name: ath-smoke-fullloop
 description: End-to-end PlayMode smoke for the BeforeTheShade full death-rewind-and-finish loop. Asserts that the harness can spawn a player, kill it, observe ghost-replay materialization, fire the goal event, restart cleanly, and that all the relevant edge-flag state machinery converges within bounded timeouts. Closes the regression gap for ghost replay + restart cleanup in BTS v0.1+.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Full-loop smoke (death → ghost → finish → clean restart)
@@ -71,14 +71,14 @@ any `/ath-*`) and get **"Unknown skill,"** you are not in that case — use the
 ## Step 0 — Version pre-flight (fail-fast)
 
 ```jsonc
-// Frontmatter declares: version: 0.1.0
+// Frontmatter declares: version: 0.2.0
 // Compare against the live package's runtime constant.
 let live = ath-state { "key": "package_version" }
-// expected: live.Value == "0.1.0"
+// expected: live.Value == "0.2.0"
 
-if (live.Value != "0.1.0") {
+if (live.Value != "0.2.0") {
   ABORT: stale skill copy.
-  "Frontmatter declares version 0.1.0 but the live package
+  "Frontmatter declares version 0.2.0 but the live package
    reports " + live.Value + ". Re-copy
    E:/Personal/ai-test-harness/Skills/ath-smoke-fullloop/SKILL.md
    into <project>/.claude/skills/ath-smoke-fullloop/SKILL.md and
@@ -362,7 +362,7 @@ gets disturbed:
 
 ## Notes
 
-- Skill version: `0.1.0`. If you modify the package, bump
+- Skill version: `0.2.0`. If you modify the package, bump
   both `package.json#version` AND the frontmatter above in the same
   commit.
 - The completion trace (`ath.smoke.completed`) is written to
