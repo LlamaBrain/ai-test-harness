@@ -10,3 +10,4 @@
 - [ADR-0008: MIN PLAY waypoint is M5_RELEASE_GATES_MINIMAL](0008-min-play-is-m5-release-gates.md)
 - [ADR-0009: Release-readiness verifies the published artifact, not just source-repo tests](0009-released-artifact-verification.md)
 - [ADR-0010: MToolKit is a runtime blade of the knife](0010-mtoolkit-runtime-blade.md)
+- [ADR-0011: Shared test-support lives in the template until a second consumer](0011-test-support-home-template-then-promote.md)
