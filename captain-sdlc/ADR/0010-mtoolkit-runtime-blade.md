@@ -32,7 +32,7 @@ Consequence for the roadmap: the 26 open milestones re-disposition into Have / T
 - **Extract MToolKit's capabilities into generic Captain SDLC tools.** Rejected: forks an actively-maintained toolkit, creates a sync seam, and buys nothing the developer doesn't already own.
 - **Assume MToolKit everywhere.** Rejected: it is opt-in; small projects don't use it. Detect-and-degrade preserves the knife's reach without coupling.
 
-## Caveats carried into the roadmap
+## Caveats — verified first-hand 2026-05-28
 
-- The perf hooks (M7 / M8) need direct verification — exploration disagreed on whether a stored baseline/grade asset exists, or only live measurement.
-- MToolKit's save-migration *framework* is production-grade, but Dirigible's golden-fixture *corpus* is currently single-version, so M14's testing deliverable is small but not zero.
+- **M7 / M8 perf — resolved, present.** Dirigible ships `StartupPerformanceBudgetAsset` (a configured budget asset) + `StartupGrade` + `StartupProfiler` / `StartupRunReport`, installer-wired and Serilog-emitted, on MToolKit's `IStartupProfiler` hook. The budget→grade comparison exists; the gap for M7 is the *envelope* proper — an auto-captured baseline + per-run drift tolerance (vs a static budget) — and coverage beyond startup.
+- **M14 save-migration — resolved, richer than flagged, with a posture nuance.** A mature golden-corpus harness spans 12 domains (golden_*_v*.es3, drift-hash pinning, reproducible generators) — not single-version. But Dirigible's posture is *refuse-pre-current*: old-version saves are asserted `RefusedFatal`, not migrated (no migration bodies, by choice, pre-1.0). The harness is `Have`; whether M14's deliverable is "old saves still load" (needs migration bodies) or "old saves refused loudly" (done) is a per-project policy decision.

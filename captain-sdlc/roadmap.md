@@ -18,15 +18,15 @@ RC: M5_RELEASE_GATES_MINIMAL. Criterion: claude-release refuses to publish a rel
 MToolKit was ratified as a *runtime blade* of the knife (ADR-0010). Crediting the developer's existing back-tech (MToolKit + the `TemplateGameBuildScript` build template) and deferring what's premature for solo dogfooding, the 26 open milestones re-disposition four ways. Principle: **process blades detect MToolKit and lean on it when present, degrade gracefully when absent** — so these dispositions hold for MToolKit projects (Dirigible) and fall back toward Build / not-applicable for small ones (BeforeTheShade).
 
 **Have** — capability is existing back-tech; the milestone reduces to a gate / wrapper / templatize:
-- M8 EDITOR_PERF_INSTRUMENTATION — MToolKit `IStartupProfiler` + Dirigible `PerfCountersHost` hooks. *(verify: baseline/grade asset unconfirmed.)*
+- M8 EDITOR_PERF_INSTRUMENTATION — **verified present**: Dirigible `StartupProfiler` + `StartupPerformanceBudgetAsset` (configured budget) + `StartupGrade`, installer-wired and Serilog-emitted, on MToolKit's `IStartupProfiler` hook. Scope nuance: startup-phase + static-budget (not gameplay-frame, not auto-captured baseline).
 - M13 CONTRACT_TESTING_MECHANISM_A — pattern proven in Dirigible (`WorkstationCapabilityRoundTripTests`) + MToolKit `SchemaHashWalker`; templatize + gate.
-- M14 SAVE_MIGRATION_TESTING — MToolKit `ForwardMigrator<T>` is production-grade; only golden-fixtures-across-versions + the gate remain. *(Dirigible's corpus is currently single-version.)*
+- M14 SAVE_MIGRATION_TESTING — **verified richer than flagged**: a mature golden-corpus harness across 12 domains (golden_*_v*.es3, drift-hash pinning, reproducible `[Explicit]` generators). Posture nuance: Dirigible *refuses* pre-current saves (`RefusedFatal`, no migration bodies) rather than migrating them — so "old saves still load" needs migration bodies (deliberately unwritten pre-1.0), while "old saves refused loudly" is already done. Migrate-vs-refuse is a per-project policy call.
 - M21 CICD_HEADLESS_BUILD — `TemplateGameBuildScript` (dev/stage/prod, IL2CPP, Addressables, headless `-executeMethod`) is back-tech; add commit trigger + test-gate.
 
 **Thin** — build a thin layer on an existing MToolKit primitive, not the generic thing:
 - M2 TRACE_SCHEMA_FIRST_EMITTER — Slog JSONL emitter exists; add `schema_version` + a typed event envelope.
 - M4 PRIVACY_FRAMEWORK_ACTIVATED — consent plumbing exists; classification is doc/policy (defer-leaning; no real player data in dogfooding).
-- M7 BASELINE_REGRESSION_ENVELOPE — measurement hooks exist; build the store + compare. *(verify perf.)*
+- M7 BASELINE_REGRESSION_ENVELOPE — **verified**: the budget→grade comparison exists (`StartupPerformanceBudgetAsset.ComputeGrade`). The gap is the *envelope* proper — an auto-captured baseline + per-run drift tolerance (vs a static hand-set budget), and coverage beyond startup.
 - M10 ARTIFACT_DIFF_RUNTIME — snapshot capture exists; build the diff.
 - M11 CONSTITUTION_MECHANICAL — content = "conform to MToolKit"; enforcement collapses to asmdef / DI / no-MonoBehaviour-business-logic checks (ADR-0006).
 - M15 LOCALIZATION_KEY_AUDIT — Unity Localization infra exists (7+ locales, TextSync round-trip); the missing/unused-key audit is the actual deliverable and is not yet built.
