@@ -12,3 +12,4 @@
 - [ADR-0010: MToolKit is a runtime blade of the knife](0010-mtoolkit-runtime-blade.md)
 - [ADR-0011: Shared test-support lives in the template until a second consumer](0011-test-support-home-template-then-promote.md)
 - [ADR-0012: The human owns taste; the tools own correctness](0012-human-owns-taste-tools-own-correctness.md)
+- [ADR-0013: Tools emit their own trace records; correctness lives in the tool](0013-tools-own-trace-record-correctness.md)

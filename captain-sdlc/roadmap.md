@@ -53,7 +53,7 @@ Net: ~8–9 active novel milestones once back-tech is credited and the live-ops 
 | Milestone | Name | Status | Anchor | Marketing |
 |---|---|---|---|---|
 | M1 | CONVENTIONS_ESTABLISHED | Shipped | captain-sdlc-conventions.md | — |
-| M2 | TRACE_SCHEMA_FIRST_EMITTER | Stub | trace-schema.md | — |
+| M2 | TRACE_SCHEMA_FIRST_EMITTER | In Progress | trace-schema.md | — |
 | M3 | CODE_READING_TIER_1 | Stub | code-reading-capability.md | — |
 | M4 | PRIVACY_FRAMEWORK_ACTIVATED | Stub | privacy-framework.md | — |
 | M5 | RELEASE_GATES_MINIMAL | Stub | seam-release-gates.md | — |
