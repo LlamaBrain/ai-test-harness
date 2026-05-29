@@ -1,5 +1,10 @@
 # AI Test Harness
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![Unity](https://img.shields.io/badge/Unity-2022.3%2B-black.svg)](https://unity.com)
+
+By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://github.com/LlamaBrain) project, part of the [Captain SDLC](https://github.com/LlamaBrain/captain-sdlc) pipeline.
+
 A reusable Unity package providing a three-layer MCP-driven dev test harness, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
 > **Status:** v0.2.0 — stable. The editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade.
