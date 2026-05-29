@@ -26,6 +26,9 @@ All `MainThread.Run`-marshaled. `Tool_AthWait` deliberately sync (the MCP serial
 
 Dogfooding caught three real BTS bugs (respawn race, teleport read-back stale, ghost cleanup edge case) — the smoke working as designed.
 
+### Trace emitter + nerve-center extraction (`v0.2.0`)
+`ath-trace-emit` editor MCP tool emits one `ath.smoke.completed` event per smoke run to the consuming project's `.captain-sdlc/trace/YYYY-MM-DD.jsonl` (Captain SDLC Seam 1; envelope in the captain-sdlc repo's `trace-schema.md`). Pure `AthTraceWriter` serializer + `AthTraceEmitter` IO, no JSON dependency; the smoke SKILL's Step 8 emits on pass and fail. Verified against BTS (compile + live emit). Separately, the Captain SDLC nerve-center docs were extracted from this package to `LlamaBrain/captain-sdlc` (TD-001) — the package no longer ships them.
+
 ## Later
 
 ### Extract `ath-smoke-fullloop` out of the package (portability fix)
@@ -34,7 +37,7 @@ The skill currently lives at `Skills/ath-smoke-fullloop/SKILL.md` and references
 - A host-agnostic authoring template / skeleton SKILL.md.
 - A minimal-adapter dry-run smoke that runs entirely against `Samples~/MinimalHostAdapter` and asserts nothing about gameplay (overlaps with Phase 8 below — they're the same artifact).
 
-Bump to `0.1.0-preview.3` and CHANGELOG the move. Hosts that already copied the BTS-coupled SKILL into their `.claude/skills/` will fail-fast on the version pre-flight, which is the right behavior.
+Bump the version and CHANGELOG the move. Hosts that already copied the BTS-coupled SKILL into their `.claude/skills/` will fail-fast on the version pre-flight, which is the right behavior.
 
 ### Phase 8 — Fresh-project minimal-adapter dry-run
 Install the package into a clean Unity project, wire only `Samples~/MinimalHostAdapter`, and confirm `/ath-cmd { harness.ping }` round-trips and `/ath-state { adapter_ready }` returns `true` without any host-specific code. Tests the package boundary — that Runtime really doesn't leak into Commands/Editor and that `autoReferenced` works on a project with no `Assets/` code yet. Independent of BTS gameplay findings.

@@ -1,7 +1,7 @@
 # AI Test Harness — Claude skills
 
 This folder contains the smoke-test `SKILL.md` workflows the harness ships
-with. Each skill orchestrates `/ath-cmd`, `/ath-state`, and `/ath-wait`
+with. Each skill orchestrates `/ath-cmd`, `/ath-state`, `/ath-wait`, and `/ath-trace-emit`
 through Unity MCP to drive a multi-step regression scenario end-to-end.
 
 ## Installing skills into a host project
@@ -44,13 +44,13 @@ Concretely:
 ```yaml
 ---
 name: ath-smoke-fullloop
-version: 0.1.0-preview.1
+version: 0.2.0
 ---
 ```
 
 ```jsonc
 let live = ath-state { "key": "package_version" }
-if (live.Value != "0.1.0-preview.1") ABORT
+if (live.Value != "0.2.0") ABORT
 ```
 
 When you bump the AI Test Harness package version, re-copy or re-sync
@@ -60,7 +60,7 @@ all installed skills.
 
 | Skill | Description |
 |---|---|
-| `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the v0.1 BTS gameplay loop end-to-end. |
+| `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the BTS gameplay loop end-to-end. |
 
 (More smoke skills will land as additional host scenarios are wired.)
 
@@ -85,4 +85,4 @@ See `ath-smoke-fullloop/SKILL.md` for a worked example.
 
 An editor menu item `Tools > AI Test Harness > Sync Skills` would mirror
 `<package>/Skills/*` into `<project>/.claude/skills/` on demand, removing
-the manual copy step. Tracked for a v0.1.x polish release.
+the manual copy step. Tracked for a future polish release.

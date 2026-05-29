@@ -2,19 +2,19 @@
 
 A reusable Unity package providing a three-layer MCP-driven dev test harness, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
-> **Status:** v0.1.0-preview.1 — scaffolding phase. Not yet functional. Implementation tracked in the plan file.
+> **Status:** v0.2.0 — stable. The editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade.
 
 ## What it is
 
 Three layers:
 
 1. **In-game runtime** — `IngameDebugConsole` commands with `CMD:`/`OK:`/`ERR:` sentinels tagged with correlation IDs. Strips from release builds via `#if UNITY_EDITOR || DEVELOPMENT_BUILD`.
-2. **Editor MCP tools** — `ath-cmd`, `ath-state`, `ath-wait`. Synchronous, correlation-id-filtered log capture.
+2. **Editor MCP tools** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`. Synchronous; correlation-id-filtered log capture, state queries, predicate waits, and Captain SDLC trace emission.
 3. **Claude `SKILL.md` workflows** — composed smoke tests that orchestrate the three tools.
 
 Hosts implement `IAthHostAdapter` to expose their game state and lifecycle events to the harness. The package never references host types.
 
-## Compatibility (v0.1.0-preview.1)
+## Compatibility
 
 | Component             | Status       | Verified                                                                                            |
 |-----------------------|--------------|-----------------------------------------------------------------------------------------------------|
@@ -53,7 +53,7 @@ Add to `Packages/manifest.json`:
 "com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
 ```
 
-(Or, once v0.1.0 is tagged: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.1.0"`.)
+(Or pin a tagged release via git: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.2.0"`.)
 
 ### 4. Implement the adapter
 
@@ -76,13 +76,13 @@ The package ships its Claude smoke-test skills under `Skills/<name>/SKILL.md`. M
 ## What's in here
 
 - `Runtime/` — core (`IAthHostAdapter`, `AthServices`, `AthBridge`) + `Commands/` (package-supplied `[ConsoleMethod]` commands).
-- `Editor/McpSkills/` — `Tool_AthCmd`, `Tool_AthState`, `Tool_AthWait`.
+- `Editor/McpSkills/` — `Tool_AthCmd`, `Tool_AthState`, `Tool_AthWait`, `Tool_AthTraceEmit` (+ pure `AthTraceWriter`/`AthTraceEmitter`).
 - `Skills/` — Claude `SKILL.md` workflows.
 - `Samples~/MinimalHostAdapter/` — no-op adapter for fresh-project smoke testing.
-- `Documentation~/` — adapter contract, command authoring guide, skill authoring guide.
+- `Documentation~/` — adapter contract (`adapter-contract.md`), operator guide (`using-ath.md`), trace events (`trace-events.md`).
 
 ## Architecture notes
 
-The package never references host types. All host data flows through `IAthHostAdapter`. The runtime/commands asmdef split is an architectural seam for future transport swap-out — v0.1 still requires IngameDebugConsole as a peer dep.
+The package never references host types. All host data flows through `IAthHostAdapter`. The runtime/commands asmdef split is an architectural seam for future transport swap-out — v0.2 still requires IngameDebugConsole as a peer dep.
 
-See the [authoritative design plan](https://github.com/LlamaBrain/ai-test-harness) for the full architecture, phased execution gates, and v0.1.0 release criteria.
+ATH is the QA tool in the broader Captain SDLC pipeline. See the nerve center ([`LlamaBrain/captain-sdlc`](https://github.com/LlamaBrain/captain-sdlc)) for the cross-tool design, the trace schema, and the roadmap.
