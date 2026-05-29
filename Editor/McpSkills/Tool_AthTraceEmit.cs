@@ -1,5 +1,5 @@
 // LlamaBrainLabs.Ath.Editor — MCP emitter for the Captain SDLC cross-tool
-// trace (Seam 1; envelope spec in captain-sdlc/trace-schema.md). Appends one
+// trace (Seam 1; envelope spec in the captain-sdlc repo's trace-schema.md). Appends one
 // ath.smoke.completed event to <project>/.captain-sdlc/trace/YYYY-MM-DD.jsonl.
 //
 // An ATH smoke is agent-orchestrated (a SKILL drives the editor through
@@ -46,7 +46,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
         [Description(
             "Append one Captain SDLC `ath.smoke.completed` trace event to the " +
             "consuming project's .captain-sdlc/trace/YYYY-MM-DD.jsonl (append-only " +
-            "JSON Lines; envelope spec in captain-sdlc/trace-schema.md). Call this " +
+            "JSON Lines; envelope spec in the captain-sdlc repo's trace-schema.md). Call this " +
             "as the final step of an ATH smoke skill, on BOTH pass and fail, so the " +
             "pipeline can later walk backward from a regression to the smoke that " +
             "should have caught it. The tool mints the event_id, stamps the UTC " +

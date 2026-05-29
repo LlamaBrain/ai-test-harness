@@ -6,8 +6,8 @@ shared event **envelope** — `schema_version`, `event_id`, `timestamp`, `tool`,
 `tool_version`, `kind`, `refs`, and the optional `parents`/`links` — is defined
 once, canonically, in the nerve-center doc:
 
-- Envelope spec: [`../captain-sdlc/trace-schema.md`](../captain-sdlc/trace-schema.md)
-- Storage + conventions: [`../captain-sdlc/captain-sdlc-conventions.md`](../captain-sdlc/captain-sdlc-conventions.md)
+- Envelope spec: [trace-schema.md](https://github.com/LlamaBrain/captain-sdlc/blob/main/trace-schema.md) (the `captain-sdlc` repo)
+- Storage + conventions: [captain-sdlc-conventions.md](https://github.com/LlamaBrain/captain-sdlc/blob/main/captain-sdlc-conventions.md)
 
 **This doc owns the *payloads*** for the event kinds ATH emits — per the
 schema's "tool docs own each kind's payload schema" rule. Right now ATH emits

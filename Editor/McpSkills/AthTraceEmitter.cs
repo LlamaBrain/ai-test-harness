@@ -1,7 +1,7 @@
 // AthTraceEmitter — IO half of the trace emitter. Resolves the consuming
 // project's .captain-sdlc/trace/ directory, lazily protects it with a
 // .gitignore (trace/ and side-store/ are always-local state per
-// captain-sdlc/captain-sdlc-conventions.md), and appends one JSON line to
+// captain-sdlc-conventions.md in the captain-sdlc repo), and appends one JSON line to
 // the current UTC day's file.
 //
 // Every path is derived from the projectRoot argument so a test can point it
@@ -74,7 +74,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             Directory.CreateDirectory(stateDir);
             File.WriteAllText(
                 gitignore,
-                "# Captain SDLC local state — never committed (see captain-sdlc-conventions.md)\n" +
+                "# Captain SDLC local state — never committed\n" +
                 "trace/\n" +
                 "side-store/\n",
                 new UTF8Encoding(false));

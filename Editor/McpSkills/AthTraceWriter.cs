@@ -1,6 +1,6 @@
 // AthTraceWriter — pure, dependency-free serializer for Captain SDLC
 // cross-tool trace events (Seam 1; envelope spec in
-// captain-sdlc/trace-schema.md). Builds one JSON-Lines record for the
+// the captain-sdlc repo's trace-schema.md). Builds one JSON-Lines record for the
 // ath.smoke.completed event kind. No Unity, no Newtonsoft, no IO — struct
 // in, string out — so the envelope shape can be unit-tested without an MCP
 // attachment or a running editor, mirroring the AthStateDispatcher split.
@@ -11,7 +11,7 @@
 // correct hand-built encoder is the cheaper dependency.
 //
 // This file owns the ENVELOPE assembly and the ath.smoke.completed PAYLOAD
-// shape in code. The canonical envelope spec is captain-sdlc/trace-schema.md;
+// shape in code. The canonical envelope spec is trace-schema.md in the captain-sdlc repo;
 // the human-readable payload spec is Documentation~/trace-events.md. Keep all
 // three in lockstep — a payload change bumps the package (tool_version); an
 // envelope change bumps SchemaVersion.

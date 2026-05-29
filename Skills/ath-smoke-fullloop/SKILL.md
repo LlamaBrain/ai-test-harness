@@ -289,7 +289,7 @@ trace-write problem, not a smoke failure — report it but do not let it flip
 PASS/FAIL. The tool mints the `event_id`/`timestamp` and pins
 `schema_version`/`tool`/`tool_version`; pass only the verdict and context. See
 `Documentation~/trace-events.md` for the payload and
-`captain-sdlc/trace-schema.md` for the envelope.
+the captain-sdlc repo's `trace-schema.md` for the envelope.
 
 ## Step 9 — Cleanup
 
@@ -368,7 +368,7 @@ gets disturbed:
 - The completion trace (`ath.smoke.completed`) is written to
   `<project>/.captain-sdlc/trace/YYYY-MM-DD.jsonl` by `ath-trace-emit` on both
   pass and fail (Step 8). Payload schema: `Documentation~/trace-events.md`;
-  envelope: `captain-sdlc/trace-schema.md`. The emitter lazily creates
+  envelope: the captain-sdlc repo's `trace-schema.md`. The emitter lazily creates
   `.captain-sdlc/.gitignore` so trace files are never committed.
 - The teleport-onto-goal step is a shortcut around real platforming
   traversal. A future skill `/ath-smoke-traversal` should drive the live
