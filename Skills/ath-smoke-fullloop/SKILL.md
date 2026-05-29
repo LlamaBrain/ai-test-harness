@@ -1,7 +1,7 @@
 ---
 name: ath-smoke-fullloop
 description: End-to-end PlayMode smoke for the BeforeTheShade full death-rewind-and-finish loop. Asserts that the harness can spawn a player, kill it, observe ghost-replay materialization, fire the goal event, restart cleanly, and that all the relevant edge-flag state machinery converges within bounded timeouts. Closes the regression gap for ghost replay + restart cleanup in BTS v0.1+.
-version: 0.1.0-preview.2
+version: 0.1.0
 ---
 
 # Full-loop smoke (death → ghost → finish → clean restart)
@@ -19,9 +19,14 @@ through `/ath-cmd`, `/ath-state`, `/ath-wait`.
    `WorldController` is alive in the `Game` scene.
 3. `OnPlayerSpawn` fires once and the bridge promotes it to
    `PlayerSpawnedSinceLastReset` (so a wait can converge race-free).
-4. `player.kill` invokes `OnPlayerDeath`, a `GhostController` (and
+4. `player.interact` walks the `PlayerController.FindNearbyInteractable`
+   path: a seed in `interactRadius` is selected via the `IPlayerInteractable`
+   contract (non-empty `GetUseLabel`, closest-by-anchor) and picked up via
+   `TryPickupSeed`. Closes the regression gap left by `world.goal`
+   direct-fire, which bypasses both pickup and the goal collider.
+5. `player.kill` invokes `OnPlayerDeath`, a `GhostController` (and
    `GhostSeedController`) materialize, and `LastRunRecording.Count > 0`.
-5. `world.restart` clears all ghosts, zeroes `spawn_attempts` then
+6. `world.restart` clears all ghosts, zeroes `spawn_attempts` then
    re-increments to 1 from the new spawn, nullifies the recordings, and
    the live player ends up at the spawn point with velocity zero.
 
@@ -44,14 +49,14 @@ through `/ath-cmd`, `/ath-state`, `/ath-wait`.
 ## Step 0 — Version pre-flight (fail-fast)
 
 ```jsonc
-// Frontmatter declares: version: 0.1.0-preview.2
+// Frontmatter declares: version: 0.1.0
 // Compare against the live package's runtime constant.
 let live = ath-state { "key": "package_version" }
-// expected: live.Value == "0.1.0-preview.2"
+// expected: live.Value == "0.1.0"
 
-if (live.Value != "0.1.0-preview.2") {
+if (live.Value != "0.1.0") {
   ABORT: stale skill copy.
-  "Frontmatter declares version 0.1.0-preview.2 but the live package
+  "Frontmatter declares version 0.1.0 but the live package
    reports " + live.Value + ". Re-copy
    E:/Personal/ai-test-harness/Skills/ath-smoke-fullloop/SKILL.md
    into <project>/.claude/skills/ath-smoke-fullloop/SKILL.md and
@@ -110,6 +115,40 @@ ath-cmd { "command": "test.echo pre-kill" }
 ath-cmd { "command": "harness.ping" }
 // expect OK:harness.ping pong=true
 ```
+
+## Step 3.5 — Seed pickup round-trip (IPlayerInteractable path)
+
+This step exists because `world.goal` direct-fire bypasses both
+`PlayerController.FindNearbyInteractable` and `IsHoldingSeed` — without
+this step the smoke is blind to regressions in label-eligibility
+filtering, `GetUseLabel` returning null, `TryPickupSeed` rejection, or
+anything else inside the `IPlayerInteractable` selection path.
+
+```jsonc
+ath-cmd  { "command": "harness.reset" }
+
+// Teleport the seed onto the live player so the selection path has a
+// candidate inside interactRadius. The exact coords here mirror the
+// scene's spawn point (-4.50, 0.50). If you change the spawn, change
+// this too.
+ath-cmd  { "command": "seed.tp -4.5 0.5" }
+
+// Fire one E-press via the public QueueInteract surface. Mirrors a real
+// keyboard tap through the same UpdateInteract -> nearbyInteractable.Interact
+// pathway, so the IPlayerInteractable contract is exercised end-to-end.
+ath-cmd  { "command": "player.interact" }
+// expect Status=success, OutputLines contains
+// 'OK:player.interact queued=true label_before="E to Grab" holding_before=false'
+
+ath-wait { "predicate": "state_equals:player_holding_seed=true", "timeout_ms": 5000 }
+// expect Satisfied=true — pickup wired end-to-end
+
+ath-state { "key": "player_holding_seed" }     // expect "true"
+ath-cmd   { "command": "player.holding" }      // expect OK:player.holding holding=true
+```
+
+The kill cycle in Step 4 drops the held seed via `HandleDeath`, so the
+remaining steps don't need an explicit drop here.
 
 ## Step 4 — Kill cycle
 
@@ -217,7 +256,8 @@ editor-application-set-state { "isPlaying": false }
 ## PASS criteria
 
 - Step 0 version check passes (live package_version == frontmatter version).
-- Steps 1, 4, 5, 6, 7 every `ath-wait` returns `Satisfied=true` inside its timeout.
+- Steps 1, 3.5, 4, 5, 6, 7 every `ath-wait` returns `Satisfied=true` inside its timeout.
+- Step 3.5: `player_holding_seed=true` after `player.interact`.
 - Step 4: `last_run_recording_frames` AND `last_seed_recording_frames` both > 0.
 - Step 5: `ghost_active=true` AND `ghost_seed_active=true` after respawn.
 - Step 6: `goal_reached` converges.
@@ -246,6 +286,13 @@ gets disturbed:
      and that the package's Runtime asmdef has `autoReferenced: true`.
    - `player_died` times out → `RequestPlayerKill` adapter implementation
      didn't invoke `OnPlayerDeath`. Inspect `BtsAthAdapter.RequestPlayerKill`.
+   - `player_holding_seed` stays false after `player.interact` → either
+     `seed.tp` didn't land within `interactRadius` of the player, the
+     seed's `IPlayerInteractable.GetUseLabel` returned null/empty (check
+     `IsHeld` and `player.IsHoldingSeed` short-circuits), or
+     `PlayerController.TryPickupSeed` rejected the call. Inspect the
+     `OK:player.interact` line for `label_before` and `holding_before`,
+     and grep recent console logs for `[seedfix]`-style diagnostic output.
    - `ghost_active` stays false after respawn → `GhostController` not
      spawned by the respawn path. Check `WorldController.OnPlayerRespawn`
      handler chain and `SpawnPlayer.OnRespawn`.
@@ -267,7 +314,7 @@ gets disturbed:
 
 ## Notes
 
-- Skill version: `0.1.0-preview.2`. If you modify the package, bump
+- Skill version: `0.1.0`. If you modify the package, bump
   both `package.json#version` AND the frontmatter above in the same
   commit.
 - The teleport-onto-goal step is a shortcut around real platforming

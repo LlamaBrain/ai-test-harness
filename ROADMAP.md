@@ -54,6 +54,15 @@ Today the package is dogfooded from BTS's working directory — its `.claude/` s
 ### Cross-host smoke template
 Once Phase 8 ships, codify what a host needs to author its own smoke: a SKILL.md frontmatter convention (`requires-host: <name>`, `requires-version: <semver>`), a checklist of which `ath-state` keys + commands the smoke depends on, and a copy-from-template flow. Lets a second host adopt ATH without re-reading BTS's `ath-smoke-fullloop` line by line.
 
+### Player-build perf monitoring (investigation)
+Companion question to editor-first perf instrumentation: should ATH also surface perf samples from `DEVELOPMENT_BUILD` players, not just Editor playmode? Data collection is the easy half — `UnityEngine.Profiling.Profiler`, `ProfilerRecorder` (Unity 2020.2+), and frame timing all work in dev builds, and the existing `#if UNITY_EDITOR || DEVELOPMENT_BUILD` file gate is exactly the right shape. The open question is transport: the AI agent → Editor MCP → Runtime chain is Editor-only (`LlamaBrainLabs.Ath.Editor.asmdef` has `includePlatforms: ["Editor"]`), so a running player build has no path to surface samples to a smoke. Options worth weighing when this comes up:
+
+- **Offline dump.** Sampler writes to a file during the run; smoke reads it after the player exits. Cheap, but loses `ath-wait` semantics — assertions only fire at end-of-run.
+- **Side-channel transport.** IngameDebugConsole already runs in builds; pair it with a local HTTP / named-pipe sink on the player and a thin MCP shim on the host that reads from it. Real-time, but a new transport surface to design, version, and maintain.
+- **Editor-attached play.** Unity's Profiler attaches to a running player over its own network protocol; a smoke could drive `ProfilerDriver` from the Editor against a connected build. Reuses Unity's machinery, but the Editor still has to be present — which partially defeats the point of player-build coverage.
+
+The decision worth making before any of this is *what player-build perf is for*: CI regression catches (offline is enough) or interactive perf debugging from a live smoke (which is what justifies new transport). Editor-first coverage probably absorbs most of the regression-catching value, so this likely stays in "later" for a while.
+
 ## Cross-cutting design notes
 
 - **Skill frontmatter must pin `package_version`.** Every smoke skill embeds the live `AthRuntimeFlag.PackageVersion` it was authored against and fail-fasts in Step 0 if the live package reports something different. Prevents the silent skew that's inevitable when skills are copied into `.claude/skills/` and the package upgrades behind them.
