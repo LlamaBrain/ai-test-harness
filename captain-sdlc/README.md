@@ -1,6 +1,6 @@
 # Captain SDLC
-Updated: 2026-04-08
-Version: 0.1.4
+Updated: 2026-05-28
+Version: 0.1.5
 
 Created: 2026-04-08
 
@@ -72,8 +72,11 @@ This is not a permanent home decision. If Captain SDLC outgrows this arrangement
 | **ATH** (AI Test Harness) | `ai-test-harness` *(this repo)* | Middle: drives Unity playmode, asserts behavior via MCP-attached smokes |
 | **claude-release** | `claude-release` | Back end: commit finalization, changelog, version bump, release |
 | **CICD layer** *(tentative)* | TBD | Build automation, artifact storage, distribution pipeline orchestration |
+| **MToolKit** | `MToolKit` | Runtime blade *(distinct class)*: canonical "sane C# Unity" foundation — DI, forward save migration, Unity Localization, structured logging, analytics. Opt-in for substantial projects; process blades detect it and lean on it when present (ADR-0010). |
 
 Other items in `candidates.md` may also condense into new tools — Live Ops ingestion and marketing pipeline ops are the current candidates. The cross-tool seams themselves (pipeline trace, contract testing, etc.) are **not** a separate tool; their schemas live in this nerve-center repo and their implementations are distributed across the emitting tools.
+
+**Two classes of blade.** The first four are *process* blades — they automate SDLC process around any project. MToolKit is a *runtime* blade — the canonical foundation substantial projects are built on. The classes compose: the more of the runtime blade a project adopts, the cheaper each process blade becomes, because MToolKit canonizes the very structures the process blades operate on (save migration, localization, the architectural constitution). Process blades never *require* MToolKit — they detect it and degrade gracefully on projects that don't use it (ADR-0010). MToolKit is opt-in by project scale: it's the foundation for substantial projects (Dirigible), and deliberately skipped on small ones (BeforeTheShade).
 
 ## Operating philosophy
 
@@ -158,6 +161,7 @@ If you're picking this up cold and you want to:
 
 ## Version History
 
+- 0.1.5 (2026-05-28): Added MToolKit as a runtime blade of the knife (ADR-0010); documented the two-class runtime/process blade model.
 - 0.1.4 (2026-04-08): Metadata, linkage, or narrow doc maintenance update.
 - 0.1.3 (2026-04-08): Metadata, linkage, or narrow doc maintenance update.
 - 0.1.2 (2026-04-08): Metadata, linkage, or narrow doc maintenance update.

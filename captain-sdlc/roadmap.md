@@ -14,6 +14,31 @@ Captain SDLC is a series of independently-versioned tools — like a swiss army 
 ## MIN PLAY Waypoint
 RC: M5_RELEASE_GATES_MINIMAL. Criterion: claude-release refuses to publish a release when configured ATH smokes fail or the dependency audit reports any blocking CVE, with override recorded in commit message and trace. Proves the idea-to-plan-to-mechanical-verify-to-gated-release chain on the lightest possible payload.
 
+## MToolKit Re-Disposition (2026-05-28)
+MToolKit was ratified as a *runtime blade* of the knife (ADR-0010). Crediting the developer's existing back-tech (MToolKit + the `TemplateGameBuildScript` build template) and deferring what's premature for solo dogfooding, the 26 open milestones re-disposition four ways. Principle: **process blades detect MToolKit and lean on it when present, degrade gracefully when absent** — so these dispositions hold for MToolKit projects (Dirigible) and fall back toward Build / not-applicable for small ones (BeforeTheShade).
+
+**Have** — capability is existing back-tech; the milestone reduces to a gate / wrapper / templatize:
+- M8 EDITOR_PERF_INSTRUMENTATION — MToolKit `IStartupProfiler` + Dirigible `PerfCountersHost` hooks. *(verify: baseline/grade asset unconfirmed.)*
+- M13 CONTRACT_TESTING_MECHANISM_A — pattern proven in Dirigible (`WorkstationCapabilityRoundTripTests`) + MToolKit `SchemaHashWalker`; templatize + gate.
+- M14 SAVE_MIGRATION_TESTING — MToolKit `ForwardMigrator<T>` is production-grade; only golden-fixtures-across-versions + the gate remain. *(Dirigible's corpus is currently single-version.)*
+- M21 CICD_HEADLESS_BUILD — `TemplateGameBuildScript` (dev/stage/prod, IL2CPP, Addressables, headless `-executeMethod`) is back-tech; add commit trigger + test-gate.
+
+**Thin** — build a thin layer on an existing MToolKit primitive, not the generic thing:
+- M2 TRACE_SCHEMA_FIRST_EMITTER — Slog JSONL emitter exists; add `schema_version` + a typed event envelope.
+- M4 PRIVACY_FRAMEWORK_ACTIVATED — consent plumbing exists; classification is doc/policy (defer-leaning; no real player data in dogfooding).
+- M7 BASELINE_REGRESSION_ENVELOPE — measurement hooks exist; build the store + compare. *(verify perf.)*
+- M10 ARTIFACT_DIFF_RUNTIME — snapshot capture exists; build the diff.
+- M11 CONSTITUTION_MECHANICAL — content = "conform to MToolKit"; enforcement collapses to asmdef / DI / no-MonoBehaviour-business-logic checks (ADR-0006).
+- M15 LOCALIZATION_KEY_AUDIT — Unity Localization infra exists (7+ locales, TextSync round-trip); the missing/unused-key audit is the actual deliverable and is not yet built.
+- M19 MARKETING_SCREENSHOT_HARVESTING — save-screenshot capture exists; wire to QA-smoke trace.
+- M23 LIVE_OPS_CRASH_INGESTION — MToolKit error→analytics is pluggable; build the ingest-to-backlog pipe. (Defer-leaning.)
+
+**Build** — genuine greenfield Captain SDLC seam work (the differentiated value): M3 CODE_READING_TIER_1 · M5 RELEASE_GATES_MINIMAL (the seam; MIN PLAY) · M6 DEPENDENCY_AUDIT · M9 DETERMINISTIC_REPLAY (MToolKit's command-driven arch aids it) · M12 DESIGN_CODE_DRIFT_MINIMAL · M16 BETWEEN_RELEASE_ARTIFACT_DIFF · M18 MARKETING_PATCH_NOTES_TEMPLATING · M20 MARKETING_CHANGELOG_PLAYER_FACING · M22 CICD_DISTRIBUTION_DEPLOYMENT · M27 DEFINITION_OF_DONE_END_TO_END.
+
+**Defer** — premature for solo HITL at current scale: M17 UNITY_PACKAGE_UPGRADE_SAFETY · M24 LIVE_OPS_REVIEW_INGESTION · M25 LIVE_OPS_PERF_SAMPLES_TO_BASELINE · M26 CROSS_CHANNEL_DEDUP_CLASS_A.
+
+Net: ~8–9 active novel milestones once back-tech is credited and the live-ops tail is deferred — concentrated in the cross-tool seams.
+
 ## Release Candidates
 | Milestone | Name | Status | Anchor | Marketing |
 |---|---|---|---|---|
