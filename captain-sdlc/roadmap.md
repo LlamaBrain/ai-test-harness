@@ -1,18 +1,31 @@
 # Roadmap
 Last Updated: 2026-05-28
 
+## Planning Model
+Two orthogonal axes (ADR-0002 — *SemVer is process, milestones are design*):
+- **Versions get tags.** SemVer, assigned per commit by claude-release from Conventional Commits. Process, mechanical, continuous — not tracked in this roadmap.
+- **Milestones get releases.** Design, effort-gated (ship when the work list hits zero, not on a date). Two kinds:
+  - **M** — a numbered *build* milestone (a feature / capability).
+  - **MRC** — a *release* milestone: a named release push the project defines. The ladder is a design choice, not a fixed scheme (a tool might run MVP → Alpha → Beta → Release; a game, Early Access → Launch → DLC).
+- A milestone ships on top of whatever version the commit stream is at — it's a release push, not a tag, and can span many version bumps. Files follow `{M|MRC}{n}_{NAME}.md`.
+
 ## Definition of Done
-- [ ] Every concept doc is mapped to an RC or listed in Unmapped Concepts with a reason.
-- [ ] Every RC has an anchor (Concept / Plan / ADR / Inline thesis).
-- [ ] Every RC has a position in the prerequisite DAG (or marked parallel).
+- [ ] Every concept doc is mapped to an M build milestone or listed in Unmapped Concepts with a reason.
+- [ ] Every M has an anchor (Concept / Plan / ADR / Inline thesis).
+- [ ] Every M has a position in the prerequisite DAG (or marked parallel).
 - [ ] The DAG is acyclic.
-- [ ] Marketing waypoints have target RCs and rationales.
+- [ ] Every MRC release milestone has a gate (M-cluster) and a criterion.
 
 ## 1.0 Thesis
 Captain SDLC is a series of independently-versioned tools — like a swiss army knife — that enable creatives to smooth away the processy bits of solo Unity game development that do matter (SemVer maintenance, roadmaps, mechanical QA, contract enforcement) but don't deserve human attention. Each tool bridges idea-space to plan-space via Socratic interview. Tools eat the process; the human eats the design. — anchor: `./README.md`
 
-## MIN PLAY Waypoint
-RC: M5_RELEASE_GATES_MINIMAL. Criterion: claude-release refuses to publish a release when configured ATH smokes fail or the dependency audit reports any blocking CVE, with override recorded in commit message and trace. Proves the idea-to-plan-to-mechanical-verify-to-gated-release chain on the lightest possible payload.
+## Release Milestones (MRC)
+MRC milestones are the project's release pushes. Each closes when its gating build milestones (M) ship; the version at close is whatever claude-release has tagged by then. The ladder itself is a design choice — Captain SDLC's is likely **MVP → Alpha → Beta → Release** — but only the two anchors below are fixed; intermediate rungs and their gates get set when their scope firms up.
+
+| MRC | Gate | Criterion |
+|---|---|---|
+| First push (MVP-equivalent) | M5 + its chain | **MIN PLAY** — claude-release refuses to publish when configured ATH smokes fail or the dependency audit reports any blocking CVE, with override recorded in commit message + trace. Proves the idea→plan→mechanical-verify→gated-release chain on the lightest possible payload. |
+| Terminal push (Release) | M27 (DoD end-to-end) | Minimum-viable end-to-end pipeline shipped — constitution enforcement, design↔code drift, contract testing, CICD deploy, and baseline Live-Ops dedup all holding (the M27 aggregation). |
 
 ## MToolKit Re-Disposition (2026-05-28)
 MToolKit was ratified as a *runtime blade* of the knife (ADR-0010). Crediting the developer's existing back-tech (MToolKit + the `TemplateGameBuildScript` build template) and deferring what's premature for solo dogfooding, the 26 open milestones re-disposition four ways. Principle: **process blades detect MToolKit and lean on it when present, degrade gracefully when absent** — so these dispositions hold for MToolKit projects (Dirigible) and fall back toward Build / not-applicable for small ones (BeforeTheShade).
@@ -39,7 +52,7 @@ MToolKit was ratified as a *runtime blade* of the knife (ADR-0010). Crediting th
 
 Net: ~8–9 active novel milestones once back-tech is credited and the live-ops tail is deferred — concentrated in the cross-tool seams.
 
-## Release Candidates
+## Build Milestones (M)
 | Milestone | Name | Status | Anchor | Marketing |
 |---|---|---|---|---|
 | M1 | CONVENTIONS_ESTABLISHED | Shipped | captain-sdlc-conventions.md | — |
@@ -106,7 +119,7 @@ Net: ~8–9 active novel milestones once back-tech is credited and the live-ops 
 - M26_CROSS_CHANNEL_DEDUP_CLASS_A → M27_DEFINITION_OF_DONE_END_TO_END (DoD includes baseline Live Ops dedup.)
 
 ## Marketing Waypoints
-- (none configured)
+Parallel track, keyed to MRC release milestones (not their own versions). None configured yet.
 
 ## Unmapped Concepts
 - `README.md` — Orientation; introduces the pipeline and positioning, not a feature.
