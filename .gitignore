@@ -35,5 +35,8 @@ Thumbs.db
 # Crashlogs
 sysinfo.txt
 
+# Local tooling state (project-local Claude Code settings, etc.)
+.claude/
+
 # DO NOT IGNORE: *.meta files MUST be tracked for Unity package GUID stability.
 # Do not add `*.meta` to this file.
