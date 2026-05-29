@@ -8,7 +8,29 @@ version: 0.1.0
 
 End-to-end smoke for BTS's death-rewind core loop. Exercises spawn, kill,
 ghost spawn, goal touch, and post-restart cleanliness. Driven entirely
-through `/ath-cmd`, `/ath-state`, `/ath-wait`.
+through the ATH editor MCP tools `ath-cmd`, `ath-state`, `ath-wait`, and
+`ath-trace-emit`.
+
+## How to invoke these tools (read first)
+
+Every `tool { ... }` call in this file is an **MCP tool** run through the
+Unity-MCP bridge — it is **not** a Claude Code slash-command. The universal
+form, which always works once `unity-mcp-cli status` shows the editor
+connected:
+
+```bash
+unity-mcp-cli run-tool <tool-name> --input '<json-args>'
+# examples:
+unity-mcp-cli run-tool ath-cmd        --input '{"command":"test.echo hi"}'
+unity-mcp-cli run-tool ath-state      --input '{"key":"player_alive"}'
+unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","summary":"loop green"}'
+```
+
+`/ath-cmd`-style slash invocation works **only** if skills were generated for
+this agent via `unity-mcp-cli setup-skills`. If you try `/ath-trace-emit` (or
+any `/ath-*`) and get **"Unknown skill,"** you are not in that case — use the
+`run-tool` form above. The `tool { args }` shorthand below means: call
+`run-tool <tool>` with `args` as the `--input` JSON.
 
 ## What this skill proves
 
@@ -253,24 +275,13 @@ Emit the Captain SDLC trace event for this run **before** exiting PlayMode, so
 the adapter's `HostName` resolves the project slug. Compute the verdict from the
 PASS criteria below, then call `ath-trace-emit` exactly once:
 
-```jsonc
-// Green run:
-ath-trace-emit {
-  "result": "pass",
-  "summary": "full death->ghost->finish->restart loop green",
-  "commit": "<short SHA from `git rev-parse --short HEAD`; optional>"
-}
-// expect Status=ok, EventId set, Path ending in
-// .captain-sdlc/trace/<today>.jsonl
+```bash
+# Green run — JSON args on one line as --input:
+unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","summary":"full death->ghost->finish->restart loop green","commit":"<short SHA from git rev-parse --short HEAD; optional>"}'
+# expect Status=ok, EventId set, Path ending in .captain-sdlc/trace/<today>.jsonl
 
-// Failed run: name the first failing step and attach any screenshots the
-// failure-handling block captured.
-ath-trace-emit {
-  "result": "fail",
-  "failedStep": "Step 5",
-  "summary": "ghost_active stayed false after respawn",
-  "artifacts": "fullloop_FAIL_gameview.png,fullloop_FAIL_sceneview.png"
-}
+# Failed run — name the first failing step; attach failure-handling screenshots:
+unity-mcp-cli run-tool ath-trace-emit --input '{"result":"fail","failedStep":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":"fullloop_FAIL_gameview.png,fullloop_FAIL_sceneview.png"}'
 ```
 
 The emit is independent of the verdict: a `Status` other than `ok` here is a

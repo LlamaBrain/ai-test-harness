@@ -24,7 +24,14 @@ runs, so traces are never committed by accident.
 
 ## Emitter
 
-The `ath-trace-emit` editor MCP tool. Because an ATH smoke is
+The `ath-trace-emit` editor MCP tool — invoked through the Unity-MCP bridge,
+**not** as a slash-command:
+
+```bash
+unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","summary":"loop green"}'
+```
+
+Because an ATH smoke is
 agent-orchestrated — a SKILL drives the editor and the agent computes the
 verdict — there is no single host process to hook. The skill passes the verdict
 and context; the **tool** owns record correctness: it mints the `event_id`,

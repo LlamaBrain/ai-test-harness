@@ -5,15 +5,23 @@ Claude session against a Unity host project. It assumes the host has
 already implemented `IAthHostAdapter` (see `adapter-contract.md`) and
 that the package is installed and resolved.
 
-## The three MCP tools
+## The MCP tools
+
+**Invocation:** these are MCP tools run through the Unity-MCP bridge — **not**
+Claude Code slash-commands. Universal form: `unity-mcp-cli run-tool <tool-name>
+--input '<json>'` (e.g. `unity-mcp-cli run-tool ath-state --input
+'{"key":"player_alive"}'`). The `/ath-*` slash form works only when skills were
+generated via `unity-mcp-cli setup-skills`; an **"Unknown skill"** error means
+they weren't — fall back to `run-tool`.
 
 | Tool | Purpose | Sync? |
 |---|---|---|
 | `/ath-cmd`   | Fire an IngameDebugConsole command, capture its CMD/OK/ERR sentinel lines, return a structured result. | Sync. |
 | `/ath-state` | Query a named slice of harness state (host identity, player slice, ghost slice, custom host-specific keys). | Sync, idempotent, read-only. |
 | `/ath-wait`  | Poll a named predicate at 100 ms cadence until satisfied or timeout. | Sync. |
+| `ath-trace-emit` | Append one Captain SDLC `ath.smoke.completed` trace event to the project's `.captain-sdlc/trace/`. See `trace-events.md`. | Sync, writes a file. |
 
-All three live in the Editor-only `LlamaBrainLabs.Ath.Editor` asmdef and
+These all live in the Editor-only `LlamaBrainLabs.Ath.Editor` asmdef and
 register at PlayMode entry via `[McpPluginTool]`. They are invisible in
 release builds.
 
