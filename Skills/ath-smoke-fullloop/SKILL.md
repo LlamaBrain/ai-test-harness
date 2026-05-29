@@ -247,7 +247,40 @@ ath-state { "key": "player_alive" }              // expect "true"
 ath-cmd   { "command": "player.pos" }            // expect player at spawn point (-4.50, 0.50) approximately
 ```
 
-## Step 8 — Cleanup
+## Step 8 — Emit completion trace (always: pass or fail)
+
+Emit the Captain SDLC trace event for this run **before** exiting PlayMode, so
+the adapter's `HostName` resolves the project slug. Compute the verdict from the
+PASS criteria below, then call `ath-trace-emit` exactly once:
+
+```jsonc
+// Green run:
+ath-trace-emit {
+  "result": "pass",
+  "summary": "full death->ghost->finish->restart loop green",
+  "commit": "<short SHA from `git rev-parse --short HEAD`; optional>"
+}
+// expect Status=ok, EventId set, Path ending in
+// .captain-sdlc/trace/<today>.jsonl
+
+// Failed run: name the first failing step and attach any screenshots the
+// failure-handling block captured.
+ath-trace-emit {
+  "result": "fail",
+  "failedStep": "Step 5",
+  "summary": "ghost_active stayed false after respawn",
+  "artifacts": "fullloop_FAIL_gameview.png,fullloop_FAIL_sceneview.png"
+}
+```
+
+The emit is independent of the verdict: a `Status` other than `ok` here is a
+trace-write problem, not a smoke failure — report it but do not let it flip
+PASS/FAIL. The tool mints the `event_id`/`timestamp` and pins
+`schema_version`/`tool`/`tool_version`; pass only the verdict and context. See
+`Documentation~/trace-events.md` for the payload and
+`captain-sdlc/trace-schema.md` for the envelope.
+
+## Step 9 — Cleanup
 
 ```jsonc
 editor-application-set-state { "isPlaying": false }
@@ -309,7 +342,11 @@ gets disturbed:
    - `world.restart` doesn't clear ghosts → `WorldController.RestartLevel`
      didn't tear down via the right path. That's the bug the smoke just
      caught.
-4. **Do NOT** automatically exit PlayMode on failure — leave it open so
+4. **Emit the fail trace.** Call Step 8's `ath-trace-emit` with
+   `result: "fail"`, `failedStep` set to the first failing step, and the
+   screenshots from (1) passed in `artifacts`. Do this while PlayMode is
+   still open (it is — see 5) so the project slug resolves from the adapter.
+5. **Do NOT** automatically exit PlayMode on failure — leave it open so
    the user can poke around.
 
 ## Notes
@@ -317,6 +354,11 @@ gets disturbed:
 - Skill version: `0.1.0`. If you modify the package, bump
   both `package.json#version` AND the frontmatter above in the same
   commit.
+- The completion trace (`ath.smoke.completed`) is written to
+  `<project>/.captain-sdlc/trace/YYYY-MM-DD.jsonl` by `ath-trace-emit` on both
+  pass and fail (Step 8). Payload schema: `Documentation~/trace-events.md`;
+  envelope: `captain-sdlc/trace-schema.md`. The emitter lazily creates
+  `.captain-sdlc/.gitignore` so trace files are never committed.
 - The teleport-onto-goal step is a shortcut around real platforming
   traversal. A future skill `/ath-smoke-traversal` should drive the live
   run via input simulation when traversal coverage is needed.

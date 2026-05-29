@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Captain SDLC trace emitter (Seam 1, milestone M2). New editor MCP tool
+  `ath-trace-emit` appends one `ath.smoke.completed` event to the consuming
+  project's `.captain-sdlc/trace/YYYY-MM-DD.jsonl` (append-only JSON Lines,
+  LF-terminated, UTF-8 no-BOM), matching the envelope in
+  `captain-sdlc/trace-schema.md`. The tool owns record correctness — it mints a
+  UUIDv4 `event_id`, stamps an ISO-8601 UTC `timestamp`, and pins
+  `schema_version: 1` / `tool: "ath"` / `tool_version` = `AthRuntimeFlag.PackageVersion`;
+  callers pass only the verdict + context. The trace directory resolves to the
+  project root (parent of `Application.dataPath`), not the package, and the
+  emitter lazily writes `.captain-sdlc/.gitignore` (`trace/`, `side-store/`) so
+  traces are never committed. Serialization (`AthTraceWriter`) and IO
+  (`AthTraceEmitter`) are split into pure, dependency-free units (no Newtonsoft —
+  the Editor asmdef pins a closed reference set) that are unit-testable without
+  an MCP attachment, mirroring the `AthStateDispatcher` split. The
+  `ath.smoke.completed` payload schema is documented in
+  `Documentation~/trace-events.md`. `ath-smoke-fullloop` SKILL gains a Step 8
+  that emits the trace on both pass and fail before PlayMode exit. Perf
+  "envelope summary", `parents`/`links`, and additional event kinds are
+  deferred (see the M2 milestone doc). Live verification in a Unity editor is
+  the M2 close-out gate.
+
 ## [0.1.0] - 2026-05-29
 
 **First stable release.** Graduated from the `0.1.0-preview` series. The editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`), the in-game IngameDebugConsole command surface, the host adapter contract (`IAthHostAdapter` + `AthBridge` + `AthServices`), and the Phase 7 smoke pipeline are committed as the stable v0.1.0 API surface. Dogfooded against BeforeTheShade; ready for additional host projects.
