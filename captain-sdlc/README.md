@@ -6,6 +6,8 @@ Created: 2026-04-08
 
 The nerve-center documentation for **Captain SDLC**.
 
+> **The tools own correctness; the human owns taste.** (ADR-0012)
+
 ## What it is
 
 A series of tools — like a swiss army knife — that enable creatives to smooth away the processy bits of software development that *do matter* (SemVer maintenance, roadmaps, mechanical QA validation, contract enforcement) but don't deserve human attention. The work still happens; the human doesn't have to do it. Each tool is independent in versioning, distribution, and adoption; they share *conventions* (trace schemas, classification primitives, fenced-block format) but not *code*. You can pick up one tool without committing to the whole pipeline.
