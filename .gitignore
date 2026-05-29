@@ -37,6 +37,8 @@ sysinfo.txt
 
 # Local tooling state (project-local Claude Code settings, etc.)
 .claude/
+scratch.md
+CON
 
 # DO NOT IGNORE: *.meta files MUST be tracked for Unity package GUID stability.
 # Do not add `*.meta` to this file.
