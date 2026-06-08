@@ -62,8 +62,12 @@ all installed skills.
 |---|---|
 | `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the BTS gameplay loop end-to-end. |
 | `ath-exe-smoke` | **Host-agnostic template for a built-player (EXE) smoke.** Drives a `DEVELOPMENT_BUILD` or `ATH_REMOTE` non-dev release player over the loopback socket via the internal Node client (`Tools~/ath-exe-client`) — the build-vs-editor parity tier. Copy in and fill the scenario. See `Documentation~/exe-harness.md`. |
+| `ath-feature-demo` | **Host-agnostic authoring template** for capturing HITL-validation footage (`ath-record` video + `ath-snap` stills) of a feature working. Copy into your host project and fill in the placeholder steps. |
 
-(More smoke skills will land as additional host scenarios are wired.)
+Host-*specific* smokes (like `ath-smoke-fullloop`, which hard-codes BeforeTheShade
+scenes and commands) belong in the **consuming project** or a host-side plugin,
+not in this package — the harness stays game-agnostic. `ath-feature-demo` is the
+skeleton to start from.
 
 ## Authoring new skills
 
@@ -77,7 +81,7 @@ preferred structure:
   flags — and a note explaining when *not* to issue it (e.g. between a
   command that fires the spawn and the wait that observes it).
 - A "PASS criteria" block enumerating every assertion that must hold.
-- A "Failure handling" block describing the screenshots + state dumps to
+- A "Failure handling" block describing the `ath-snap` stills + state dumps to
   capture before triage.
 
 See `ath-smoke-fullloop/SKILL.md` for a worked example.

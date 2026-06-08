@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Footage capture for HITL-validation evidence (ADR-0014), two tiers that feed
+  the trace `artifacts` field:
+  - **Tier 1 — `ath-snap`** (editor MCP tool, no new dependency): captures a
+    Game-view PNG under `<project>/.captain-sdlc/trace/media/` and returns a
+    trace-relative `media/<file>` path for `ath-trace-emit`. Non-blocking —
+    `action:"capture"` returns `pending` + a `CaptureId` (Unity writes the file
+    at end-of-frame); `action:"query"` reports `ok` with width/height/size once
+    the PNG lands (by `CaptureId`, or by trace-relative `path` after a domain
+    reload). Never spins the main thread.
+  - **Tier 2 — `ath-record`** (opt-in soft dependency on `com.unity.recorder`
+    >= 4.0.0): records the Game view to mp4 via Unity Recorder; `start`/`stop`/
+    `query` with session state persisted across calls. The real implementation
+    lives in a separate `defineConstraints`-gated assembly
+    (`LlamaBrainLabs.Ath.Editor.Recorder`, define `ATH_RECORDER`); a base-assembly
+    stub returns `recorder_unavailable` when Recorder isn't installed, so the
+    tool always exists and degrades cleanly. Recordings flush on PlayMode exit
+    and before domain reload; `query` reports `Finalized` only once the mp4 size
+    is stable across >=2 polls.
+- `AthMediaUtil` — pure, unit-tested helpers (media dir, label sanitization,
+  trace-relative path safety + resolution, PNG-header dimension read), mirroring
+  the `AthTraceWriter`/`AthTraceEmitter` split.
+- First EditMode test assembly (`LlamaBrainLabs.Ath.Editor.Tests`) with unit
+  tests for the pure helpers.
+- `ath-feature-demo` — a host-agnostic SKILL **template** that brackets a feature
+  demonstration with `ath-record`/`ath-snap` and emits the trace with the footage
+  attached. Host-specific smokes stay in the consuming project.
+
+### Changed
+- `ath-trace-emit` now validates each `artifacts` entry: only safe trace-relative
+  paths are accepted (normally `media/<file>`); absolute/rooted, `..`, and
+  backslash paths are rejected with `Status=bad_artifact` and no event is written.
+- `AthTraceEmitter.EnsureGitignore` is now idempotent-append — it preserves an
+  existing `.captain-sdlc/.gitignore` and adds only the missing `trace/` /
+  `side-store/` lines (fixing a pre-existing-file gap), so captured media under
+  `trace/media/` is reliably ignored.
+
+### Note
+- The Recorder integration (`ath-record`) and `ath-snap`'s in-editor capture
+  behavior are **pending live-verify** in a real Unity Editor; the pure helpers
+  are verified by unit tests. Footage capture is not yet released — it ships in a
+  later version once the Recorder/OBS pieces are proven.
+
 ## [0.3.0] - 2026-06-16
 
 ### Added

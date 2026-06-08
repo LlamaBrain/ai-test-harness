@@ -189,8 +189,9 @@ ath-state { "key": "last_seed_recording_frames" }
 // expect Value to parse as int > 0  (seed records frames whether held or not)
 ```
 
-Optional screenshot for the failure-handling block:
-`screenshot-game-view {}` → save as `fullloop_01_after_death.png`.
+Optional still for the trace `artifacts`:
+`ath-snap { "action": "capture", "label": "after_death" }` → `media/snap_<ts>_after_death.png`
+(confirm it landed with `ath-snap { "action": "query", "captureId": <id> }`).
 
 ## Step 5 — Respawn + ghost materialization
 
@@ -212,7 +213,7 @@ ath-cmd { "command": "ghost.dump_recording" }
 // expect OK:ghost.dump_recording frames>=1 summary="count=N first=(x,y) last=(x,y)"
 ```
 
-Optional screenshot: `fullloop_02_ghost_replaying.png`.
+Optional still: `ath-snap { "action": "capture", "label": "ghost_replaying" }` → `media/<...>.png`.
 
 ## Step 6 — Goal event via direct fire
 
@@ -239,7 +240,7 @@ ath-wait { "predicate": "goal_reached", "timeout_ms": 5000 }
 // expect Satisfied=true
 ```
 
-Optional screenshot: `fullloop_03_goal_reached.png`.
+Optional still: `ath-snap { "action": "capture", "label": "goal_reached" }` → `media/<...>.png`.
 
 **Note:** Real traversal-and-trigger goal coverage belongs in a future
 `/ath-smoke-traversal` that drives the live run via input simulation.
@@ -280,8 +281,8 @@ PASS criteria below, then call `ath-trace-emit` exactly once:
 unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","summary":"full death->ghost->finish->restart loop green","commit":"<short SHA from git rev-parse --short HEAD; optional>"}'
 # expect Status=ok, EventId set, Path ending in .captain-sdlc/trace/<today>.jsonl
 
-# Failed run — name the first failing step; attach failure-handling screenshots:
-unity-mcp-cli run-tool ath-trace-emit --input '{"result":"fail","failedStep":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":"fullloop_FAIL_gameview.png,fullloop_FAIL_sceneview.png"}'
+# Failed run — name the first failing step; attach failure stills (trace-relative media/ paths):
+unity-mcp-cli run-tool ath-trace-emit --input '{"result":"fail","failedStep":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":"media/snap_FAIL_after_respawn.png"}'
 ```
 
 The emit is independent of the verdict: a `Status` other than `ok` here is a
@@ -313,9 +314,10 @@ editor-application-set-state { "isPlaying": false }
 If any step fails, capture context before the user's PlayMode session
 gets disturbed:
 
-1. **Screenshots:**
-   - `screenshot-game-view {}` → `fullloop_FAIL_gameview.png`
-   - `screenshot-scene-view {}` → `fullloop_FAIL_sceneview.png`
+1. **Stills (written into the trace `media/` dir, ready for `artifacts`):**
+   - `ath-snap { "action": "capture", "label": "FAIL_gameview" }` → `media/snap_<ts>_FAIL_gameview.png`
+   - confirm it landed: `ath-snap { "action": "query", "captureId": <id from capture> }`
+   - (Scene-view grabs still use the Unity-MCP `screenshot-scene-view` tool, but its output isn't trace-anchored — prefer `ath-snap` for anything attached to `artifacts`.)
 2. **State dumps:**
    - `ath-cmd { "command": "ghost.dump_recording" }`
    - `ath-cmd { "command": "ghost.seed_dump_recording" }`

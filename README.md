@@ -7,14 +7,14 @@ By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://gi
 
 A reusable Unity package providing a three-layer MCP-driven dev test harness, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
-> **Status:** v0.3.0. The v0.2 editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade. v0.3 adds the **EXE remote-console harness** — an optional, off-by-default `ATH_REMOTE` build surface that drives a built player (including a non-dev IL2CPP release) over a `127.0.0.1` loopback socket via the internal `ath-exe` Node client, live-verified against a BeforeTheShade RC build. See `Documentation~/exe-harness.md`.
+> **Status:** v0.3.0. The v0.2 editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade. v0.3 adds the **EXE remote-console harness** — an optional, off-by-default `ATH_REMOTE` build surface that drives a built player (including a non-dev IL2CPP release) over a `127.0.0.1` loopback socket via the internal `ath-exe` Node client, live-verified against a BeforeTheShade RC build. See `Documentation~/exe-harness.md`. Footage capture (`ath-snap` stills + an opt-in `ath-record` video tool gated on the `com.unity.recorder` soft dependency) for HITL-validation evidence is in progress on a feature branch — **pending in-editor verification** — for a later release.
 
 ## What it is
 
 Three layers:
 
 1. **In-game runtime** — `IngameDebugConsole` commands with `CMD:`/`OK:`/`ERR:` sentinels tagged with correlation IDs. Strips from release builds via `#if UNITY_EDITOR || DEVELOPMENT_BUILD`.
-2. **Editor MCP tools** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`. Synchronous; correlation-id-filtered log capture, state queries, predicate waits, and Captain SDLC trace emission.
+2. **Editor MCP tools** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-snap`, `ath-trace-emit`. Synchronous; correlation-id-filtered log capture, state queries, predicate waits, Game-view still capture, and Captain SDLC trace emission.
 3. **Claude `SKILL.md` workflows** — composed smoke tests that orchestrate the three tools.
 
 Hosts implement `IAthHostAdapter` to expose their game state and lifecycle events to the harness. The package never references host types.
@@ -81,7 +81,7 @@ The package ships its Claude smoke-test skills under `Skills/<name>/SKILL.md`. M
 ## What's in here
 
 - `Runtime/` — core (`IAthHostAdapter`, `AthServices`, `AthBridge`) + `Commands/` (package-supplied `[ConsoleMethod]` commands).
-- `Editor/McpSkills/` — `Tool_AthCmd`, `Tool_AthState`, `Tool_AthWait`, `Tool_AthTraceEmit` (+ pure `AthTraceWriter`/`AthTraceEmitter`).
+- `Editor/McpSkills/` — `Tool_AthCmd`, `Tool_AthState`, `Tool_AthWait`, `Tool_AthSnap`, `Tool_AthTraceEmit` (+ pure `AthTraceWriter`/`AthTraceEmitter`/`AthMediaUtil`).
 - `Skills/` — Claude `SKILL.md` workflows.
 - `Samples~/MinimalHostAdapter/` — no-op adapter for fresh-project smoke testing.
 - `Documentation~/` — adapter contract (`adapter-contract.md`), operator guide (`using-ath.md`), trace events (`trace-events.md`).

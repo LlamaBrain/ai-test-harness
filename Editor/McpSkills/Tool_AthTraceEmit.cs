@@ -69,7 +69,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             string summary = "",
             [Description("Short commit SHA the smoke ran against (e.g. `git rev-parse --short HEAD`). Optional.")]
             string commit = "",
-            [Description("Comma-separated artifact filenames, e.g. failure screenshots. Optional.")]
+            [Description("Comma-separated trace-relative artifact paths — normally 'media/<file>' produced by ath-snap/ath-record (safe bare filenames also accepted). Absolute/rooted paths, '..' segments, and backslashes are rejected with Status=bad_artifact and no event is written. Optional.")]
             string artifacts = "",
             [Description("Override the project slug in refs. Defaults to the adapter HostName slug, then the project folder name.")]
             string project = "",
@@ -87,6 +87,23 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                 return res;
             }
             var passed = normalized == "pass";
+
+            // Validate artifact paths up front (pure string work, no main thread
+            // needed) — reject anything that isn't a safe trace-relative path so
+            // a malformed entry can never be written into the record or point
+            // outside the trace dir. Errors, never silently drops.
+            var artifactList = SplitCsv(artifacts);
+            if (artifactList != null)
+            {
+                foreach (var a in artifactList)
+                {
+                    if (!AthMediaUtil.IsSafeTraceRelativeArtifact(a))
+                    {
+                        res.Status = "bad_artifact:" + ShortEntry(a);
+                        return res;
+                    }
+                }
+            }
 
             return MainThread.Instance.Run(() =>
             {
@@ -110,7 +127,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                     Passed       = passed,
                     FailedStep   = passed ? null : NullIfBlank(failedStep),
                     Summary      = NullIfBlank(summary),
-                    Artifacts    = SplitCsv(artifacts),
+                    Artifacts    = artifactList,
                 };
 
                 var line = AthTraceWriter.BuildLine(in ev);
@@ -158,6 +175,15 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                            .Where(x => x.Length > 0)
                            .ToArray();
             return parts.Length > 0 ? parts : null;
+        }
+
+        /// <summary>Trim, strip newlines, and cap a rejected artifact entry so it
+        /// stays readable inside the bad_artifact status string.</summary>
+        static string ShortEntry(string? s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var t = s!.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return t.Length > 60 ? t.Substring(0, 60) + "…" : t;
         }
 
         /// <summary>

@@ -22,6 +22,11 @@ the Unity project under test (e.g. BeforeTheShade), resolved as the parent of
 writes `.captain-sdlc/.gitignore` (`trace/`, `side-store/`) the first time it
 runs, so traces are never committed by accident.
 
+Capture artifacts (screenshots; later, video) land under `.../trace/media/` and
+are referenced from `artifacts` as trace-relative paths like `media/<file>`.
+Because they live under `trace/`, the same `.gitignore` keeps them out of
+version control.
+
 ## Emitter
 
 The `ath-trace-emit` editor MCP tool — invoked through the Unity-MCP bridge,
@@ -44,6 +49,24 @@ are dependency-free (no Newtonsoft — the Editor asmdef pins a closed reference
 set) and unit-testable without an MCP attachment, mirroring the
 `AthStateDispatcher` split.
 
+## Capture artifacts
+
+`ath-snap` (editor MCP tool) captures a **Game-view PNG** as HITL-validation
+evidence, written under `.../trace/media/` and returned as a trace-relative path
+(`media/snap_<ts>.png`) ready to drop into `artifacts`. Capture is non-blocking:
+`action:"capture"` returns `pending` + a `CaptureId` immediately (Unity writes
+the file at end-of-frame), and `action:"query"` (by `CaptureId`, or by a
+trace-relative `path` after a domain reload) reports `ok` with width/height/size
+once the file has landed. Requires PlayMode.
+
+Artifact paths are validated at the emit boundary: only safe **trace-relative**
+paths are accepted (normally `media/<file>`; safe bare filenames too); an
+absolute/rooted, `..`, or backslash path is rejected with `Status=bad_artifact`
+and no event is written.
+
+> Tier-2 motion capture (`ath-record`, Unity Recorder mp4) is an opt-in soft
+> dependency; its payload notes will be added here when it ships.
+
 ## Kind: `ath.smoke.completed`
 
 Emitted once at the end of an ATH smoke skill, on **both pass and fail** — the
@@ -60,7 +83,7 @@ do not require a `tool_version` bump but are good practice to note).
 | `result` | `"pass"` \| `"fail"` | yes | The smoke verdict. |
 | `failed_step` | string \| null | yes | The step that failed, e.g. `"Step 5"`. `null` on pass. |
 | `summary` | string \| null | yes | One-line human summary of the run. `null` when not supplied. |
-| `artifacts` | string[] | yes | Artifact filenames (e.g. failure screenshots). `[]` when none. |
+| `artifacts` | string[] | yes | Trace-relative artifact paths — normally `media/<file>` produced by `ath-snap` (safe bare filenames also accepted). Absolute/rooted, `..`, and backslash paths are rejected by the emitter. `[]` when none. |
 
 ### refs used by this kind
 
@@ -79,13 +102,13 @@ event it tested (per the schema's linking conventions). Tracked as a follow-up.
 ### Example
 
 ```json
-{"schema_version":1,"event_id":"f1c2a3b4-5d6e-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-05-29T15:42:08.123Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"26e6d1a","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"pass","failed_step":null,"summary":"full death→ghost→finish→restart loop green","artifacts":[]}}
+{"schema_version":1,"event_id":"f1c2a3b4-5d6e-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-05-29T15:42:08.123Z","tool":"ath","tool_version":"0.3.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"26e6d1a","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.3.0","result":"pass","failed_step":null,"summary":"full death→ghost→finish→restart loop green","artifacts":[]}}
 ```
 
 ### Failure example
 
 ```json
-{"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["fullloop_FAIL_gameview.png","fullloop_FAIL_sceneview.png"]}}
+{"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.3.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.3.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["media/fullloop_FAIL_gameview.png"]}}
 ```
 
 ## Deferred (not in the first cut)

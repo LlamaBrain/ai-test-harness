@@ -12,6 +12,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -60,24 +61,57 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
         }
 
         /// <summary>
-        /// Create <c>.captain-sdlc/.gitignore</c> excluding the always-local
-        /// trace/ and side-store/ subtrees if it is not already present, so
-        /// the tool guarantees traces never get committed by accident. Config
-        /// files alongside them stay tracked.
+        /// Ensure <c>.captain-sdlc/.gitignore</c> excludes the always-local
+        /// trace/ and side-store/ subtrees, so the tool guarantees traces — and
+        /// captured media under trace/media/ — never get committed by accident.
+        /// Idempotent: creates the file with both lines when absent; when it
+        /// already exists, preserves its content verbatim and appends only the
+        /// missing exact lines (adding a trailing newline first if the file
+        /// lacks one). An exact-line match is required — a commented
+        /// <c># trace/</c> does not count. Config files alongside the ignored
+        /// subtrees stay tracked. Internal so AthMediaUtil can reuse it.
         /// </summary>
-        static void EnsureGitignore(string projectRoot)
+        internal static void EnsureGitignore(string projectRoot)
         {
             var stateDir  = Path.Combine(projectRoot, StateDirName);
             var gitignore = Path.Combine(stateDir, ".gitignore");
-            if (File.Exists(gitignore)) return;
-
             Directory.CreateDirectory(stateDir);
-            File.WriteAllText(
-                gitignore,
-                "# Captain SDLC local state — never committed\n" +
-                "trace/\n" +
-                "side-store/\n",
-                new UTF8Encoding(false));
+
+            var encoding = new UTF8Encoding(false);
+            var required = new[] { "trace/", "side-store/" };
+
+            if (!File.Exists(gitignore))
+            {
+                File.WriteAllText(
+                    gitignore,
+                    "# Captain SDLC local state — never committed\n" +
+                    "trace/\n" +
+                    "side-store/\n",
+                    encoding);
+                return;
+            }
+
+            var existing = File.ReadAllText(gitignore);
+
+            // Exact-line membership: split on LF, strip a trailing CR (CRLF
+            // files) and surrounding whitespace, then compare.
+            var present = new HashSet<string>();
+            foreach (var raw in existing.Split('\n'))
+                present.Add(raw.TrimEnd('\r').Trim());
+
+            var missing = new StringBuilder();
+            foreach (var line in required)
+                if (!present.Contains(line))
+                    missing.Append(line).Append('\n');
+
+            if (missing.Length == 0) return;   // both lines already present
+
+            var sb = new StringBuilder(existing);
+            if (existing.Length > 0 && existing[existing.Length - 1] != '\n')
+                sb.Append('\n');               // clean boundary before appending
+            sb.Append(missing);
+
+            File.WriteAllText(gitignore, sb.ToString(), encoding);
         }
     }
 }
