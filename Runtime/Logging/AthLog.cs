@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthLog — minimal helpers for emitting the CMD:/OK:/ERR: sentinels that
 // Tool_AthCmd's correlation-id log capture keys on. Commands are free to
 // call UnityEngine.Debug.Log directly with their own formatting; AthLog
@@ -43,8 +43,23 @@ namespace LlamaBrainLabs.Ath
         public static void ErrException(string command, string correlationId, System.Exception ex)
         {
             var type = ex?.GetType().Name ?? "unknown";
-            var msg  = ex?.Message ?? "";
+            var msg  = Esc(ex?.Message ?? "");
             Debug.Log($"ERR:{command} id={correlationId} reason=exception type={type} msg=\"{msg}\"");
+        }
+
+        /// <summary>
+        /// Escape a value for the inside of a key="..." sentinel field: single
+        /// line, with backslash, quote and newline escaped. The remote client's
+        /// protocol.js parser is the consumer — keep the two in lockstep.
+        /// </summary>
+        public static string Esc(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return value
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r", "")
+                .Replace("\n", "\\n");
         }
     }
 }

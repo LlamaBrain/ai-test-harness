@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthRuntimeFlag — process-wide knobs for the AI Test Harness runtime.
 // Mutable from harness commands (harness.set_log_level) but not persisted.
 

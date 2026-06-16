@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthBridge — DontDestroyOnLoad singleton holding live runtime state for
 // the MCP state queries. Subscribes to the registered adapter's events,
 // promotes them to edge-sticky flags so a wait can converge even if the

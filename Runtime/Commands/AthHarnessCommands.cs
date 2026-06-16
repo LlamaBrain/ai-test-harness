@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthHarnessCommands — meta-commands that operate on the harness itself
 // rather than the host. Skill authors call harness.reset between sequenced
 // waits to clear the bridge's edge-sticky flags; harness.ping is the
@@ -52,6 +52,37 @@ namespace LlamaBrainLabs.Ath.Commands
             }
             AthRuntimeFlag.LogLevel = parsed;
             Debug.Log($"OK:harness.set_log_level id={correlationId} level={parsed}");
+        }
+
+        // ---- harness.state ----
+        // Resolves a state key through the shared AthStateDispatcher (same one
+        // the editor ath-state tool uses) so the exe remote console can poll
+        // game state over the socket. unknown_key is an ERR (fail-fast);
+        // not_ready is a valid OK status for polling waits.
+        [ConsoleMethod("harness.state", "Resolve a harness state key (player_alive, scene_name, async:<id>, ...)", "key")]
+        public static void State(string key) => State(key, NewId());
+
+        [ConsoleMethod("harness.state", "State; correlation-id form", "key", "correlationId")]
+        public static void State(string key, string correlationId)
+        {
+            AthLog.Cmd("harness.state", correlationId, key);
+            AthStateDispatcher.Resolve(
+                key,
+                out var status,
+                out var value,
+                out _,
+                out _,
+                out var customStateAttempted);
+
+            if (status == "unknown_key")
+            {
+                AthLog.Err("harness.state", correlationId,
+                    $"unknown_key custom_state_attempted={customStateAttempted.ToString().ToLowerInvariant()}");
+                return;
+            }
+
+            AthLog.Ok("harness.state", correlationId,
+                $"key={key} value=\"{AthLog.Esc(value)}\" status={status}");
         }
 
         private static string NewId() => Guid.NewGuid().ToString("N").Substring(0, 8);

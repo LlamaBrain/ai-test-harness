@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthAsyncOpRecord — entry shape for AthBridge's ring buffer of fire-and-forget
 // async ops. Skill authors locate records by correlation id via
 // /ath-wait async_done:<id> and /ath-state last_async. Mirrors dirigible's
