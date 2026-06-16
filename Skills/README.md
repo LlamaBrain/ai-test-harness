@@ -44,13 +44,13 @@ Concretely:
 ```yaml
 ---
 name: ath-smoke-fullloop
-version: 0.2.0
+version: 0.3.0
 ---
 ```
 
 ```jsonc
 let live = ath-state { "key": "package_version" }
-if (live.Value != "0.2.0") ABORT
+if (live.Value != "0.3.0") ABORT
 ```
 
 When you bump the AI Test Harness package version, re-copy or re-sync

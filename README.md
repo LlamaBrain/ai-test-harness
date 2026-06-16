@@ -7,7 +7,7 @@ By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://gi
 
 A reusable Unity package providing a three-layer MCP-driven dev test harness, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
-> **Status:** v0.2.0 — stable. The editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade.
+> **Status:** v0.3.0. The v0.2 editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade. v0.3 adds the **EXE remote-console harness** — an optional, off-by-default `ATH_REMOTE` build surface that drives a built player (including a non-dev IL2CPP release) over a `127.0.0.1` loopback socket via the internal `ath-exe` Node client, live-verified against a BeforeTheShade RC build. See `Documentation~/exe-harness.md`.
 
 ## What it is
 
@@ -58,7 +58,7 @@ Add to `Packages/manifest.json`:
 "com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
 ```
 
-(Or pin a tagged release via git: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.2.0"`.)
+(Or pin a tagged release via git: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.3.0"`.)
 
 ### 4. Implement the adapter
 

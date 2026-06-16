@@ -20,7 +20,7 @@ namespace LlamaBrainLabs.Ath
         // skills compare this against their frontmatter version constant to
         // detect stale .claude/skills/ copies that did not get re-copied
         // after a package update.
-        public const string PackageVersion = "0.2.0";
+        public const string PackageVersion = "0.3.0";
     }
 }
 #endif

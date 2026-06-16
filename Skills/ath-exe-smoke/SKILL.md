@@ -11,7 +11,7 @@ command surface is present after IL2CPP managed stripping, and game state is rea
 socket. This is the on-call tier you deploy when a build misbehaves (stripping / Obfuz /
 `#if UNITY_EDITOR` fallbacks / addressable trim) — the class of bug invisible to `ath-smoke-*`.
 
-This is a **host-agnostic template** (like `ath-feature-demo`). Copy it into your host project's
+This is a **host-agnostic template**. Copy it into your host project's
 `.claude/skills/` and replace the `<…>` placeholders with your scenario. See
 `Documentation~/exe-harness.md` for build/enable details.
 
