@@ -61,6 +61,7 @@ all installed skills.
 | Skill | Description |
 |---|---|
 | `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the BTS gameplay loop end-to-end. |
+| `ath-exe-smoke` | **Host-agnostic template for a built-player (EXE) smoke.** Drives a `DEVELOPMENT_BUILD` or `ATH_REMOTE` non-dev release player over the loopback socket via the internal Node client (`Tools~/ath-exe-client`) — the build-vs-editor parity tier. Copy in and fill the scenario. See `Documentation~/exe-harness.md`. |
 
 (More smoke skills will land as additional host scenarios are wired.)
 
