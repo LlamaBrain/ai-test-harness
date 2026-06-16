@@ -1,0 +1,17 @@
+<!--
+  ATH exe remote-console — IL2CPP managed-stripping preservation.
+
+  The harness's [ConsoleMethod] entry points are invoked only via reflection
+  (IngameDebugConsole's DebugLogConsole), so managed stripping removes them even
+  when ATH_REMOTE is defined. Preserve the two reflection-entry assemblies; the
+  Runtime assembly (AthBridge / AthServices / AthStateDispatcher / AthLog) is
+  referenced directly from these and is preserved transitively.
+
+  This ships in the package and is always present. In a true release build (no
+  ATH_REMOTE / DEVELOPMENT_BUILD) these assemblies are #if'd out to empty, so
+  preserve="all" is a no-op — zero added footprint.
+-->
+<linker>
+  <assembly fullname="LlamaBrainLabs.Ath.Commands" preserve="all" />
+  <assembly fullname="LlamaBrainLabs.Ath.RemoteConsole.Runtime" preserve="all" />
+</linker>

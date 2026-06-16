@@ -26,16 +26,17 @@ genuinely visual checks. It is **off by default, developer-only, and never in a 
 ## Enabling it
 
 **Recommended — Project Settings ▸ ATH Remote** (or the `Tools ▸ ATH ▸ Remote Console`
-checkbox). The toggle, for the **active build target**:
+checkbox) toggles the `ATH_REMOTE` define for the **active build target**. Keep it off for ship
+builds, on only for an RC test build. Port / media dir / response timeout authored in the same
+panel are saved to `ProjectSettings/AthRemote.json`, which the Node launcher reads.
 
-- adds/removes the `ATH_REMOTE` define, and
-- writes/removes `Assets/AthRemoteHarness/link.xml` — **required**: under IL2CPP managed
-  stripping the harness's `[ConsoleMethod]`s and types are reflection-invoked, so the linker
-  strips them even though `ATH_REMOTE` is defined. The `link.xml` preserves the three harness
-  assemblies. (Found the hard way on the first RC build: define present, harness stripped.)
-
-Port / media dir / response timeout authored in the same panel are saved to
-`ProjectSettings/AthRemote.json`, which the Node launcher reads.
+**Stripping preservation ships with the package** (`Runtime/RemoteConsole/link.xml`) — no host
+setup. Under IL2CPP managed stripping the harness's `[ConsoleMethod]`s are reflection-invoked, so
+the linker would strip them even with `ATH_REMOTE` defined. The package `link.xml` preserves the
+two entry assemblies (`LlamaBrainLabs.Ath.Commands`, `…RemoteConsole.Runtime`); `…Runtime` is
+preserved transitively. In a true release (harness `#if`'d out) the assemblies are empty, so it's
+a no-op — zero footprint. (Found the hard way on the first RC build: define present, harness
+stripped.)
 
 ### Host requirement for non-dev RC builds
 
