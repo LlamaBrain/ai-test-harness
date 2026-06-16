@@ -1,0 +1,9 @@
+{
+  "name": "ath-exe-client",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Internal, developer-only CLI that drives a built ATH_REMOTE Unity player over a loopback socket. Not shipped.",
+  "type": "commonjs",
+  "bin": { "ath-exe": "ath-exe.js" },
+  "scripts": { "test": "node --test" }
+}

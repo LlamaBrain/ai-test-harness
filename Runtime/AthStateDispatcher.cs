@@ -1,19 +1,22 @@
-// AthStateDispatcher — the switch that maps ath-state keys to adapter +
-// bridge accessors. Kept separate from Tool_AthState so unit tests can
-// target the dispatcher without an MCP attachment.
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
+// AthStateDispatcher — the switch that maps state keys to adapter + bridge
+// accessors. Relocated from the Editor assembly into Runtime so BOTH the
+// editor ath-state tool AND the in-player harness.state command resolve keys
+// through one implementation. Touches only Runtime types (no UnityEditor), so
+// it ships in the player under the same gate. Public for cross-assembly access.
 
 #nullable enable
 
 using UnityEngine.SceneManagement;
 
-namespace LlamaBrainLabs.Ath.Editor.McpSkills
+namespace LlamaBrainLabs.Ath
 {
-    internal static class AthStateDispatcher
+    public static class AthStateDispatcher
     {
         /// <summary>
         /// Resolve a state key against the registered adapter + bridge.
         /// Writes status + value via out params; also reports diagnostic
-        /// flags so the MCP tool can populate its richer result shape.
+        /// flags so callers can populate a richer result shape.
         /// </summary>
         public static void Resolve(
             string key,
@@ -156,8 +159,22 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                     return;
                 }
 
-                // ---- fall through to adapter's custom-state escape hatch ----
+                // ---- fall through: async:<id> completion lookup, then custom state ----
                 default:
+                    // async:<id> — structured completion lookup against the ring
+                    // (mirrors the editor async_done:<id> predicate). Presence in
+                    // the ring means the op completed; absence means "not observed"
+                    // (not-yet / never / aged out of the 16-slot ring) — pollable.
+                    if (key != null && key.StartsWith("async:", System.StringComparison.Ordinal))
+                    {
+                        if (bridge == null) { status = "not_ready"; return; }
+                        var id  = key.Substring("async:".Length);
+                        var rec = bridge.FindAsync(id);
+                        if (rec == null) { status = "not_ready"; value = "missing"; return; }
+                        value = "done";   // completion; success/error detail via last_async
+                        return;
+                    }
+
                     if (adapter != null)
                     {
                         customStateAttempted = true;
@@ -173,3 +190,4 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
         }
     }
 }
+#endif

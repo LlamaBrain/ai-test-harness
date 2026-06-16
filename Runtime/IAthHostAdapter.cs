@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // IAthHostAdapter — the portability seam. The package knows nothing about
 // any host's domain types; everything the harness needs from the host
 // flows through this interface. Hosts register their implementation via

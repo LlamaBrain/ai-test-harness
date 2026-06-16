@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthLifecycleCommands — adapter-driven readiness probes. Both commands
 // fall back to safe defaults if no adapter is registered, distinguishing
 // "harness up but no host attached" from "everything's wired."

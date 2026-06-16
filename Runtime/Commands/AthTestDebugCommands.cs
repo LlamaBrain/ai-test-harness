@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthTestDebugCommands — smoke + introspection commands that any host can
 // rely on regardless of project. Mirrors dirigible's TestDebugCommands.cs.
 //

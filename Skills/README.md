@@ -44,13 +44,13 @@ Concretely:
 ```yaml
 ---
 name: ath-smoke-fullloop
-version: 0.2.0
+version: 0.3.0
 ---
 ```
 
 ```jsonc
 let live = ath-state { "key": "package_version" }
-if (live.Value != "0.2.0") ABORT
+if (live.Value != "0.3.0") ABORT
 ```
 
 When you bump the AI Test Harness package version, re-copy or re-sync
@@ -61,6 +61,7 @@ all installed skills.
 | Skill | Description |
 |---|---|
 | `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the BTS gameplay loop end-to-end. |
+| `ath-exe-smoke` | **Host-agnostic template for a built-player (EXE) smoke.** Drives a `DEVELOPMENT_BUILD` or `ATH_REMOTE` non-dev release player over the loopback socket via the internal Node client (`Tools~/ath-exe-client`) — the build-vs-editor parity tier. Copy in and fill the scenario. See `Documentation~/exe-harness.md`. |
 
 (More smoke skills will land as additional host scenarios are wired.)
 

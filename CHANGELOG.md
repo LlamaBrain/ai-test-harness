@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-16
+
+### Added
+- EXE remote-console harness (extends dirigible ADR-0031): an optional,
+  off-by-default, developer-only tier that drives a built player over a
+  `127.0.0.1` loopback socket using the existing IngameDebugConsole command
+  vocabulary + `CMD:`/`OK:`/`ERR:` sentinels — to catch the build-only bug
+  class (managed stripping, Obfuz, `#if UNITY_EDITOR` fallbacks, addressable
+  trim) that is structurally invisible to the editor harness. Live-verified
+  against a non-dev IL2CPP release build of BeforeTheShade.
+  - In-player (`Runtime/RemoteConsole/`, gated `ATH_REMOTE`): `AthRemoteConsoleServer`
+    (loopback listener, FIFO main-thread pump, one JSON response per connection),
+    `AfterSceneLoad` bootstrap (opt-in via `-ath-remote-console`), pure `AthRemoteOptions`.
+  - New runtime commands `harness.state` (shared `AthStateDispatcher`, relocated
+    Editor→Runtime, + structured `async:<id>`) and `harness.snap` (in-player
+    `ScreenCapture` PNG to the media dir).
+  - Internal Node client `Tools~/ath-exe-client` (`ath-exe`): `cmd`/`state`/`wait`/
+    `snap`/`launch`/`attach`; 26 `node --test` passing (incl. a fake-server round-trip).
+  - Editor: Project Settings ▸ ATH Remote toggle for the `ATH_REMOTE` define; a
+    package `link.xml` preserves the harness from IL2CPP managed stripping.
+  - `Skills/ath-exe-smoke` host-agnostic built-player smoke template.
+
 ## [0.2.0] - 2026-05-29
 
 ### Added

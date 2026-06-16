@@ -1,0 +1,17 @@
+{
+    "name": "LlamaBrainLabs.Ath.RemoteConsole.Runtime",
+    "rootNamespace": "LlamaBrainLabs.Ath.RemoteConsole",
+    "references": [
+        "LlamaBrainLabs.Ath.Runtime",
+        "IngameDebugConsole.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

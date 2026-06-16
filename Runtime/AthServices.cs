@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
 // AthServices — static locator with two slots: Adapter (host-supplied,
 // registered explicitly) and Bridge (instantiated by AthBootstrap at
 // runtime). Ownership policy: once the host calls Register, ATH owns
