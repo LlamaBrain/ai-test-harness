@@ -43,6 +43,8 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
         private const int MaxCapturedBytes         = 64 * 1024;
         private const int MaxConcurrentConnections = 8;
         private const int SocketReadTimeoutMs      = 5000;
+        /// <summary>Request prefix opting out of corrId tagging + log capture (editor tagId:false).</summary>
+        private const string RawPrefix             = "!raw ";
         private const int DoneWaitMarginMs         = 2000;
 
         private AthRemoteOptions _opts;
@@ -156,7 +158,15 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
                 string line = ReadLine(stream, out bool tooLong);
                 if (tooLong || string.IsNullOrEmpty(line)) { WriteResponse(stream, Simple("", "failed", "bad_request")); return; }
 
-                var req = new Request { Command = line, CorrelationId = NewId() };
+                // `!raw <command>` = the editor tool's tagId:false: dispatch verbatim, append no
+                // corrId, capture nothing. Required for the many console commands that define only
+                // the bare overload — appending an id makes the console's strict arity match fail,
+                // so without this they are undrivable from a built player.
+                bool raw = line.StartsWith(RawPrefix, StringComparison.Ordinal);
+                if (raw) line = line.Substring(RawPrefix.Length).Trim();
+                if (line.Length == 0) { WriteResponse(stream, Simple("", "failed", "bad_request")); return; }
+
+                var req = new Request { Command = line, CorrelationId = NewId(), Raw = raw };
                 _inbox.Enqueue(req);
 
                 int waitMs = (_opts?.ResponseDeadlineMs ?? AthRemoteOptions.DefaultDeadlineMs) + DoneWaitMarginMs;
@@ -192,7 +202,7 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
         private void BeginExecute(Request req)
         {
             req.Sw = Stopwatch.StartNew();
-            try { DebugLogConsole.ExecuteCommand($"{req.Command} {req.CorrelationId}"); }
+            try { DebugLogConsole.ExecuteCommand(req.Raw ? req.Command : $"{req.Command} {req.CorrelationId}"); }
             catch (Exception ex)
             {
                 var root = Unwrap(ex);
@@ -210,6 +220,7 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
         private static bool HasTerminal(Request req)
         {
             if (req.ExecException != null) return true;
+            if (req.Raw) return true;   // nothing to wait for: dispatch-without-throw IS the result
             foreach (var l in req.Captured)
                 if (l.StartsWith("OK:", StringComparison.Ordinal) || l.StartsWith("ERR:", StringComparison.Ordinal)) return true;
             return false;
@@ -223,6 +234,7 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
             var all = req.Captured.ToArray();   // scan ALL captured before truncating returned lines
             string status, failReason = "";
             if (req.ExecException != null) { status = "failed"; failReason = req.ExecException; }
+            else if (req.Raw) status = "success";   // dispatched without throwing; no sentinels expected
             else
             {
                 var okLine  = all.FirstOrDefault(l => l.StartsWith("OK:",  StringComparison.Ordinal));
@@ -316,6 +328,8 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
     {
         public string Command;
         public string CorrelationId;
+        /// <summary>Fire-and-forget dispatch: no corrId appended, no capture (see the `!raw ` prefix).</summary>
+        public bool Raw;
         public readonly ManualResetEventSlim Done = new ManualResetEventSlim(false);
         public readonly ConcurrentQueue<string> Captured = new ConcurrentQueue<string>();
         public Stopwatch Sw;

@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Un-tagged dispatch (`!raw`)** — the remote console appends its own correlation
+  id to every command, but `IngameDebugConsole` matches commands on *exact* arity,
+  so any console method that defines only the bare overload could not be driven
+  from a built player at all: the appended id made dispatch fail. A request may now
+  be prefixed `!raw ` (client: `ath-exe cmd --raw "<command>"`), which dispatches
+  verbatim, appends no id, and captures no log lines — the wire equivalent of the
+  editor tool's `tagId:false`. The response is `success` when the command dispatched
+  without throwing; assert through `state` instead of sentinels. Found while driving
+  a host's building smoke, where the world-geometry and dev-spawn commands
+  (`room.block`, `wo.seed.chest`, `creative.on`, …) are all bare-overload.
 - Footage capture for HITL-validation evidence (ADR-0014), two tiers that feed
   the trace `artifacts` field:
   - **Tier 1 — `ath-snap`** (editor MCP tool, no new dependency): captures a
