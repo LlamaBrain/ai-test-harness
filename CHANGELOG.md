@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Initial spec-driven `ath-exe runtime-smoke` launch/watch command with fresh artifact isolation, exact build provenance, bounded process watch, and transcript/result validation; consumer compile and end-to-end player proof remain in progress.
+- Guarded built-player launch argument parsing, full launch/build-evidence digest validation, durable single-use process claims, armed transcript bootstrap, and automatic FSD workflow execution.
+- Contained RuntimeSmoke failure-context JSON and typed registry/MCP export for failed runs.
+- Launch-envelope provenance and single-use claim validation primitives with watchdog result evaluation.
+- Host-controlled HITL review checkpoints with correlated one-time resume, cancellation/deadline unwind, and coordinator-owned bounded sleep pacing.
+- Initial host-neutral RuntimeSmoke document compilation, suite validation,
+  typed assertion schema v1, single-run coordinator, and append-only JSONL
+  transcript sink. Core types are guarded to Editor, development, and the
+  optional `SMOKE_HARNESS` lane; this does not enable `ATH_REMOTE`.
+- Focused compiler/assertion/coordinator EditMode tests and a BTS-owned
+  gameplay-readiness workflow contract test.
+- Host-owned workflow catalog/run registry with list/start/status/cancel MCP
+  and development-console surfaces, plus JUnit projection, bounded in-flight
+  adapter cancellation/deadlines, and host/authored-input artifact containment.
+- Authored scenario/seed fixture identity now flows through compiler hashes,
+  registry discovery and defaults, MCP/window state, transcripts, results,
+  JUnit properties, failure context, and outer-player evidence validation.
+- Direct coordinator calls now reject overrides of authored scenario/seed
+  identity. Assertion failure evidence consistently carries comparison,
+  tolerance, predicate, step, proposition, correlation, and elapsed time through
+  JSONL, result/failure-context JSON, and JUnit properties.
+- Added a host-enforceable investigation-contract schema with content hashes,
+  repository-relative source identity, bounded typed action declarations, and
+  failure-packet/UI workflow discovery projection. The registry now accepts a
+  single declared diagnostic action only for terminal failed runs, bounds and
+  digests its typed result, appends it to the same JSONL transcript, and exposes
+  it through `ath-runtime-smoke-investigate`; host-specific diagnostic bridges
+  and runtime proof remain pending.
+- Failure contexts now bind matching player launch/armed identity, player PID and
+  start time, executable digest, lane/suite/build provenance, and an in-run
+  relative player-log link; mismatched identities and out-of-run log paths are
+  omitted.
+- Named capture receipts are now validated against their declared action,
+  bounded byte count, safe run-local path, and SHA-256 before appearing in
+  failure context and matching Editor/MCP artifact lists. Investigation updates
+  atomically refresh the run-owned failure-context file; end-to-end consumer
+  capture proof remains pending.
+- Failure-state providers can now contribute a typed host snapshot before
+  cleanup, rendered with a deterministic digest and bounded display. Failure
+  context also carries the workflow target/mode and an executable reproduction
+  invocation with a fresh correlation; mismatched launch target/mode no longer
+  enrich the packet with player provenance.
+- Assertion tolerance parsing now preserves the schema-v1 integer/decimal
+  distinction, and authored failure classifications flow through JSONL,
+  result/failure-context JSON, JUnit, MCP snapshots, and the Editor failure view.
+- MCP RuntimeSmoke status now includes the Editor window's run state, progress,
+  checkpoint, artifact directory/names, and declared failed-run investigation actions.
+
 ## [0.3.0] - 2026-06-16
 
 ### Added

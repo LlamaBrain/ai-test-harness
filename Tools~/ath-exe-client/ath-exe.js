@@ -12,6 +12,7 @@
 //   snap   <label>               harness.snap, then poll the PNG path
 //   launch <exe>                 spawn the player opted-in, wait until ready
 //   attach <port>                connectivity check (harness.ping) on a port
+//   runtime-smoke <spec.json>    launch/watch one declared RuntimeSmoke
 //
 // Common flags: --port N  --timeout-ms N  --config <AthRemote.json>
 // Port resolves: --port -> config file -> 8787 (default).  `launch` with no
@@ -22,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const proto = require('./protocol');
+const runtimeSmokeRunner = require('./runtime-smoke-runner');
 
 const DEFAULT_PORT = 8787;
 const DEFAULT_CMD_TIMEOUT_MS = 5000;
@@ -219,11 +221,32 @@ async function cmdLaunch(positionals, flags) {
   return 1;
 }
 
+async function runRuntimeSmokeSpec(specPath, dependencies = {}) {
+  const printResult = dependencies.print || print;
+  try {
+    if (typeof specPath !== 'string' || specPath.length === 0) throw new Error('runtime-smoke requires a launch spec JSON path');
+    const spec = JSON.parse(fs.readFileSync(path.resolve(specPath), 'utf8'));
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('launch spec must be a JSON object');
+    const launch = dependencies.launch || runtimeSmokeRunner.launchRuntimeSmokeProcess;
+    const result = await launch(spec);
+    printResult(result);
+    return result && result.accepted === true ? 0 : 1;
+  } catch (error) {
+    printResult({ accepted: false, state: 'failed', failureCode: error.code || 'launch_spec_invalid', diagnostic: String(error.message || error).replace(/[\r\n]/g, ' ').slice(0, 512) });
+    return 2;
+  }
+}
+
+async function cmdRuntimeSmoke(positionals) {
+  if (positionals.length !== 1) return fail('runtime-smoke requires exactly one launch spec JSON path');
+  return runRuntimeSmokeSpec(positionals[0]);
+}
+
 // ---- output / errors ----
 function print(obj) { process.stdout.write(JSON.stringify(obj, null, 2) + '\n'); }
 function fail(msg) { process.stderr.write(`ath-exe: ${msg}\n`); return 2; }
 
-const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach };
+const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach, 'runtime-smoke': cmdRuntimeSmoke };
 
 async function main() {
   const [sub, ...rest] = process.argv.slice(2);
@@ -242,4 +265,4 @@ if (require.main === module) {
     .catch((e) => { process.stderr.write(`ath-exe: ${e.message}\n`); process.exit(1); });
 }
 
-module.exports = { parseArgv, resolvePort, sendCommand, getFreePort }; // exported for tests
+module.exports = { parseArgv, resolvePort, sendCommand, getFreePort, runRuntimeSmokeSpec }; // exported for tests

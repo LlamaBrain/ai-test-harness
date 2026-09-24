@@ -9,6 +9,8 @@ A reusable Unity package providing a three-layer MCP-driven dev test harness, mi
 
 > **Status:** v0.3.0. The v0.2 editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade. v0.3 adds the **EXE remote-console harness** — an optional, off-by-default `ATH_REMOTE` build surface that drives a built player (including a non-dev IL2CPP release) over a `127.0.0.1` loopback socket via the internal `ath-exe` Node client, live-verified against a BeforeTheShade RC build. See `Documentation~/exe-harness.md`.
 
+The RuntimeSmoke compiler, typed assertion contracts, coordinator, and JSONL transcript sink are documented in [`Documentation~/runtime-smokes.md`](Documentation~/runtime-smokes.md). This is an in-progress platform addition; the guide distinguishes package/consumer tests from the still-required interactive and player transport acceptance gates.
+
 ## What it is
 
 Three layers:
