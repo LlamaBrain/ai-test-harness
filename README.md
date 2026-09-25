@@ -7,7 +7,7 @@ By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://gi
 
 A reusable Unity test harness with a host-neutral RuntimeSmoke runner and lower-level diagnostic transports, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
-> **Status:** v0.3.0. This package implements the host-neutral RuntimeSmoke compiler, typed assertions, coordinator, Editor window, MCP operations, and EXE runner. Consumer-specific registration and end-to-end validation remain separate: Editor/player runs, human review, and exact-artifact build-gate acceptance must be reported from that consumer's own evidence.
+> **Status:** v0.4.1. This package implements the host-neutral RuntimeSmoke compiler, typed assertions, coordinator, Editor window, MCP operations, and EXE runner. Consumer-specific registration and end-to-end validation remain separate: Editor/player runs, human review, and exact-artifact build-gate acceptance must be reported from that consumer's own evidence.
 
 Start with the [RuntimeSmoke usage and authoring guide](Documentation~/runtime-smoke-usage.md), then see the [RuntimeSmoke API contract](Documentation~/runtime-smokes.md). The older `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`, direct EXE console tools, and procedural smoke skills remain low-level diagnostics; they do not provide an alternate smoke acceptance path. See the [AITH documentation migration audit](Documentation~/runtime-smoke-migration-audit.md).
 
@@ -61,7 +61,7 @@ Add to `Packages/manifest.json`:
 "com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
 ```
 
-(Or pin a tagged release via git: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.3.0"`.)
+(Or pin a tagged release via git: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.4.1"`.)
 
 ### 4. Implement the adapter
 

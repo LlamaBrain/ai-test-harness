@@ -1,7 +1,7 @@
 # AITH RuntimeSmoke documentation migration audit
 
-**Audit date:** 2026-09-24  
-**Audited source revision:** `488554c7504f37e94ae9651e24fa3b297a5a701a` (`feat/runtime-smoke-platform-next`) plus the uncommitted AITH-only documentation changes listed below.  
+**Audit date:** 2026-09-25
+**Audited source revision:** `e7188c30c6a799fbab065a46ade2d52ab0c7e061` (`feat/runtime-smoke-platform-next`) plus the Phase 7 package-version/reference corrections in this commit.
 **Scope:** AITH package README, `ROADMAP.md`, `Documentation~/`, `Skills/`, the Minimal Host Adapter sample and its asmdef, relevant package metadata and source comments, and `Tools~/ath-exe-client/` command help/source. BTS and Dirigible files, dependency manifests/lockfiles, Unity projects, and runtime behavior are outside this documentation audit.
 
 RuntimeSmoke is the sole supported smoke orchestration and acceptance practice in AITH guidance. The structured run result and transcript establish the workflow outcome. Low-level command transports and legacy trace payloads remain available for bounded diagnostics/history; they cannot establish, override, or approve a smoke result. This AITH package audit does not complete the cross-repository Phase 7 migration or prove a consumer integration.
@@ -53,5 +53,10 @@ The adapter contract and sample/source comments now distinguish diagnostic polli
 - Follow-up local Markdown link scan over `README.md`, `ROADMAP.md`, `Skills/README.md`, both retired skills, this audit, adapter contract, and sample README — **all local targets found** (2026-09-24). External URLs and heading anchors were not network-validated.
 - `package.json` JSON parse — **valid** (2026-09-24).
 - `git diff --check` — **passed** (2026-09-24); Git emitted only line-ending normalization warnings for edited Markdown/JS sources.
+- Package version contract test — **1 passed**; full `node --test Tools~/ath-exe-client/*.test.js` — **68 passed, 0 failed, 0 skipped** (2026-09-25).
 
-No Unity compilation, consumer proof, package version update, commit, or cross-host migration is claimed by this audit. The tests cover the existing Node EXE-client behavior; they do not validate the new prose examples against a registered consumer host.
+This AITH audit does not complete the cross-repository Phase 7 migration or prove a consuming-host integration. Unity compilation, the Phase 8 clean-project boundary check, consumer Editor/player/review evidence, and the final exact-artifact suite remain owned by their respective gates.
+
+### Phase 7 package API/reference follow-up — 2026-09-25
+
+The release metadata audit found that `VERSION` and `AthRuntimeFlag.PackageVersion` still reported 0.3.0 while `package.json` was 0.4.0. This commit bumps the package to 0.4.1 and synchronizes those public version surfaces, the README status/install tag, and the changelog. A focused Node contract test now guards the three version sources. Version strings in retired skill frontmatter and historical trace examples remain historical caller/sample data; they are not current package release surfaces.
