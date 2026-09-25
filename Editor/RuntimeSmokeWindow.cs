@@ -180,9 +180,11 @@ namespace LlamaBrainLabs.Ath.Editor
             {
                 var phase = state.RunState == RuntimeSmokeRegistryRunState.ReviewReady ? "Paused for review" : "Running";
                 var fraction = (float)(EditorApplication.timeSinceStartup % 1d);
-                EditorGUI.ProgressBar(EditorGUILayout.GetControlRect(false, 18), fraction, phase + " · " + state.Progress.CompletedSteps + " completed");
+                EditorGUI.ProgressBar(EditorGUILayout.GetControlRect(false, 18), fraction,
+                    phase + " · " + state.Progress.Percent + "% weighted · " + state.Progress.CompletedSteps + " steps complete");
             }
-            else EditorGUI.ProgressBar(EditorGUILayout.GetControlRect(false, 18), state.Progress.Percent / 100f, state.RunState.ToString());
+            else EditorGUI.ProgressBar(EditorGUILayout.GetControlRect(false, 18), state.Progress.Percent / 100f,
+                state.RunState + " · " + state.Progress.CompletedWeight + "/" + state.Progress.TotalWeight + " weighted");
             EditorGUILayout.LabelField("Active step", state.Progress.ActiveStepId ?? state.ResumeCheckpointId ?? "—");
 
             if (state.AssertionFailure != null)

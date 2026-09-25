@@ -1,8 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
-// AthHarnessCommands — meta-commands that operate on the harness itself
-// rather than the host. Skill authors call harness.reset between sequenced
-// waits to clear the bridge's edge-sticky flags; harness.ping is the
-// round-trip smoke for log-capture wiring.
+// AthHarnessCommands provide adapter and transport diagnostics. These commands
+// do not execute or establish acceptance for a RuntimeSmoke workflow.
 
 using System;
 using IngameDebugConsole;
@@ -27,7 +25,7 @@ namespace LlamaBrainLabs.Ath.Commands
         }
 
         // ---- harness.ping ----
-        [ConsoleMethod("harness.ping", "Round-trip smoke for log-capture wiring")]
+        [ConsoleMethod("harness.ping", "Diagnostic ping for log-capture wiring; not RuntimeSmoke acceptance")]
         public static void Ping() => Ping(NewId());
 
         [ConsoleMethod("harness.ping", "Ping; correlation-id form", "correlationId")]

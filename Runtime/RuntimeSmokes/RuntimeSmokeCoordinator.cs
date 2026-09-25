@@ -574,7 +574,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                     result.Diagnostic = diagnostic;
                 }
             }
-            emit("run_terminal", null, state.ToString().ToLowerInvariant(), failure == RuntimeSmokeRunFailureCode.None ? null : RunFailureLabel(failure), diagnostic, assertionResult);
+            emit("run_terminal", null, state.ToString().ToLowerInvariant(), TerminalFailureLabel(failure, assertionResult), diagnostic, assertionResult);
             if (sinkFailed)
             {
                 state = RuntimeSmokeRunTerminalState.Failed;
@@ -663,6 +663,13 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 case RuntimeSmokeRunFailureCode.WatchdogTimeout: return "watchdog_timeout";
                 default: return null;
             }
+        }
+
+        internal static string TerminalFailureLabel(RuntimeSmokeRunFailureCode runFailure, RuntimeSmokeAssertionResult assertion)
+        {
+            var runCode = RunFailureLabel(runFailure);
+            if (!string.IsNullOrEmpty(runCode)) return runCode;
+            return assertion == null ? null : AssertionFailureLabel(assertion.FailureCode);
         }
 
         internal static string AssertionFailureLabel(RuntimeSmokeAssertionFailureCode code)
@@ -886,7 +893,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 scenario = result.Scenario,
                 seed = result.Seed,
                 terminalState = result.TerminalState.ToString().ToLowerInvariant(),
-                failureCode = result.FailureCode == RuntimeSmokeRunFailureCode.None ? null : RuntimeSmokeCoordinator.RunFailureLabel(result.FailureCode),
+                failureCode = RuntimeSmokeCoordinator.TerminalFailureLabel(result.FailureCode, assertion),
                 diagnostic = result.Diagnostic,
                 startedUtc = result.StartedUtc.ToString("o", CultureInfo.InvariantCulture),
                 endedUtc = result.EndedUtc.ToString("o", CultureInfo.InvariantCulture),

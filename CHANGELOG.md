@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-25
+
 ### Added
 - Initial spec-driven `ath-exe runtime-smoke` launch/watch command with fresh artifact isolation, exact build provenance, bounded process watch, and transcript/result validation; consumer compile and end-to-end player proof remain in progress.
 - Guarded built-player launch argument parsing, full launch/build-evidence digest validation, durable single-use process claims, armed transcript bootstrap, and automatic FSD workflow execution.

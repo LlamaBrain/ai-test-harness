@@ -36,7 +36,19 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                 Assert.That(context.expectedDisplay, Is.EqualTo("true"));
                 Assert.That(context.actualDisplay, Is.EqualTo("false"));
                 Assert.That(context.hostStateDisplay, Is.EqualTo("{\"cleanupRestored\":false,\"gameReady\":false,\"hostValid\":true}"));
-                Assert.That(context.reproductionCommand, Does.Contain("runtime_smoke.run"));
+                Assert.That(context.target, Is.EqualTo("editor"));
+                Assert.That(context.reproductionTransport, Is.EqualTo("editor-mcp"));
+                Assert.That(context.reproductionCommand, Does.Match("^ath-runtime-smoke-run workflowId=\\\"workflows/failure-context\\\" target=\\\"editor\\\" mode=\\\"fsd\\\" correlationId=\\\"[a-f0-9-]{36}\\\"$"));
+                Assert.That(context.reproductionCommand, Does.Not.Contain("runtime_smoke.run"));
+                Assert.That(context.failureCode, Is.EqualTo("assertion_mismatch"));
+                var runDirectory = Path.GetDirectoryName(path);
+                var result = UnityEngine.JsonUtility.FromJson<RuntimeSmokeResultDocument>(File.ReadAllText(Path.Combine(runDirectory, "result.json")));
+                Assert.That(result.failureCode, Is.EqualTo("assertion_mismatch"));
+                Assert.That(result.assertionFailureCode, Is.EqualTo("assertion_mismatch"));
+                var terminalLine = File.ReadAllLines(Path.Combine(runDirectory, "transcript.jsonl"))
+                    .Single(line => line.Contains("run_terminal"));
+                var terminal = UnityEngine.JsonUtility.FromJson<RuntimeSmokeTranscriptRecord>(terminalLine);
+                Assert.That(terminal.failureCode, Is.EqualTo("assertion_mismatch"));
                 Assert.That(context.transcriptTail.Length, Is.GreaterThan(0));
             }
             finally { Directory.Delete(root, true); }
@@ -102,8 +114,27 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Assert.That(context.hostStateDigest, Has.Length.EqualTo(64));
             Assert.That(context.target, Is.EqualTo("editor"));
             Assert.That(context.mode, Is.EqualTo("fsd"));
-            Assert.That(context.reproductionCommand, Does.Match("^runtime_smoke\\.run \\\"" + workflowId + "\\\" \\\"[a-f0-9-]{36}\\\"$"));
+            Assert.That(context.reproductionTransport, Is.EqualTo("editor-mcp"));
+            Assert.That(context.reproductionCommand, Does.Match("^ath-runtime-smoke-run workflowId=\\\"" + workflowId + "\\\" target=\\\"editor\\\" mode=\\\"fsd\\\" correlationId=\\\"[a-f0-9-]{36}\\\"$"));
             Assert.That(context.reproductionCommand, Does.Not.Contain(execution.CorrelationId));
+        }
+
+        [Test]
+        public async Task DevelopmentFsdFailureUsesDevelopmentConsoleReproduction()
+        {
+            const string workflowId = "workflows/development-state-context";
+            var json = "{\"schemaVersion\":1,\"id\":\"workflows/development-state-context\",\"kind\":\"workflow\",\"testClass\":\"RuntimeSmoke\",\"mode\":\"fsd\",\"proposition\":\"runtime is ready\",\"excludedBehavior\":\"save/load\",\"targets\":[\"development\"],\"requires\":[\"test.ready\"],\"timeoutSeconds\":10,\"steps\":[{\"id\":\"start\",\"type\":\"start\"},{\"id\":\"ready\",\"type\":\"assert\",\"assertion\":{\"assertionSchemaVersion\":1,\"id\":\"is-ready\",\"name\":\"Ready\",\"predicate\":\"test.ready\",\"comparison\":\"equals\",\"expected\":true}},{\"id\":\"end\",\"type\":\"terminal\"}]}";
+            var workflow = RuntimeSmokeDocumentCompiler.Compile(json,
+                new RuntimeSmokeMemoryDocumentSource(), RuntimeSmokeTarget.Development, RuntimeSmokeMode.Fsd,
+                new RuntimeSmokeCompileOptions { AvailableCapabilities = new[] { "test.ready" } }).Workflow;
+            var adapter = new HostStateMismatchAdapter("development-state-context-run");
+            var execution = await RuntimeSmokeCoordinator.RunAsync(workflow, "development-state-context-run",
+                adapter, new MemoryTranscript(), adapter);
+
+            var context = RuntimeSmokeFailureContextWriter.Create(workflow, execution);
+            Assert.That(context.target, Is.EqualTo("development"));
+            Assert.That(context.reproductionTransport, Is.EqualTo("development-console"));
+            Assert.That(context.reproductionCommand, Does.Match("^runtime_smoke\\.run \\\"" + workflowId + "\\\" \\\"[a-f0-9-]{36}\\\"$"));
         }
 
         [Test]

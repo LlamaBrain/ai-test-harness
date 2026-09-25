@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE || SMOKE_HARNESS
 // AthHostEvents — event surface the host adapter raises into and AthBridge
 // subscribes to. Plain C# events; no R3/UniRx/MessagePipe dependency.
 //

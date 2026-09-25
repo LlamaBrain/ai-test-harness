@@ -5,6 +5,10 @@
 // in-player AthRemoteConsoleServer. The pure wire/predicate logic lives in
 // protocol.js (unit-tested); this file is the thin socket/process shell.
 //
+// Smoke acceptance uses `runtime-smoke` for one declared workflow or
+// `runtime-smoke-suite` for a provenance-checked aggregate build gate. Other
+// subcommands are focused diagnostics and cannot approve a build gate.
+//
 // Subcommands:
 //   cmd    <command...>          fire one console command, print the result
 //   state  <key>                 query harness.state <key>
@@ -13,6 +17,7 @@
 //   launch <exe>                 spawn the player opted-in, wait until ready
 //   attach <port>                connectivity check (harness.ping) on a port
 //   runtime-smoke <spec.json>    launch/watch one declared RuntimeSmoke
+//   runtime-smoke-suite <spec>   gate an ordered FSD suite against a fresh artifact copy
 //
 // Common flags: --port N  --timeout-ms N  --config <AthRemote.json>
 // Port resolves: --port -> config file -> 8787 (default).  `launch` with no
@@ -227,6 +232,8 @@ async function runRuntimeSmokeSpec(specPath, dependencies = {}) {
     if (typeof specPath !== 'string' || specPath.length === 0) throw new Error('runtime-smoke requires a launch spec JSON path');
     const spec = JSON.parse(fs.readFileSync(path.resolve(specPath), 'utf8'));
     if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('launch spec must be a JSON object');
+    if (!/^[0-9a-f]{64}$/i.test(spec.canonicalScriptHash || '') || spec.scriptHash != null)
+      throw Object.assign(new Error('launch spec must provide the compiled canonicalScriptHash; raw scriptHash is not accepted'), { code: 'launch_input_invalid' });
     const launch = dependencies.launch || runtimeSmokeRunner.launchRuntimeSmokeProcess;
     const result = await launch(spec);
     printResult(result);
@@ -237,6 +244,26 @@ async function runRuntimeSmokeSpec(specPath, dependencies = {}) {
   }
 }
 
+async function runRuntimeSmokeSuiteSpec(specPath, dependencies = {}) {
+  const printResult = dependencies.print || print;
+  try {
+    if (typeof specPath !== 'string' || specPath.length === 0) throw new Error('runtime-smoke-suite requires a suite spec JSON path');
+    const spec = JSON.parse(fs.readFileSync(path.resolve(specPath), 'utf8'));
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('suite spec must be a JSON object');
+    const runSuite = dependencies.runSuite || runtimeSmokeRunner.runRuntimeSmokeSuite;
+    const result = await runSuite(spec);
+    printResult(result);
+    return result && result.accepted === true ? 0 : 1;
+  } catch (error) {
+    printResult({ accepted: false, state: 'failed', failureCode: error.code || 'suite_spec_invalid', diagnostic: String(error.message || error).replace(/[\r\n]/g, ' ').slice(0, 512) });
+    return 2;
+  }
+}
+
+async function cmdRuntimeSmokeSuite(positionals) {
+  if (positionals.length !== 1) return fail('runtime-smoke-suite requires exactly one suite spec JSON path');
+  return runRuntimeSmokeSuiteSpec(positionals[0]);
+}
 async function cmdRuntimeSmoke(positionals) {
   if (positionals.length !== 1) return fail('runtime-smoke requires exactly one launch spec JSON path');
   return runRuntimeSmokeSpec(positionals[0]);
@@ -246,7 +273,7 @@ async function cmdRuntimeSmoke(positionals) {
 function print(obj) { process.stdout.write(JSON.stringify(obj, null, 2) + '\n'); }
 function fail(msg) { process.stderr.write(`ath-exe: ${msg}\n`); return 2; }
 
-const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach, 'runtime-smoke': cmdRuntimeSmoke };
+const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach, 'runtime-smoke': cmdRuntimeSmoke, 'runtime-smoke-suite': cmdRuntimeSmokeSuite };
 
 async function main() {
   const [sub, ...rest] = process.argv.slice(2);
@@ -265,4 +292,4 @@ if (require.main === module) {
     .catch((e) => { process.stderr.write(`ath-exe: ${e.message}\n`); process.exit(1); });
 }
 
-module.exports = { parseArgv, resolvePort, sendCommand, getFreePort, runRuntimeSmokeSpec }; // exported for tests
+module.exports = { parseArgv, resolvePort, sendCommand, getFreePort, runRuntimeSmokeSpec, runRuntimeSmokeSuiteSpec }; // exported for tests

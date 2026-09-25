@@ -2,9 +2,9 @@
 
 This document codifies the rules every `IAthHostAdapter` implementation must
 honor. The package itself enforces none of these mechanically; they exist
-because the `AthBridge` and the MCP tools rely on them. Violations are
-not compile errors — they're behavior bugs that surface as silent races,
-stale state, or test-harness lockups.
+because the `AthBridge`, diagnostic state tools, and host RuntimeSmoke
+adapters rely on them. Violations are not compile errors — they're behavior
+bugs that surface as silent races, stale state, or test-harness lockups.
 
 If you only read one section, read **Property cost & purity**.
 
@@ -22,9 +22,10 @@ If you only read one section, read **Property cost & purity**.
   calling `Debug.Log`, starting coroutines, allocating large collections,
   performing scene mutations, calling `Request*` methods.
 
-The bridge polls these properties from `ath-state` and `ath-wait` predicates
-at 100 ms cadence. Any side effect in a getter compounds on every poll —
-the symptom is usually a hard-to-attribute heisenbug.
+Diagnostic tools may poll these properties through `ath-state` and `ath-wait`;
+a host RuntimeSmoke step adapter may also read them while evaluating a declared
+workflow predicate. Any side effect in a getter compounds on each read — the
+symptom is usually a hard-to-attribute heisenbug.
 
 If you find yourself wanting to "fire `GameReady` lazily on first read,"
 restructure: raise the event from a real lifecycle hook (constructor,
@@ -37,14 +38,15 @@ of the cached flag (see §3).
 
 > **Only `Request*` methods mutate gameplay state. `TryGetCustomState` is read-only.**
 
-`Request*` methods are the legitimate mutation surface — they map onto the
-project-specific console commands (`world.restart`, `player.kill`, etc.).
-Inside a `Request*` method you may:
+`Request*` methods are the adapter's gameplay mutation surface. They may call
+host APIs directly or delegate to a host command implementation; they do not
+define a smoke workflow or its acceptance rule. Inside a `Request*` method you may:
 
 - Call host singletons, invoke host events, write to `Rigidbody2D.position`,
   destroy GameObjects, etc.
-- Throw on invalid input (e.g., `RequestPlayerTeleport(NaN, NaN)`) — the
-  caller (`Tool_AthCmd`) wraps exceptions and reports them as `ERR:` lines.
+- Throw on invalid input (e.g., `RequestPlayerTeleport(NaN, NaN)`). A diagnostic
+  command wrapper may report that as an `ERR:` line; a RuntimeSmoke host bridge
+  should return a typed failed step response.
 
 `TryGetCustomState` is invoked from `ath-state` for keys the package's
 built-in dispatcher doesn't know. It must return `bool` indicating whether
@@ -71,10 +73,9 @@ raise the events at the right moments.
 | `ItemConsumed`  | Every consume event.                                       | Sets `ItemConsumedSinceLastReset = true`. |
 | `PauseChanged`  | Every transition (pause → unpause OR unpause → pause).     | Updates `LastPauseValue` + increments `PauseChangeCount`. Not promoted to a `*SinceLastReset` flag — pauses come and go too freely. |
 
-**Edge promotion gives skill authors race-resistance:** an `ath-wait
-player_died` works whether the death happened before or after the wait
-was issued, because the flag survives until `harness.reset` or scene
-unload clears it.
+**Edge promotion makes event observations race-resistant:** diagnostic state
+queries and host workflow predicates can observe that an event occurred even
+if it happened before the query. The flag survives until reset or scene unload.
 
 ---
 
@@ -122,8 +123,8 @@ validity-guarded `GameReady` read on the bridge.
 - A "single-shot" host adapter (destroyed once unloaded) can return `false`
   permanently after teardown — the bootstrap will dispose and replace.
 
-Property must be cheap (no `Find*` calls) — the bridge reads it on every
-state query and wait poll.
+Property must be cheap (no `Find*` calls) — the bridge reads it during state
+queries and diagnostic wait polling.
 
 ---
 
@@ -203,9 +204,10 @@ unregisters the prior adapter).
 
 ## 10. Reserved state keys
 
-The built-in `AthStateDispatcher` (Editor-side, Phase 4) handles these
-keys before falling back to `TryGetCustomState`. Adapters should not
-redefine them.
+The built-in state dispatcher handles these keys before falling back to
+`TryGetCustomState`. Adapters should not redefine them. `ath-state` is a
+low-level diagnostic surface; a host workflow may expose selected state through
+its own typed predicate adapter.
 
 ```
 in_gameplay, scene_name, host_name, bridge_ready, adapter_ready,

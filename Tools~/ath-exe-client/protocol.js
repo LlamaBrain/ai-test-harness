@@ -134,7 +134,7 @@ function terminalFields(response) {
   return term ? term.fields : {};
 }
 
-// ---- wait predicate vocabulary (mirrors ath-smoke-fullloop, state-based) ----
+// ---- host wait predicate vocabulary (state-based aliases) ----
 
 // Friendly bare predicate -> canonical harness.state key.
 const TRUTHY_ALIASES = {

@@ -53,7 +53,7 @@ function validateRuntimeSmokeEvidence(evidence, trustedLaunch) {
     return invalid('log_invalid', 'Player log is empty, stale, outside the process lifetime, or not the envelope-owned log.');
 
   let terminalCount = 0;
-  let previousTime = processTime;
+  let previousTime = launchTime;
   for (let index = 0; index < evidence.transcript.length; index++) {
     const record = evidence.transcript[index];
     if (!record || record.sequence !== index)
@@ -62,7 +62,9 @@ function validateRuntimeSmokeEvidence(evidence, trustedLaunch) {
         !sameOptionalIdentity(record.scenario, launch.scenario) || !sameOptionalIdentity(record.seed, launch.seed))
       return invalid('identity_mismatch', 'Transcript records must use the launch correlation, workflow, script hash, scenario, and seed.');
     const timestamp = Date.parse(record.timestampUtc);
-    if (!Number.isFinite(timestamp) || timestamp < launchTime || timestamp < previousTime || timestamp > exitTime)
+    const beforeProcess = index === 0 && record.type === 'armed';
+    if (!Number.isFinite(timestamp) || timestamp < launchTime || timestamp < previousTime ||
+        (!beforeProcess && timestamp < processTime) || (beforeProcess && timestamp > processTime) || timestamp > exitTime)
       return invalid('timestamp_invalid', 'Transcript event falls outside its process lifetime or is not monotonic.');
     previousTime = timestamp;
     const allowedStatuses = {
@@ -128,16 +130,16 @@ function createRuntimeSmokeLaunch(options = {}) {
   const fs = options.fs || fsDefault;
   const crypto = options.crypto || cryptoDefault;
   const required = ['hostRoot', 'outputRoot', 'authoredRoot', 'executablePath', 'buildEvidencePath',
-    'runId', 'correlationId', 'workflowId', 'scriptHash', 'target', 'mode'];
+    'runId', 'correlationId', 'workflowId', 'canonicalScriptHash', 'target', 'mode'];
   for (const key of required) {
     if (options[key] == null || options[key] === '')
       throw Object.assign(new Error(`${key} is required`), { code: 'launch_input_invalid' });
   }
-  if (!safeId(options.runId) || !safeId(options.correlationId) || !HEX_256.test(options.scriptHash) ||
+  if (!safeId(options.runId) || !safeId(options.correlationId) || !HEX_256.test(options.canonicalScriptHash) || options.scriptHash != null ||
       !Number.isInteger(options.timeoutSeconds) || options.timeoutSeconds < 1 || options.timeoutSeconds > 86400 ||
       (options.seed != null && !isValidSeed(options.seed)) ||
       !['development', 'smoke_harness'].includes(options.target) || options.mode !== 'fsd')
-    throw Object.assign(new Error('Launch identity, hash, target, mode, or deadline is invalid.'), { code: 'launch_input_invalid' });
+    throw Object.assign(new Error('Launch identity, canonical workflow hash, target, mode, or deadline is invalid.'), { code: 'launch_input_invalid' });
   const requiredStepIds = options.requiredStepIds;
   if (!Array.isArray(requiredStepIds) || requiredStepIds.length === 0 ||
       new Set(requiredStepIds).size !== requiredStepIds.length || requiredStepIds.some((id) => !safeId(id)))
@@ -174,6 +176,8 @@ function createRuntimeSmokeLaunch(options = {}) {
   const runDirectory = path.resolve(outputRoot, options.runId);
   if (!isWithin(runDirectory, outputRoot) || pathEquals(runDirectory, outputRoot) || !pathEquals(path.dirname(runDirectory), outputRoot))
     throw Object.assign(new Error('Run ID must resolve to one direct child of the output root.'), { code: 'artifact_root_escape' });
+  const logPath = path.join(runDirectory, 'logs', 'player.log');
+  assertWindowsPlayerArtifactPaths(runDirectory, logPath);
   let created = false;
   try { fs.mkdirSync(runDirectory); created = true; }
   catch (error) {
@@ -189,7 +193,6 @@ function createRuntimeSmokeLaunch(options = {}) {
     throw Object.assign(new Error('Nonce provider must return exactly 256 bits.'), { code: 'launch_input_invalid' });
   const buildEvidenceHash = hashBuildEvidence(crypto, buildEvidence);
   const startedUtc = (options.now ? options.now() : new Date()).toISOString();
-  const logPath = path.join(runDirectory, 'logs', 'player.log');
   const buildEvidenceSnapshotPath = path.join(runDirectory, 'build-evidence.json');
   writeAtomicNew(fs, buildEvidenceSnapshotPath, stableJson(buildEvidence) + '\n');
   const envelope = {
@@ -198,7 +201,7 @@ function createRuntimeSmokeLaunch(options = {}) {
     runId: options.runId,
     correlationId: options.correlationId,
     workflowId: options.workflowId,
-    scriptHash: options.scriptHash,
+    scriptHash: options.canonicalScriptHash,
     hostRoot,
     outputRoot,
     authoredRoot,
@@ -230,6 +233,19 @@ function createRuntimeSmokeLaunch(options = {}) {
   };
   envelope.buildToken = createBuildToken(envelope, crypto);
   writeAtomicNew(fs, path.join(runDirectory, 'runtime-smoke-launch.json'), stableJson(envelope) + '\n');
+  const armedPrelude = {
+    schemaVersion: 1,
+    sequence: 0,
+    type: 'armed',
+    timestampUtc: startedUtc,
+    workflowId: envelope.workflowId,
+    scriptHash: envelope.scriptHash,
+    correlationId: envelope.correlationId,
+    scenario: envelope.scenario,
+    seed: envelope.seed,
+    status: 'armed',
+  };
+  writeAtomicNew(fs, path.join(runDirectory, 'transcript.jsonl'), stableJson(armedPrelude) + '\n');
 
   const args = ['-runtimeSmoke', options.workflowId,
     '-runtimeSmokeCorrelation', options.correlationId,
@@ -245,13 +261,58 @@ async function launchRuntimeSmokeProcess(options = {}) {
   const fs = options.fs || fsDefault;
   const prepared = createRuntimeSmokeLaunch(options);
   const spawnProcess = options.spawnProcess || require('node:child_process').spawn;
+  const stdoutPath = path.join(prepared.runDirectory, 'logs', 'player.stdout.txt');
+  const stderrPath = path.join(prepared.runDirectory, 'logs', 'player.stderr.txt');
   let child;
+  let stdoutTail = '';
+  let stderrTail = '';
+  let processExitRecordPath = null;
+  let exitEvidenceWritten = false;
+  let exitEvidenceRecord = null;
+  const captureTail = (current, chunk) => (current + chunk.toString('utf8')).slice(-8192);
+  const flushCapturedOutput = () => {
+    try { writeAtomicNew(fs, stdoutPath, stdoutTail); } catch (_) { /* primary process failure remains authoritative */ }
+    try { writeAtomicNew(fs, stderrPath, stderrTail); } catch (_) { /* primary process failure remains authoritative */ }
+  };
+  const writeExitEvidence = (state, completion = exitRecord, processInfo = null, failureCode = null, failureDiagnostic = null) => {
+    if (exitEvidenceWritten) return exitEvidenceRecord;
+    flushCapturedOutput();
+    const exitCode = completion ? completion.code : null;
+    const signal = completion ? completion.signal : null;
+    const exitCodeUnavailableReason = !completion ? 'exit_event_not_observed' : exitCode === null ? 'process_terminated_by_signal' : null;
+    const record = { schemaVersion: 1, state, runId: prepared.envelope.runId,
+      correlationId: prepared.envelope.correlationId,
+      processId: processInfo && processInfo.processId || (child && child.pid) || null,
+      processStartUtc: processInfo && processInfo.processStartUtc || null,
+      exitedUtc: completion && completion.exitedUtc || null,
+      exitCode, exitCodeUnavailableReason, signal,
+      stdoutPath, stdoutBytes: Buffer.byteLength(stdoutTail), stderrPath, stderrBytes: Buffer.byteLength(stderrTail),
+      stderrTail: stderrTail.slice(-2048),
+      nativeLaunchError: spawnError ? cleanText(spawnError.message) :
+        (failureCode === 'player_spawn_failed' || failureCode === 'player_process_error' ? cleanText(failureDiagnostic) : null),
+      diagnostic: null };
+    processExitRecordPath = path.join(prepared.runDirectory, 'runtime-smoke-process-exit.json');
+    try { writeAtomicNew(fs, processExitRecordPath, stableJson(record) + '\n'); exitEvidenceWritten = true; exitEvidenceRecord = record; }
+    catch (_) { /* do not replace the launch outcome with a secondary evidence-write failure */ }
+    return record;
+  };
   const fail = (code, message, processInfo = null) => {
-    const watch = { schemaVersion: 1, state: 'failed', failureCode: code, diagnostic: cleanText(message),
+    const exitEvidence = writeExitEvidence('failed', exitRecord, processInfo, code, message);
+    let diagnostic = cleanText(message);
+    if (exitEvidence && (exitEvidence.exitCode !== null || exitEvidence.signal)) {
+      diagnostic = cleanText(`${diagnostic} (exitCode=${exitEvidence.exitCode === null ? 'null' : exitEvidence.exitCode}, signal=${exitEvidence.signal || 'none'})`);
+    }
+    if (stderrTail.trim()) diagnostic = cleanText(`${diagnostic}; stderr: ${stderrTail.trim().slice(-2048)}`);
+    const watch = { schemaVersion: 1, state: 'failed', failureCode: code, diagnostic,
       runId: prepared.envelope.runId, correlationId: prepared.envelope.correlationId,
       processId: processInfo && processInfo.processId,
       terminationConfirmed: processInfo && processInfo.terminationConfirmed,
       processState: processInfo && processInfo.terminationConfirmed === false ? 'termination_unconfirmed' : null,
+      exitedUtc: exitEvidence && exitEvidence.exitedUtc,
+      exitCode: exitEvidence ? exitEvidence.exitCode : null,
+      exitCodeUnavailableReason: exitEvidence ? exitEvidence.exitCodeUnavailableReason : 'exit_event_not_observed',
+      signal: exitEvidence && exitEvidence.signal,
+      stdoutPath, stderrPath, processExitRecordPath,
       observedUtc: new Date().toISOString() };
     try { writeAtomicNew(fs, path.join(prepared.runDirectory, 'runtime-smoke-watch.json'), stableJson(watch) + '\n'); }
     catch (_) { /* retain original evidence; a conflicting watch record is itself a failure */ }
@@ -267,9 +328,11 @@ async function launchRuntimeSmokeProcess(options = {}) {
     child = spawnProcess(prepared.envelope.executablePath, prepared.args, {
       cwd: prepared.envelope.hostRoot,
       detached: false,
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: false,
     });
+    if (child.stdout && typeof child.stdout.on === 'function') child.stdout.on('data', (chunk) => { stdoutTail = captureTail(stdoutTail, chunk); });
+    if (child.stderr && typeof child.stderr.on === 'function') child.stderr.on('data', (chunk) => { stderrTail = captureTail(stderrTail, chunk); });
     spawned = new Promise((resolve) => {
       child.once('spawn', () => resolve(true));
       child.once('error', (error) => { spawnError = error; resolve(false); });
@@ -277,6 +340,9 @@ async function launchRuntimeSmokeProcess(options = {}) {
     exited = new Promise((resolve) => {
       child.once('exit', (code, signal) => {
         exitRecord = { code, signal, exitedUtc: new Date().toISOString() };
+      });
+      child.once('close', (code, signal) => {
+        if (!exitRecord) exitRecord = { code, signal, exitedUtc: new Date().toISOString() };
         resolve(exitRecord);
       });
       child.once('error', (error) => { spawnError = error; resolve(null); });
@@ -335,6 +401,12 @@ async function launchRuntimeSmokeProcess(options = {}) {
     }
     if (spawnError) return fail('player_process_error', spawnError.message, processInfo);
 
+    const exitEvidence = writeExitEvidence('exited', completed, processInfo);
+    processInfo.exitCode = completed.code;
+    processInfo.exitCodeUnavailableReason = exitEvidence && exitEvidence.exitCodeUnavailableReason;
+    processInfo.signal = completed.signal;
+    processInfo.exitedUtc = completed.exitedUtc;
+
     let evidence;
     try {
       const launchPath = path.join(prepared.runDirectory, 'runtime-smoke-launch.json');
@@ -371,7 +443,7 @@ async function launchRuntimeSmokeProcess(options = {}) {
       observedUtc: new Date().toISOString() };
     try { writeAtomicNew(fs, path.join(prepared.runDirectory, 'runtime-smoke-watch.json'), stableJson(watch) + '\n'); }
     catch (error) { return fail('watch_record_write_failed', error.message, processInfo); }
-    return { ...watch, ...validation, runDirectory: prepared.runDirectory };
+    return { ...watch, ...validation, runDirectory: prepared.runDirectory, evidence };
   } catch (error) {
     const terminationConfirmed = child && child.pid && !exitRecord
       ? await stopOwnedChild(child, exited, options.killGraceMs || 5000) : (exitRecord ? true : null);
@@ -380,6 +452,488 @@ async function launchRuntimeSmokeProcess(options = {}) {
   }
 }
 
+/** Copy and attest an exact built-player tree for a reusable suite gate. */
+function prepareRuntimeSmokeArtifactCopy(options = {}) {
+  const fs = options.fs || fsDefault;
+  const crypto = options.crypto || cryptoDefault;
+  const hostRoot = fs.realpathSync(options.hostRoot);
+  const sourceArtifactRoot = fs.realpathSync(options.sourceArtifactRoot);
+  const sourceExecutablePath = fs.realpathSync(options.sourceExecutablePath);
+  const authoredRoot = fs.realpathSync(options.authoredRoot);
+  const buildEvidencePath = fs.realpathSync(options.buildEvidencePath);
+  const artifactCopyDirectory = path.resolve(options.artifactCopyDirectory || '');
+  const copyId = options.copyId;
+  if (!safeId(copyId) || !fs.statSync(hostRoot).isDirectory() || !fs.statSync(sourceArtifactRoot).isDirectory() ||
+      !isWithin(sourceArtifactRoot, hostRoot) || !isWithin(sourceExecutablePath, sourceArtifactRoot) ||
+      !isWithin(buildEvidencePath, hostRoot) || overlaps(sourceArtifactRoot, authoredRoot) ||
+      overlaps(buildEvidencePath, sourceArtifactRoot) || !isWithin(artifactCopyDirectory, hostRoot) ||
+      pathEquals(artifactCopyDirectory, hostRoot) || overlaps(artifactCopyDirectory, sourceArtifactRoot) ||
+      overlaps(artifactCopyDirectory, authoredRoot) || overlaps(artifactCopyDirectory, buildEvidencePath))
+    throw Object.assign(new Error('Artifact source, build evidence, authoring inputs, and copy directory must be contained and disjoint.'), { code: 'artifact_root_escape' });
+  assertNoSymlinkPath(fs, sourceArtifactRoot, hostRoot);
+  assertNoSymlinkPath(fs, sourceExecutablePath, hostRoot);
+  assertNoSymlinkPath(fs, buildEvidencePath, hostRoot);
+  assertNoSymlinkPath(fs, artifactCopyDirectory, hostRoot);
+  if (!fs.statSync(sourceExecutablePath).isFile())
+    throw Object.assign(new Error('The selected source executable must be a file inside the artifact tree.'), { code: 'executable_invalid' });
+  if (fs.existsSync(artifactCopyDirectory))
+    throw Object.assign(new Error('Artifact-copy destination already exists; existing build evidence is never cleared.'), { code: 'artifact_copy_collision' });
+
+  const sourceTree = hashArtifactTree(fs, crypto, sourceArtifactRoot);
+  const sourceExecutableSha256 = hashFile(fs, crypto, sourceExecutablePath);
+  const sourceEvidenceBytes = fs.readFileSync(buildEvidencePath);
+  let sourceBuildEvidence;
+  try { sourceBuildEvidence = JSON.parse(sourceEvidenceBytes.toString('utf8')); }
+  catch (error) { throw Object.assign(new Error(`Build evidence is not valid JSON: ${error.message}`), { code: 'build_provenance_mismatch' }); }
+  if (!sourceBuildEvidence || sourceBuildEvidence.schemaVersion !== 1 || !pathEquals(sourceBuildEvidence.artifactPath, sourceExecutablePath) ||
+      sourceBuildEvidence.artifactSha256 !== sourceExecutableSha256 || !sourceBuildEvidence.revision || !sourceBuildEvidence.version ||
+      !HEX_256.test(sourceBuildEvidence.profileHash || '') || !HEX_256.test(sourceBuildEvidence.contentHash || '') ||
+      !sourceBuildEvidence.backend || !sourceBuildEvidence.stripping || !['development', 'smoke_harness'].includes(sourceBuildEvidence.lane))
+    throw Object.assign(new Error('Build evidence does not bind the exact source executable and complete build provenance.'), { code: 'build_provenance_mismatch' });
+  if (options.target && sourceBuildEvidence.lane !== options.target)
+    throw Object.assign(new Error('Build evidence lane does not match the suite target.'), { code: 'build_provenance_mismatch' });
+
+  const copyParent = path.dirname(artifactCopyDirectory);
+  if (!fs.existsSync(copyParent) || !fs.statSync(copyParent).isDirectory())
+    throw Object.assign(new Error('Artifact-copy parent must be an existing directory.'), { code: 'artifact_root_missing' });
+  fs.mkdirSync(artifactCopyDirectory);
+  const artifactRoot = path.join(artifactCopyDirectory, 'payload');
+  fs.cpSync(sourceArtifactRoot, artifactRoot, { recursive: true, errorOnExist: true, force: false, dereference: false });
+  const relativeExecutable = path.relative(sourceArtifactRoot, sourceExecutablePath);
+  const executablePath = path.resolve(artifactRoot, relativeExecutable);
+  assertNoSymlinkPath(fs, executablePath, artifactRoot);
+  const copiedTree = hashArtifactTree(fs, crypto, artifactRoot);
+  const copyExecutableSha256 = hashFile(fs, crypto, executablePath);
+  if (sourceTree.sha256 !== copiedTree.sha256 || sourceExecutableSha256 !== copyExecutableSha256)
+    throw Object.assign(new Error('Fresh artifact copy differs from the exact source build tree.'), { code: 'artifact_copy_mismatch' });
+
+  const copiedUtc = (options.now ? options.now() : new Date()).toISOString();
+  const attestation = {
+    schemaVersion: 1,
+    copyId,
+    copiedUtc,
+    sourceArtifactRoot,
+    sourceExecutablePath,
+    sourceTreeSha256: sourceTree.sha256,
+    sourceFileCount: sourceTree.fileCount,
+    sourceBytes: sourceTree.bytes,
+    sourceExecutableSha256,
+    sourceExecutableTimestampUtc: fs.statSync(sourceExecutablePath).mtime.toISOString(),
+    buildRevision: sourceBuildEvidence.revision,
+    buildVersion: sourceBuildEvidence.version,
+    profileHash: sourceBuildEvidence.profileHash,
+    contentHash: sourceBuildEvidence.contentHash,
+    backend: sourceBuildEvidence.backend,
+    stripping: sourceBuildEvidence.stripping,
+    lane: sourceBuildEvidence.lane,
+    sourceBuildEvidencePath: buildEvidencePath,
+    sourceBuildEvidenceSha256: crypto.createHash('sha256').update(sourceEvidenceBytes).digest('hex'),
+    copiedArtifactRoot: artifactRoot,
+    copiedExecutablePath: executablePath,
+    copyTreeSha256: copiedTree.sha256,
+    copyFileCount: copiedTree.fileCount,
+    copyBytes: copiedTree.bytes,
+    copyExecutableSha256,
+  };
+  const attestationPath = path.join(artifactCopyDirectory, 'runtime-smoke-copy-attestation.json');
+  const copiedBuildEvidencePath = path.join(artifactCopyDirectory, 'build-evidence.json');
+  const copiedBuildEvidence = { ...sourceBuildEvidence, artifactPath: executablePath };
+  writeAtomicNew(fs, copiedBuildEvidencePath, stableJson(copiedBuildEvidence) + '\n');
+  attestation.copiedBuildEvidenceSha256 = hashFile(fs, crypto, copiedBuildEvidencePath);
+  writeAtomicNew(fs, attestationPath, stableJson(attestation) + '\n');
+  return {
+    copyId,
+    sourceArtifactRoot,
+    sourceExecutablePath,
+    sourceBuildEvidencePath: buildEvidencePath,
+    artifactRoot,
+    executablePath,
+    buildEvidencePath: copiedBuildEvidencePath,
+    attestationPath,
+    attestationSha256: hashFile(fs, crypto, attestationPath),
+    attestation,
+  };
+}
+
+/** Execute a flattened, host-compiled suite against one fresh, attested copy of a built artifact. */
+async function runRuntimeSmokeSuite(spec, dependencies = {}) {
+  const fs = dependencies.fs || fsDefault;
+  const crypto = dependencies.crypto || cryptoDefault;
+  const now = dependencies.now || (() => new Date());
+  const launch = dependencies.launch || launchRuntimeSmokeProcess;
+  const normalized = validateRuntimeSmokeSuiteSpec(spec, fs);
+  const startedUtc = now().toISOString();
+  const startedMs = Date.parse(startedUtc);
+  const deadlineMs = startedMs + normalized.maximumSuiteSeconds * 1000;
+  try { fs.mkdirSync(normalized.outputDirectory); }
+  catch (error) {
+    if (error && error.code === 'EEXIST') throw Object.assign(new Error('Build-gate output directory already exists; evidence is never overwritten.'), { code: 'gate_output_collision' });
+    throw error;
+  }
+  const runsRoot = path.join(normalized.outputDirectory, 'runs');
+  fs.mkdirSync(runsRoot);
+  const entries = [];
+  let artifactCopy = null;
+  let failureCode = null;
+  let diagnostic = null;
+  try {
+    artifactCopy = prepareRuntimeSmokeArtifactCopy({
+      hostRoot: normalized.hostRoot,
+      authoredRoot: normalized.authoredRoot,
+      sourceArtifactRoot: normalized.sourceArtifactRoot,
+      sourceExecutablePath: normalized.sourceExecutablePath,
+      buildEvidencePath: normalized.buildEvidencePath,
+      target: normalized.target,
+      artifactCopyDirectory: path.join(normalized.outputDirectory, 'artifact-copy'),
+      copyId: normalized.copyId,
+      fs,
+      crypto,
+      now,
+    });
+  } catch (error) {
+    failureCode = error.code || 'artifact_copy_failed';
+    diagnostic = cleanText(error.message);
+  }
+
+  for (const entry of normalized.entries) {
+    if (failureCode) {
+      entries.push(skippedSuiteEntry(entry, failureCode, diagnostic));
+      continue;
+    }
+    const beforeRun = verifyRuntimeSmokeArtifactCopy(artifactCopy, fs, crypto);
+    if (!beforeRun.accepted) {
+      failureCode = 'artifact_copy_changed';
+      diagnostic = beforeRun.diagnostic;
+      entries.push(skippedSuiteEntry(entry, failureCode, diagnostic));
+      continue;
+    }
+    const remainingSeconds = Math.floor((deadlineMs - Date.parse(now().toISOString())) / 1000);
+    if (remainingSeconds < 1) {
+      entries.push(skippedSuiteEntry(entry, 'suite_deadline_exceeded', 'Maximum suite deadline elapsed before this workflow started.'));
+      continue;
+    }
+    const runStartedUtc = now().toISOString();
+    const runOptions = {
+      hostRoot: normalized.hostRoot,
+      outputRoot: runsRoot,
+      authoredRoot: normalized.authoredRoot,
+      executablePath: artifactCopy.executablePath,
+      buildEvidencePath: artifactCopy.buildEvidencePath,
+      runId: entry.runId,
+      correlationId: entry.correlationId,
+      workflowId: entry.workflowId,
+      canonicalScriptHash: entry.canonicalScriptHash,
+      proposition: entry.proposition,
+      requiredCapabilities: entry.requiredCapabilities.slice(),
+      parityContract: entry.parityContract,
+      target: normalized.target,
+      mode: 'fsd',
+      suiteId: normalized.suiteId,
+      scenario: entry.scenario,
+      seed: entry.seed,
+      timeoutSeconds: Math.min(entry.timeoutSeconds, remainingSeconds),
+      requiredStepIds: entry.requiredStepIds.slice(),
+    };
+    let execution;
+    try { execution = await launch(runOptions); }
+    catch (error) { execution = { accepted: false, state: 'failed', failureCode: error.code || 'runner_error', diagnostic: cleanText(error.message) }; }
+    const runEndedUtc = now().toISOString();
+    const runDirectory = execution && execution.runDirectory || path.join(runsRoot, entry.runId);
+    entries.push({
+      entryId: entry.entryId,
+      required: entry.required,
+      workflowId: entry.workflowId,
+      canonicalScriptHash: entry.canonicalScriptHash,
+      proposition: entry.proposition,
+      requiredCapabilities: entry.requiredCapabilities.slice(),
+      parityContract: entry.parityContract,
+      correlationId: entry.correlationId,
+      scenario: entry.scenario == null ? null : entry.scenario,
+      seed: entry.seed == null ? null : String(entry.seed),
+      target: normalized.target,
+      mode: 'fsd',
+      timeoutSeconds: runOptions.timeoutSeconds,
+      accepted: !!(execution && execution.accepted === true),
+      state: execution && execution.state || 'failed',
+      failureCode: execution && (execution.failureCode || (execution.accepted ? null : execution.code)) || null,
+      diagnostic: execution && (execution.diagnostic || execution.message) || null,
+      startedUtc: runStartedUtc,
+      endedUtc: runEndedUtc,
+      runDirectory,
+      launchPath: path.join(runDirectory, 'runtime-smoke-launch.json'),
+      resultPath: path.join(runDirectory, 'result.json'),
+      transcriptPath: path.join(runDirectory, 'transcript.jsonl'),
+      playerLogPath: path.join(runDirectory, 'logs', 'player.log'),
+      runtimeSmokeEvidence: collectRuntimeSmokeRunEvidence(execution && execution.evidence, runDirectory, fs, crypto),
+    });
+  }
+
+  if (artifactCopy) {
+    const afterRun = verifyRuntimeSmokeArtifactCopy(artifactCopy, fs, crypto);
+    if (!afterRun.accepted) {
+      failureCode = 'artifact_copy_changed';
+      diagnostic = afterRun.diagnostic;
+    }
+  }
+  const endedUtc = now().toISOString();
+  const gate = createRuntimeSmokeBuildGate({
+    suiteId: normalized.suiteId,
+    target: normalized.target,
+    startedUtc,
+    endedUtc,
+    maximumSuiteSeconds: normalized.maximumSuiteSeconds,
+    artifactCopy,
+    entries,
+    failureCode,
+    diagnostic,
+  });
+  const junit = serializeRuntimeSmokeBuildGateJUnit(gate);
+  const gatePath = path.join(normalized.outputDirectory, 'runtime-smoke-gate.json');
+  const junitPath = path.join(normalized.outputDirectory, 'junit.xml');
+  writeAtomicNew(fs, gatePath, stableJson(gate) + '\n');
+  writeAtomicNew(fs, junitPath, junit + '\n');
+  return { ...gate, copyAttestation: artifactCopy && artifactCopy.attestation, junit, gatePath, junitPath };
+}
+
+function createRuntimeSmokeBuildGate({ suiteId, target, startedUtc, endedUtc, maximumSuiteSeconds, artifactCopy, entries, failureCode, diagnostic }) {
+  const outcomes = entries || [];
+  const requiredFailures = outcomes.filter((entry) => entry.required && !entry.accepted);
+  const accepted = !failureCode && requiredFailures.length === 0;
+  return {
+    schemaVersion: 1,
+    suiteId,
+    target,
+    state: accepted ? 'passed' : 'failed',
+    accepted,
+    failureCode: failureCode || (requiredFailures.length ? (requiredFailures[0].failureCode || 'required_workflow_failed') : null),
+    diagnostic: diagnostic || (requiredFailures.length ? requiredFailures[0].diagnostic : null),
+    startedUtc,
+    endedUtc,
+    maximumSuiteSeconds,
+    artifactCopy: artifactCopy ? {
+      copyId: artifactCopy.copyId,
+      copiedUtc: artifactCopy.attestation.copiedUtc,
+      sourceArtifactRoot: artifactCopy.sourceArtifactRoot,
+      sourceExecutablePath: artifactCopy.sourceExecutablePath,
+      sourceTreeSha256: artifactCopy.attestation.sourceTreeSha256,
+      sourceFileCount: artifactCopy.attestation.sourceFileCount,
+      sourceBytes: artifactCopy.attestation.sourceBytes,
+      sourceExecutableSha256: artifactCopy.attestation.sourceExecutableSha256,
+      sourceExecutableTimestampUtc: artifactCopy.attestation.sourceExecutableTimestampUtc,
+      revision: artifactCopy.attestation.buildRevision,
+      version: artifactCopy.attestation.buildVersion,
+      profileHash: artifactCopy.attestation.profileHash,
+      contentHash: artifactCopy.attestation.contentHash,
+      backend: artifactCopy.attestation.backend,
+      stripping: artifactCopy.attestation.stripping,
+      lane: artifactCopy.attestation.lane,
+      sourceBuildEvidencePath: artifactCopy.attestation.sourceBuildEvidencePath,
+      sourceBuildEvidenceSha256: artifactCopy.attestation.sourceBuildEvidenceSha256,
+      copiedBuildEvidencePath: artifactCopy.buildEvidencePath,
+      copiedBuildEvidenceSha256: artifactCopy.attestation.copiedBuildEvidenceSha256,
+      copiedArtifactRoot: artifactCopy.artifactRoot,
+      copiedExecutablePath: artifactCopy.executablePath,
+      copyTreeSha256: artifactCopy.attestation.copyTreeSha256,
+      copyFileCount: artifactCopy.attestation.copyFileCount,
+      copyBytes: artifactCopy.attestation.copyBytes,
+      copyExecutableSha256: artifactCopy.attestation.copyExecutableSha256,
+      attestationPath: artifactCopy.attestationPath,
+      attestationSha256: artifactCopy.attestationSha256,
+    } : null,
+    entries: outcomes,
+  };
+}
+
+function serializeRuntimeSmokeBuildGateJUnit(gate) {
+  if (!gate || !Array.isArray(gate.entries)) throw Object.assign(new Error('A build-gate result with entries is required.'), { code: 'gate_result_invalid' });
+  const requiredNonpasses = gate.entries.some((entry) => entry.required && !entry.accepted);
+  const suiteFailureCase = gate.failureCode && !requiredNonpasses
+    ? `<testcase classname="RuntimeSmokeBuildGate" name="${xmlEscape(gate.suiteId)}"><error type="${xmlEscape(gate.failureCode)}" message="${xmlEscape(gate.diagnostic || gate.failureCode)}"/></testcase>` : '';
+  const cases = gate.entries.map((entry) => {
+    const elapsed = Math.max(0, (Date.parse(entry.endedUtc) - Date.parse(entry.startedUtc)) / 1000 || 0).toFixed(3);
+    const properties = [
+      ['entryId', entry.entryId], ['required', String(!!entry.required)], ['state', entry.state],
+      ['failureCode', entry.failureCode || ''], ['correlationId', entry.correlationId || ''],
+      ['scriptHash', entry.canonicalScriptHash || ''], ['target', entry.target || ''], ['mode', entry.mode || ''],
+      ['scenario', entry.scenario || ''], ['seed', entry.seed || ''], ['proposition', entry.proposition || ''],
+      ['requiredCapabilities', (entry.requiredCapabilities || []).join(',')], ['parityContract', entry.parityContract || ''],
+      ['runDirectory', entry.runDirectory || ''],
+    ].map(([name, value]) => `<property name="${xmlEscape(name)}" value="${xmlEscape(value)}"/>`).join('');
+    const body = `<properties>${properties}</properties>`;
+    if (entry.accepted) return `<testcase classname="${xmlEscape(gate.suiteId)}" name="${xmlEscape(entry.workflowId)}" time="${elapsed}">${body}</testcase>`;
+    if (!entry.required) return `<testcase classname="${xmlEscape(gate.suiteId)}" name="${xmlEscape(entry.workflowId)}" time="${elapsed}">${body}<skipped message="optional workflow did not pass"/></testcase>`;
+    const code = entry.failureCode || gate.failureCode || 'required_workflow_failed';
+    const text = xmlEscape(entry.diagnostic || code);
+    const failure = /^assertion_|^predicate_/.test(code)
+      ? `<failure type="${xmlEscape(code)}" message="${text}"/>`
+      : `<error type="${xmlEscape(code)}" message="${text}"/>`;
+    return `<testcase classname="${xmlEscape(gate.suiteId)}" name="${xmlEscape(entry.workflowId)}" time="${elapsed}">${body}${failure}</testcase>`;
+  }).join('') + suiteFailureCase;
+  const totalTests = gate.entries.length + (suiteFailureCase ? 1 : 0);
+  const failures = gate.entries.filter((entry) => entry.required && !entry.accepted && /^assertion_|^predicate_/.test(entry.failureCode || gate.failureCode || '')).length;
+  const errors = gate.entries.filter((entry) => entry.required && !entry.accepted && !/^assertion_|^predicate_/.test(entry.failureCode || gate.failureCode || '')).length;
+  const skipped = gate.entries.filter((entry) => !entry.required && !entry.accepted).length;
+  return `<testsuites tests="${totalTests}" failures="${failures}" errors="${errors + (suiteFailureCase ? 1 : 0)}" skipped="${skipped}"><testsuite name="${xmlEscape(gate.suiteId)}" tests="${totalTests}" failures="${failures}" errors="${errors + (suiteFailureCase ? 1 : 0)}" skipped="${skipped}">${cases}</testsuite></testsuites>`;
+}
+
+function validateRuntimeSmokeSuiteSpec(spec, fs) {
+  if (!spec || spec.schemaVersion !== 1 || !isDocumentId(spec.suiteId) ||
+      !['development', 'smoke_harness'].includes(spec.target) || !Number.isInteger(spec.maximumSuiteSeconds) ||
+      spec.maximumSuiteSeconds < 1 || spec.maximumSuiteSeconds > 86400 || !Array.isArray(spec.entries) || spec.entries.length === 0)
+    throw Object.assign(new Error('RuntimeSmoke suite spec requires schemaVersion 1, a stable suite ID, supported target, deadline, and entries.'), { code: 'suite_spec_invalid' });
+  const hostRoot = fs.realpathSync(spec.hostRoot);
+  const authoredRoot = fs.realpathSync(spec.authoredRoot);
+  const sourceArtifactRoot = fs.realpathSync(spec.sourceArtifactRoot);
+  const sourceExecutablePath = fs.realpathSync(spec.sourceExecutablePath);
+  const buildEvidencePath = fs.realpathSync(spec.buildEvidencePath);
+  const outputDirectory = path.resolve(spec.outputDirectory || '');
+  if (!isWithin(authoredRoot, hostRoot) || !isWithin(sourceArtifactRoot, hostRoot) || !isWithin(sourceExecutablePath, sourceArtifactRoot) ||
+      !isWithin(buildEvidencePath, hostRoot) || !isWithin(outputDirectory, hostRoot) || pathEquals(outputDirectory, hostRoot) ||
+      overlaps(outputDirectory, authoredRoot) || overlaps(outputDirectory, sourceArtifactRoot) || overlaps(outputDirectory, buildEvidencePath) ||
+      overlaps(outputDirectory, sourceExecutablePath))
+    throw Object.assign(new Error('Suite inputs and output must remain contained in the selected host and disjoint from authored/build inputs.'), { code: 'artifact_root_escape' });
+  assertNoSymlinkPath(fs, authoredRoot, hostRoot);
+  assertNoSymlinkPath(fs, sourceArtifactRoot, hostRoot);
+  assertNoSymlinkPath(fs, sourceExecutablePath, hostRoot);
+  assertNoSymlinkPath(fs, buildEvidencePath, hostRoot);
+  assertNoSymlinkPath(fs, outputDirectory, hostRoot);
+  const ids = new Set(); const scripts = new Set(); const runs = new Set(); const correlations = new Set();
+  const entries = spec.entries.map((entry) => {
+    if (!entry || !safeId(entry.entryId) || ids.has(entry.entryId) || !isDocumentId(entry.workflowId) || scripts.has(entry.workflowId) ||
+        typeof entry.required !== 'boolean' || entry.target !== spec.target || entry.mode !== 'fsd' ||
+        !HEX_256.test(entry.canonicalScriptHash || '') || !safeId(entry.runId) || runs.has(entry.runId) ||
+        !safeId(entry.correlationId) || correlations.has(entry.correlationId) || !Number.isInteger(entry.timeoutSeconds) ||
+      entry.timeoutSeconds < 1 || entry.timeoutSeconds > 86400 || !Array.isArray(entry.requiredStepIds) || entry.requiredStepIds.length === 0 ||
+        new Set(entry.requiredStepIds).size !== entry.requiredStepIds.length || entry.requiredStepIds.some((id) => !safeId(id)) ||
+        (entry.seed != null && !isValidSeed(entry.seed)) ||
+        (entry.requiredCapabilities != null && (!Array.isArray(entry.requiredCapabilities) ||
+          new Set(entry.requiredCapabilities).size !== entry.requiredCapabilities.length || entry.requiredCapabilities.some((capability) => !safeId(capability)))) ||
+        (entry.proposition != null && (typeof entry.proposition !== 'string' || entry.proposition.length > 512)) ||
+        (entry.parityContract != null && !safeId(entry.parityContract)))
+      throw Object.assign(new Error('Suite entries must be unique FSD workflows with matching target, canonical hash, correlation, deadline, and required steps.'), { code: 'suite_entry_invalid' });
+    ids.add(entry.entryId); scripts.add(entry.workflowId); runs.add(entry.runId); correlations.add(entry.correlationId);
+    return { ...entry, requiredCapabilities: entry.requiredCapabilities ? entry.requiredCapabilities.slice() : [],
+      proposition: entry.proposition || null, parityContract: entry.parityContract || null,
+      requiredStepIds: entry.requiredStepIds.slice() };
+  });
+  for (const entry of entries) {
+    const runDirectory = path.join(outputDirectory, 'runs', entry.runId);
+    assertWindowsPlayerArtifactPaths(runDirectory, path.join(runDirectory, 'logs', 'player.log'));
+  }
+  return { ...spec, hostRoot, authoredRoot, sourceArtifactRoot, sourceExecutablePath, buildEvidencePath, outputDirectory,
+    copyId: safeId(spec.copyId) ? spec.copyId : 'artifact-copy', entries };
+}
+
+function skippedSuiteEntry(entry, code, diagnostic) {
+  return { entryId: entry.entryId, required: entry.required, workflowId: entry.workflowId,
+    proposition: entry.proposition || null, parityContract: entry.parityContract || null,
+    canonicalScriptHash: entry.canonicalScriptHash,
+    requiredCapabilities: entry.requiredCapabilities || [], correlationId: entry.correlationId,
+    scenario: entry.scenario == null ? null : entry.scenario, seed: entry.seed == null ? null : String(entry.seed),
+    target: entry.target, mode: 'fsd', timeoutSeconds: entry.timeoutSeconds, accepted: false, state: 'skipped',
+    failureCode: code, diagnostic, runDirectory: null, launchPath: null, resultPath: null, transcriptPath: null, playerLogPath: null };
+}
+
+function verifyRuntimeSmokeArtifactCopy(copy, fs, crypto) {
+  try {
+    const sourceTree = hashArtifactTree(fs, crypto, copy.sourceArtifactRoot);
+    const copiedTree = hashArtifactTree(fs, crypto, copy.artifactRoot);
+    const sourceExe = hashFile(fs, crypto, copy.sourceExecutablePath);
+    const copiedExe = hashFile(fs, crypto, copy.executablePath);
+    const sourceEvidenceSha256 = hashFile(fs, crypto, copy.sourceBuildEvidencePath);
+    const copyEvidenceSha256 = hashFile(fs, crypto, copy.buildEvidencePath);
+    const attestationSha256 = hashFile(fs, crypto, copy.attestationPath);
+    const sourceEvidence = JSON.parse(fs.readFileSync(copy.sourceBuildEvidencePath, 'utf8'));
+    const expectedCopyEvidence = { ...sourceEvidence, artifactPath: copy.executablePath };
+    const valid = sourceEvidenceSha256 === copy.attestation.sourceBuildEvidenceSha256 &&
+      copyEvidenceSha256 === copy.attestation.copiedBuildEvidenceSha256 && attestationSha256 === copy.attestationSha256 &&
+      stableJson(JSON.parse(fs.readFileSync(copy.buildEvidencePath, 'utf8'))) === stableJson(expectedCopyEvidence) &&
+      sourceTree.sha256 === copy.attestation.sourceTreeSha256 && copiedTree.sha256 === copy.attestation.copyTreeSha256 &&
+      sourceTree.sha256 === copiedTree.sha256 && sourceExe === copy.attestation.sourceExecutableSha256 &&
+      copiedExe === copy.attestation.copyExecutableSha256 && sourceExe === copiedExe;
+    return { accepted: valid, diagnostic: valid ? null : 'Source or copied artifact tree/executable changed after fresh-copy attestation.' };
+  } catch (error) { return { accepted: false, diagnostic: cleanText(error.message) }; }
+}
+
+function hashArtifactTree(fs, crypto, root) {
+  const entries = [];
+  function visit(directory, relative) {
+    for (const dirent of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, dirent.name);
+      const rel = relative ? `${relative}/${dirent.name}` : dirent.name;
+      const stat = fs.lstatSync(absolute);
+      if (stat.isSymbolicLink()) throw Object.assign(new Error(`Artifact tree contains a symbolic link: ${rel}`), { code: 'artifact_root_escape' });
+      if (stat.isDirectory()) { entries.push({ type: 'directory', relative: rel }); visit(absolute, rel); }
+      else if (stat.isFile()) entries.push({ type: 'file', absolute, relative: rel, size: stat.size });
+      else throw Object.assign(new Error(`Artifact tree contains an unsupported filesystem entry: ${rel}`), { code: 'artifact_tree_invalid' });
+    }
+  }
+  visit(root, '');
+  entries.sort((left, right) => left.relative < right.relative ? -1 : left.relative > right.relative ? 1 : 0);
+  const hash = crypto.createHash('sha256');
+  let bytes = 0;
+  let fileCount = 0;
+  for (const entry of entries) {
+    hash.update(entry.type === 'directory' ? 'D' : 'F'); hash.update('\0');
+    hash.update(entry.relative.replace(/\\/g, '/')); hash.update('\0');
+    if (entry.type === 'file') {
+      const content = fs.readFileSync(entry.absolute);
+      hash.update(String(content.length)); hash.update('\0'); hash.update(content); hash.update('\0');
+      bytes += content.length;
+      fileCount++;
+    }
+  }
+  return { sha256: hash.digest('hex'), fileCount, entryCount: entries.length, bytes };
+}
+
+function isDocumentId(value) {
+  return typeof value === 'string' && value.length <= 160 && value.split('/').length >= 2 &&
+    value.split('/').every((part) => /^[A-Za-z0-9._-]+$/.test(part) && part !== '.' && part !== '..');
+}
+function collectRuntimeSmokeRunEvidence(evidence, runDirectory, fs, crypto) {
+  const describe = (name, relativePath) => {
+    const filePath = path.join(runDirectory, relativePath);
+    try {
+      const stat = fs.statSync(filePath);
+      if (!stat.isFile()) return null;
+      return { path: filePath, length: stat.size, lastWriteUtc: stat.mtime.toISOString(), sha256: hashFile(fs, crypto, filePath) };
+    } catch (_) { return null; }
+  };
+  const parsed = (relativePath) => {
+    try { return JSON.parse(fs.readFileSync(path.join(runDirectory, relativePath), 'utf8')); }
+    catch (_) { return null; }
+  };
+  let transcript = evidence && Array.isArray(evidence.transcript) ? evidence.transcript : null;
+  if (!transcript) {
+    try {
+      const text = fs.readFileSync(path.join(runDirectory, 'transcript.jsonl'), 'utf8');
+      transcript = text.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+    } catch (_) { transcript = null; }
+  }
+  return {
+    result: evidence && evidence.result || parsed('result.json'),
+    processExit: evidence && evidence.processExit || parsed('runtime-smoke-process-exit.json'),
+    terminal: evidence && Array.isArray(evidence.transcript) ? evidence.transcript[evidence.transcript.length - 1] || null :
+      transcript && transcript[transcript.length - 1] || null,
+    transcript,
+    files: {
+      launch: describe('launch', 'runtime-smoke-launch.json'),
+      process: describe('process', 'runtime-smoke-process.json'),
+      processExit: describe('processExit', 'runtime-smoke-process-exit.json'),
+      watch: describe('watch', 'runtime-smoke-watch.json'),
+      result: describe('result', 'result.json'),
+      transcript: describe('transcript', 'transcript.jsonl'),
+      playerLog: describe('playerLog', path.join('logs', 'player.log')),
+      playerStdout: describe('playerStdout', path.join('logs', 'player.stdout.txt')),
+      playerStderr: describe('playerStderr', path.join('logs', 'player.stderr.txt')),
+      failureContext: describe('failureContext', 'failure-context.json'),
+    },
+  };
+}
+function xmlEscape(value) {
+  return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
 function raceTimeout(promise, milliseconds, fallback) {
   let timer;
   return Promise.race([promise, new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), milliseconds); })])
@@ -410,6 +964,27 @@ function observeProcessIdentity(processId, timeoutMs = 10000) {
 function safeId(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 160 && value !== '.' && value !== '..' &&
     /^[A-Za-z0-9._-]+$/.test(value);
+}
+function assertWindowsPlayerArtifactPaths(runDirectory, logPath) {
+  if (process.platform !== 'win32') return;
+  const paths = [
+    ['-logFile', logPath],
+    ['run directory', runDirectory],
+    ['launch envelope', path.join(runDirectory, 'runtime-smoke-launch.json')],
+    ['player claim', path.join(runDirectory, 'runtime-smoke-claim.json')],
+    ['armed claim', path.join(runDirectory, 'runtime-smoke-armed.json')],
+    ['transcript', path.join(runDirectory, 'transcript.jsonl')],
+    ['result', path.join(runDirectory, 'result.json')],
+    ['build evidence snapshot', path.join(runDirectory, 'build-evidence.json')],
+    ['captured stdout', path.join(runDirectory, 'logs', 'player.stdout.txt')],
+    ['captured stderr', path.join(runDirectory, 'logs', 'player.stderr.txt')],
+  ];
+  const overlong = paths.find(([, filePath]) => filePath.length >= 260);
+  if (overlong) {
+    const [label, filePath] = overlong;
+    throw Object.assign(new Error(`RuntimeSmoke ${label} path is ${filePath.length} characters; Windows player paths must be shorter than 260. Choose a shorter output directory or run ID.`),
+      { code: 'player_artifact_path_too_long' });
+  }
 }
 function hashFile(fs, crypto, filePath) {
   const hash = crypto.createHash('sha256');
@@ -505,4 +1080,4 @@ function writeAtomicNew(fs, destination, content) {
   }
 }
 
-module.exports = { validateRuntimeSmokeEvidence, prepareRuntimeSmokeRun, createRuntimeSmokeLaunch, launchRuntimeSmokeProcess, observeProcessIdentity, createBuildToken };
+module.exports = { validateRuntimeSmokeEvidence, prepareRuntimeSmokeRun, createRuntimeSmokeLaunch, launchRuntimeSmokeProcess, observeProcessIdentity, createBuildToken, prepareRuntimeSmokeArtifactCopy, runRuntimeSmokeSuite, createRuntimeSmokeBuildGate, serializeRuntimeSmokeBuildGateJUnit };

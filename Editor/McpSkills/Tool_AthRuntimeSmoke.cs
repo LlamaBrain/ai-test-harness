@@ -58,6 +58,8 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             public bool IsIndeterminate;
             public int CompletedSteps;
             public string ActiveStepId = "";
+            public long CompletedWeight;
+            public long TotalWeight;
             public int Percent;
         }
 
@@ -128,7 +130,9 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                 WorkflowId = snapshot.WorkflowId ?? "",
                 ScriptHash = snapshot.ScriptHash ?? "",
                 State = StateLabel(snapshot.State),
-                FailureCode = RunFailureLabel(snapshot.FailureCode),
+                FailureCode = string.IsNullOrEmpty(snapshot.FailureContext?.failureCode)
+                    ? RunFailureLabel(snapshot.FailureCode) ?? ""
+                    : snapshot.FailureContext.failureCode,
                 ActiveStepId = snapshot.ActiveStepId ?? "",
                 ActiveCheckpointId = snapshot.ActiveCheckpointId ?? "",
                 Scenario = snapshot.Scenario ?? "",
@@ -147,7 +151,9 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                     IsIndeterminate = active,
                     CompletedSteps = completed,
                     ActiveStepId = snapshot.ActiveStepId ?? "",
-                    Percent = terminal ? 100 : 0
+                    CompletedWeight = snapshot.CompletedProgressWeight,
+                    TotalWeight = snapshot.TotalProgressWeight,
+                    Percent = snapshot.ProgressPercent
                 },
                 InvestigationActions = snapshot.State == RuntimeSmokeRegistryRunState.Failed && snapshot.InvestigationActions != null
                     ? new System.Collections.Generic.List<RuntimeSmokeInvestigationAction>(snapshot.InvestigationActions).ToArray()

@@ -110,6 +110,38 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
         }
 
         [Test]
+        public void WeightedProgressUsesDeclaredStepDurationAndLeavesActiveWorkIndeterminate()
+        {
+            var steps = new[]
+            {
+                CompiledStep("start", 1),
+                CompiledStep("wait-ready", 9),
+            };
+            var calculator = typeof(RuntimeSmokeRegistrySnapshot).Assembly.GetType(
+                "LlamaBrainLabs.Ath.RuntimeSmokes.RuntimeSmokeProgressCalculator");
+            Assert.That(calculator, Is.Not.Null, "The registry should expose a shared weighted progress calculator.");
+            var calculate = calculator.GetMethod("Calculate", BindingFlags.Static | BindingFlags.Public);
+            Assert.That(calculate, Is.Not.Null);
+            var projection = calculate.Invoke(null, new object[] { steps, new[]
+            {
+                new RuntimeSmokeTranscriptRecord { type = "step_completed", stepId = "start" },
+            }, false });
+            Assert.That(Property(projection, "CompletedWeight"), Is.EqualTo(1L));
+            Assert.That(Property(projection, "TotalWeight"), Is.EqualTo(10L));
+            Assert.That(Property(projection, "Percent"), Is.EqualTo(10));
+
+            var snapshot = Snapshot(RuntimeSmokeRegistryRunState.Running, null,
+                new RuntimeSmokeTranscriptRecord { type = "step_completed", stepId = "start" },
+                new RuntimeSmokeTranscriptRecord { type = "step_started", stepId = "wait-ready" });
+            Set(snapshot, "CompletedProgressWeight", Property(projection, "CompletedWeight"));
+            Set(snapshot, "TotalProgressWeight", Property(projection, "TotalWeight"));
+            Set(snapshot, "ProgressPercent", Property(projection, "Percent"));
+            var state = RuntimeSmokeEditorWindowReducer.Reduce(new RuntimeSmokeEditorWindowInput { Registered = true, Snapshot = snapshot });
+            Assert.That(state.Progress.IsIndeterminate, Is.True);
+            Assert.That(state.Progress.Percent, Is.EqualTo(10));
+        }
+
+        [Test]
         public void FailureProjectionRetainsAssertionValuesTranscriptAndArtifactNames()
         {
             var snapshot = Snapshot(RuntimeSmokeRegistryRunState.Failed, null,
@@ -185,6 +217,9 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             {
                 new RuntimeSmokeCaptureArtifactReference { path = "captures/review-checkpoint.png", bytes = 123, sha256 = new string('a', 64) }
             });
+            Set(reviewSnapshot, "CompletedProgressWeight", 3);
+            Set(reviewSnapshot, "TotalProgressWeight", 8);
+            Set(reviewSnapshot, "ProgressPercent", 37);
             var windowReview = RuntimeSmokeEditorWindowReducer.Reduce(new RuntimeSmokeEditorWindowInput { Registered = true, Snapshot = reviewSnapshot });
             var mcpReview = ProjectMcpStatus(reviewSnapshot);
 
@@ -198,6 +233,10 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Assert.That(Field(Field(mcpReview, "Progress"), "IsIndeterminate"), Is.EqualTo(windowReview.Progress.IsIndeterminate));
             Assert.That(Field(Field(mcpReview, "Progress"), "CompletedSteps"), Is.EqualTo(windowReview.Progress.CompletedSteps));
             Assert.That(Field(Field(mcpReview, "Progress"), "ActiveStepId"), Is.EqualTo(windowReview.Progress.ActiveStepId));
+            Assert.That(Field(Field(mcpReview, "Progress"), "CompletedWeight"), Is.EqualTo(3));
+            Assert.That(Field(Field(mcpReview, "Progress"), "TotalWeight"), Is.EqualTo(8));
+            Assert.That(Field(Field(mcpReview, "Progress"), "Percent"), Is.EqualTo(37));
+            Assert.That(windowReview.Progress.Percent, Is.EqualTo(37));
 
             var failedSnapshot = Snapshot(RuntimeSmokeRegistryRunState.Failed, null,
                 new RuntimeSmokeTranscriptRecord { type = "assertion_failed", stepId = "roof", assertionId = "roof-ready" });
@@ -206,8 +245,11 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             {
                 hostStateDisplay = "{\"gameReady\":false}",
                 hostStateDigest = new string('b', 64),
-                reproductionTransport = "development-console",
-                reproductionCommand = "runtime_smoke.run \"workflows/parity\" \"fresh-id\"",
+                target = "editor",
+                mode = "fsd",
+                failureCode = "assertion_mismatch",
+                reproductionTransport = "editor-mcp",
+                reproductionCommand = "ath-runtime-smoke-run workflowId=\"workflows/parity\" target=\"editor\" mode=\"fsd\" correlationId=\"fresh-id\"",
                 captureArtifacts = new[] { new RuntimeSmokeCaptureArtifactReference
                     { path = "captures/game-view.png", bytes = 128, sha256 = new string('a', 64) } }
             };
@@ -220,6 +262,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             var mcpFailed = ProjectMcpStatus(failedSnapshot);
 
             Assert.That(Field(mcpFailed, "State"), Is.EqualTo("failed"));
+            Assert.That(Field(mcpFailed, "FailureCode"), Is.EqualTo("assertion_mismatch"));
             Assert.That(Field(mcpFailed, "ArtifactDirectory"), Is.EqualTo(windowFailed.ArtifactDirectory));
             Assert.That(((string[])Field(mcpFailed, "ArtifactNames")).OrderBy(value => value), Is.EqualTo(windowFailed.Artifacts.OrderBy(value => value)));
             Assert.That(windowFailed.Artifacts, Does.Contain("captures/game-view.png"));
@@ -256,6 +299,14 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             return item;
         }
 
+        private static RuntimeSmokeCompiledStep CompiledStep(string id, int seconds)
+        {
+            var step = new RuntimeSmokeCompiledStep();
+            Set(step, "Id", id);
+            Set(step, "Seconds", seconds);
+            return step;
+        }
+
         private static RuntimeSmokeRegistrySnapshot Snapshot(RuntimeSmokeRegistryRunState status, string checkpoint,
             params RuntimeSmokeTranscriptRecord[] transcript)
         {
@@ -270,6 +321,10 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Set(snapshot, "Scenario", "scenario-run");
             Set(snapshot, "Seed", "123");
             Set(snapshot, "Transcript", (IReadOnlyList<RuntimeSmokeTranscriptRecord>)(transcript ?? new RuntimeSmokeTranscriptRecord[0]));
+            Set(snapshot, "CompletedProgressWeight", 0L);
+            Set(snapshot, "TotalProgressWeight", 1L);
+            Set(snapshot, "ProgressPercent", status == RuntimeSmokeRegistryRunState.Passed ||
+                status == RuntimeSmokeRegistryRunState.Failed || status == RuntimeSmokeRegistryRunState.Cancelled ? 100 : 0);
             return snapshot;
         }
 
@@ -293,6 +348,14 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             var field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public);
             Assert.That(field, Is.Not.Null, "Missing MCP status field " + name);
             return field.GetValue(target);
+        }
+
+        private static object Property(object target, string name)
+        {
+            Assert.That(target, Is.Not.Null, "Missing projected object for property " + name);
+            var property = target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(property, Is.Not.Null, "Missing projection property " + name);
+            return property.GetValue(target, null);
         }
     }
 }

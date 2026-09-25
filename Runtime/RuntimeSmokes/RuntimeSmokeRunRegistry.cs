@@ -97,6 +97,43 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public IReadOnlyList<RuntimeSmokeInvestigationAction> InvestigationActions { get; internal set; }
         public IReadOnlyList<RuntimeSmokeInvestigationAction> CaptureActions { get; internal set; }
         public IReadOnlyList<RuntimeSmokeCaptureArtifactReference> CaptureArtifacts { get; internal set; }
+        public long CompletedProgressWeight { get; internal set; }
+        public long TotalProgressWeight { get; internal set; }
+        public int ProgressPercent { get; internal set; }
+    }
+
+    public sealed class RuntimeSmokeProgressProjection
+    {
+        public long CompletedWeight { get; internal set; }
+        public long TotalWeight { get; internal set; }
+        public int Percent { get; internal set; }
+    }
+
+    /// <summary>Projects declared step durations as progress weights; non-duration steps count as one unit.</summary>
+    public static class RuntimeSmokeProgressCalculator
+    {
+        public static RuntimeSmokeProgressProjection Calculate(IReadOnlyList<RuntimeSmokeCompiledStep> steps,
+            IReadOnlyList<RuntimeSmokeTranscriptRecord> transcript, bool terminal = false)
+        {
+            var completed = new HashSet<string>((transcript ?? Array.Empty<RuntimeSmokeTranscriptRecord>())
+                .Where(record => record != null && record.type == "step_completed" && !string.IsNullOrEmpty(record.stepId))
+                .Select(record => record.stepId), StringComparer.Ordinal);
+            long totalWeight = 0;
+            long completedWeight = 0;
+            foreach (var step in steps ?? Array.Empty<RuntimeSmokeCompiledStep>())
+            {
+                if (step == null || string.IsNullOrEmpty(step.Id) || string.Equals(step.Type, "terminal", StringComparison.Ordinal)) continue;
+                var weight = Math.Max(1, step.Seconds);
+                totalWeight += weight;
+                if (completed.Contains(step.Id)) completedWeight += weight;
+            }
+            return new RuntimeSmokeProgressProjection
+            {
+                CompletedWeight = completedWeight,
+                TotalWeight = totalWeight,
+                Percent = terminal ? 100 : totalWeight <= 0 ? 0 : (int)(completedWeight * 100L / totalWeight)
+            };
+        }
     }
 
     /// <summary>Transport-neutral host registry for discoverable workflows and immutable, correlated runs.</summary>
@@ -532,6 +569,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             var lastFinishedSequence = session.Records.Where(record => record.type == "step_completed" || record.type == "step_failed" || record.type == "assertion_failed")
                 .Select(record => record.sequence).DefaultIfEmpty(-1).Max();
             var activeStep = lastStarted != null && lastStarted.sequence > lastFinishedSequence ? lastStarted.stepId : null;
+            var progress = RuntimeSmokeProgressCalculator.Calculate(session.Workflow.Steps, session.Records,
+                execution != null);
             return new RuntimeSmokeRegistrySnapshot
             {
                 Found = true,
@@ -541,6 +580,9 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 State = state,
                 FailureCode = execution == null ? RuntimeSmokeRunFailureCode.None : execution.FailureCode,
                 CaptureArtifacts = RuntimeSmokeFailureContextWriter.ReadCaptureArtifacts(session.Workflow, session.Records),
+                CompletedProgressWeight = progress.CompletedWeight,
+                TotalProgressWeight = progress.TotalWeight,
+                ProgressPercent = progress.Percent,
                 ActiveStepId = activeStep,
                 ActiveCheckpointId = state == RuntimeSmokeRegistryRunState.ReviewReady ? session.ActiveCheckpointId : null,
                 Scenario = session.Scenario,

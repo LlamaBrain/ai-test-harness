@@ -1,7 +1,8 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE || SMOKE_HARNESS
 // AthAsyncOpRecord — entry shape for AthBridge's ring buffer of fire-and-forget
-// async ops. Skill authors locate records by correlation id via
-// /ath-wait async_done:<id> and /ath-state last_async. Mirrors dirigible's
+// async ops. Diagnostic tooling can inspect records by correlation id via
+// /ath-wait async_done:<id> and /ath-state last_async. These are diagnostic
+// operations, not RuntimeSmoke acceptance steps. Mirrors dirigible's
 // DirigibleTestBridge.AsyncOpRecord.
 
 namespace LlamaBrainLabs.Ath

@@ -1,89 +1,12 @@
-# AI Test Harness — Claude skills
+# AITH skill references
 
-This folder contains the smoke-test `SKILL.md` workflows the harness ships
-with. Each skill orchestrates `/ath-cmd`, `/ath-state`, `/ath-wait`, and `/ath-trace-emit`
-through Unity MCP to drive a multi-step regression scenario end-to-end.
+RuntimeSmoke is the supported smoke orchestration and acceptance practice. A host authors checked-in RuntimeSmoke workflow JSON and runs it through the host bridge using the Editor window, typed MCP tools, or the structured `ath-exe runtime-smoke` runner. See [RuntimeSmoke usage and authoring](../Documentation~/runtime-smoke-usage.md) and the [RuntimeSmoke contract](../Documentation~/runtime-smokes.md).
 
-## Installing skills into a host project
+The procedural smoke documents in this directory predate RuntimeSmoke and are retained only as historical implementation context. They are not active test instructions, must not be copied into a host as acceptance workflows, and cannot establish PASS through command output, state polling, screenshot presence, or trace emission. Host repositories should remove or replace copied versions as part of their own documented migration; that consumer work is not performed by this package.
 
-Claude Code reads skills from `<project>/.claude/skills/<name>/SKILL.md`.
-Unity Package Manager does **not** auto-discover skills shipped inside a
-package's `Skills/` folder. Each skill you want available in a host
-project must be copied or symlinked into that project's `.claude/skills/`
-directory.
+Low-level command usage may still be useful for a narrowly scoped diagnostic. Label such a procedure diagnostic-only, link the relevant host RuntimeSmoke workflow, and keep its outcome distinct from the workflow's structured result. Do not add new procedural smoke skills or templates.
 
-### Copy (cross-platform)
+## Retired package documents
 
-```bash
-cp -r <ath-package-path>/Skills/ath-smoke-fullloop  <host-project>/.claude/skills/
-```
-
-### Symlink (Linux/macOS — keeps the skill live-updating against the package)
-
-```bash
-ln -s <ath-package-path>/Skills/ath-smoke-fullloop  <host-project>/.claude/skills/ath-smoke-fullloop
-```
-
-### Symlink (Windows, in an elevated shell)
-
-```powershell
-New-Item -ItemType SymbolicLink `
-  -Path "<host-project>\.claude\skills\ath-smoke-fullloop" `
-  -Target "<ath-package-path>\Skills\ath-smoke-fullloop"
-```
-
-## Verifying the copied skill is current
-
-Every shipped skill includes a `version:` frontmatter field that names the
-package version it was authored against. The skill's first step (Step 0)
-queries `/ath-state { key: "package_version" }` and aborts with a
-"re-copy from `<source>`" message if the runtime version doesn't match.
-
-Concretely:
-
-```yaml
----
-name: ath-smoke-fullloop
-version: 0.3.0
----
-```
-
-```jsonc
-let live = ath-state { "key": "package_version" }
-if (live.Value != "0.3.0") ABORT
-```
-
-When you bump the AI Test Harness package version, re-copy or re-sync
-all installed skills.
-
-## Available skills
-
-| Skill | Description |
-|---|---|
-| `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the BTS gameplay loop end-to-end. |
-| `ath-exe-smoke` | **Host-agnostic template for a built-player (EXE) smoke.** Drives a `DEVELOPMENT_BUILD` or `ATH_REMOTE` non-dev release player over the loopback socket via the internal Node client (`Tools~/ath-exe-client`) — the build-vs-editor parity tier. Copy in and fill the scenario. See `Documentation~/exe-harness.md`. |
-
-(More smoke skills will land as additional host scenarios are wired.)
-
-## Authoring new skills
-
-Skills live in subdirectories under `Skills/<skill-name>/SKILL.md`. The
-preferred structure:
-
-- YAML frontmatter with `name`, `description`, `version`.
-- Numbered steps; each step is a small block of `/ath-cmd` / `/ath-state`
-  / `/ath-wait` calls plus the expected outcome.
-- Explicit `harness.reset` between sequenced waits to clear edge-sticky
-  flags — and a note explaining when *not* to issue it (e.g. between a
-  command that fires the spawn and the wait that observes it).
-- A "PASS criteria" block enumerating every assertion that must hold.
-- A "Failure handling" block describing the screenshots + state dumps to
-  capture before triage.
-
-See `ath-smoke-fullloop/SKILL.md` for a worked example.
-
-## Future improvement
-
-An editor menu item `Tools > AI Test Harness > Sync Skills` would mirror
-`<package>/Skills/*` into `<project>/.claude/skills/` on demand, removing
-the manual copy step. Tracked for a future polish release.
+- `ath-smoke-fullloop/SKILL.md`: historical BTS-specific command-driven procedure, retained only as investigation context. It does not establish current BTS workflow coverage or acceptance; consult BTS-owned workflow docs and run evidence for that status.
+- `ath-exe-smoke/SKILL.md`: historical manual EXE command/wait template, retained only as investigation context. Built-player acceptance uses the canonical `ath-exe runtime-smoke` or `runtime-smoke-suite` runner with a declared host workflow and exact-artifact evidence; the retired file is not its authoring guide.

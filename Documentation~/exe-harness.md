@@ -1,5 +1,14 @@
 # Driving a built player — the EXE remote-console harness
 
+> **Acceptance boundary:** a sequence of direct `ath-exe launch/cmd/state/wait/snap`
+> calls is a low-level diagnostic, not a smoke PASS. For built-player smoke
+> acceptance use the declared FSD workflow and the provenance-checking
+> `ath-exe runtime-smoke <spec.json>` runner described in the
+> [RuntimeSmoke usage guide](runtime-smoke-usage.md). Its structured result,
+> transcript, process watch, and exact build evidence are required. The host's
+> build verifier must bind its required suite to that exact artifact before
+> human testing.
+
 The editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`) drive Unity **in the editor**,
 in-process. The editor never strips managed code, runs Obfuz, or produces a player, so an
 entire bug class is structurally invisible to it: managed stripping, Obfuz, default-interface
@@ -7,11 +16,14 @@ method runtime-mod compile errors, `#if UNITY_EDITOR` `AssetDatabase` fallbacks 
 null in the build, addressable trimming. Every one of those is green in the editor and only
 appears in a built player.
 
-The **EXE remote-console harness** is the slower, on-call tier that catches them. A
+The **EXE remote-console harness** is a lower-level diagnostic for investigating
+build-only behavior. It can help expose them, but its command responses and
+console sentinels are not a smoke verdict. A
 `DEVELOPMENT_BUILD` *or* an `ATH_REMOTE`-defined **non-dev release** player exposes the same
 `IngameDebugConsole` command surface over a `127.0.0.1` loopback socket; an internal Node CLI
 (`Tools~/ath-exe-client`) drives the shipping-shaped artifact with the same vocabulary already
-used in-editor and asserts on the same `CMD:`/`OK:`/`ERR:` sentinels. Screenshots are only for
+used in-editor and recognizes the same `CMD:`/`OK:`/`ERR:` sentinels for command diagnostics.
+RuntimeSmoke acceptance uses its structured runner, not these sentinels. Screenshots are only for
 genuinely visual checks. It is **off by default, developer-only, and never in a true release**.
 (Extends dirigible ADR-0031.)
 

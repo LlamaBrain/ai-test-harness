@@ -61,12 +61,17 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
         {
             WithFixture((root, options, identity, document) =>
             {
-                File.WriteAllText(Path.Combine(root, "runtime-smoke-launch.json"), SerializeExternalLaunch(document));
+                WriteLaunchAndArmedPrelude(root, document);
                 Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(options, identity, Utc(3), out var armed, out var failure), Is.True, failure);
                 Assert.That(armed.processId, Is.EqualTo(identity.ProcessId));
                 Assert.That(File.Exists(Path.Combine(root, "runtime-smoke-claim.json")), Is.True);
                 Assert.That(File.Exists(Path.Combine(root, "runtime-smoke-armed.json")), Is.True);
-                Assert.That(File.Exists(Path.Combine(root, "transcript.jsonl")), Is.True);
+                var transcript = File.ReadAllLines(Path.Combine(root, "transcript.jsonl"));
+                Assert.That(transcript, Has.Length.EqualTo(1));
+                var prelude = JsonUtility.FromJson<RuntimeSmokeTranscriptRecord>(transcript[0]);
+                Assert.That(prelude.sequence, Is.EqualTo(0));
+                Assert.That(prelude.type, Is.EqualTo("armed"));
+                Assert.That(prelude.correlationId, Is.EqualTo(document.correlationId));
 
                 Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(options, identity, Utc(4), out _, out failure), Is.False);
                 Assert.That(failure, Does.Contain("already claimed"));
@@ -78,7 +83,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
         {
             WithFixture((root, options, identity, document) =>
             {
-                File.WriteAllText(Path.Combine(root, "runtime-smoke-launch.json"), SerializeExternalLaunch(document));
+                WriteLaunchAndArmedPrelude(root, document);
                 var changed = ParseOptions(options.WorkflowId, options.CorrelationId, options.ArtifactRoot, new string('c', 64), options.BuildToken);
                 Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(changed, identity, Utc(3), out _, out var failure), Is.False);
                 Assert.That(failure, Does.Contain("provenance"));
@@ -93,12 +98,24 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
         }
 
         [Test]
+        public void ClaimRejectsMissingRunnerArmedPreludeBeforeCreatingPlayerClaim()
+        {
+            WithFixture((root, options, identity, document) =>
+            {
+                File.WriteAllText(Path.Combine(root, "runtime-smoke-launch.json"), SerializeExternalLaunch(document));
+                Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(options, identity, Utc(3), out _, out var failure), Is.False);
+                Assert.That(failure, Does.Contain("runner-armed prelude"));
+                Assert.That(File.Exists(Path.Combine(root, "runtime-smoke-claim.json")), Is.False);
+            });
+        }
+
+        [Test]
         public void ClaimRejectsEnvelopeOrBuildEvidenceTamperingBeforeRuntimeStarts()
         {
             WithFixture((root, options, identity, document) =>
             {
                 document.scriptHash = new string('4', 64);
-                File.WriteAllText(Path.Combine(root, "runtime-smoke-launch.json"), SerializeExternalLaunch(document));
+                WriteLaunchAndArmedPrelude(root, document);
                 Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(options, identity, Utc(3), out _, out var failure), Is.False);
                 Assert.That(failure, Does.Contain("provenance"));
                 Assert.That(File.Exists(Path.Combine(root, "runtime-smoke-claim.json")), Is.False);
@@ -106,7 +123,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
 
             WithFixture((root, options, identity, document) =>
             {
-                File.WriteAllText(Path.Combine(root, "runtime-smoke-launch.json"), SerializeExternalLaunch(document));
+                WriteLaunchAndArmedPrelude(root, document);
                 var evidencePath = Path.Combine(root, "build-evidence.json");
                 var changed = JsonUtility.FromJson<RuntimeSmokeBuildEvidenceDocument>(File.ReadAllText(evidencePath));
                 changed.revision = "tampered-revision";
@@ -179,6 +196,25 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             foreach (var nullableField in new[] { "suiteId", "scenario", "seed", "processStartUtc" })
                 json = json.Replace("\"" + nullableField + "\":\"\"", "\"" + nullableField + "\":null");
             return json;
+        }
+
+        private static void WriteLaunchAndArmedPrelude(string root, RuntimeSmokeLaunchDocument document)
+        {
+            File.WriteAllText(Path.Combine(root, "runtime-smoke-launch.json"), SerializeExternalLaunch(document));
+            var prelude = new RuntimeSmokeTranscriptRecord
+            {
+                schemaVersion = 1,
+                sequence = 0,
+                type = "armed",
+                timestampUtc = document.startedUtc,
+                workflowId = document.workflowId,
+                scriptHash = document.scriptHash,
+                correlationId = document.correlationId,
+                scenario = document.scenario,
+                seed = document.seed,
+                status = "armed"
+            };
+            File.WriteAllText(Path.Combine(root, "transcript.jsonl"), JsonUtility.ToJson(prelude) + "\n");
         }
     }
 }

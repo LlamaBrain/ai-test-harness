@@ -16,7 +16,15 @@ namespace LlamaBrainLabs.Ath.Editor.RuntimeSmokes
     }
 
     public sealed class RuntimeSmokeEditorWindowControls { public bool CanStart; public bool CanCancel; public bool CanResume; public bool CanCapture; }
-    public sealed class RuntimeSmokeEditorProgress { public bool IsIndeterminate; public int CompletedSteps; public string ActiveStepId; public int Percent; }
+    public sealed class RuntimeSmokeEditorProgress
+    {
+        public bool IsIndeterminate;
+        public int CompletedSteps;
+        public string ActiveStepId;
+        public long CompletedWeight;
+        public long TotalWeight;
+        public int Percent;
+    }
     public sealed class RuntimeSmokeEditorAssertionFailure { public string AssertionId; public string Name; public string Classification; public string Expected; public string Actual; public string Diagnostic; }
 
     public sealed class RuntimeSmokeEditorWindowState
@@ -90,7 +98,10 @@ namespace LlamaBrainLabs.Ath.Editor.RuntimeSmokes
                 Progress = new RuntimeSmokeEditorProgress
                 {
                     IsIndeterminate = active, CompletedSteps = completed,
-                    ActiveStepId = snapshot == null ? null : snapshot.ActiveStepId, Percent = terminal ? 100 : 0
+                    ActiveStepId = snapshot == null ? null : snapshot.ActiveStepId,
+                    CompletedWeight = snapshot == null ? 0 : snapshot.CompletedProgressWeight,
+                    TotalWeight = snapshot == null ? 0 : snapshot.TotalProgressWeight,
+                    Percent = snapshot == null ? 0 : snapshot.ProgressPercent
                 },
                 SelectedWorkflow = selectedWorkflow,
                 AssertionFailure = failure,

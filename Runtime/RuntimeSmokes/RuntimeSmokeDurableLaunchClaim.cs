@@ -210,6 +210,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             {
                 if (!Matches(options, process, nowUtc, root, launch, out var mismatch))
                     return Reject("RuntimeSmoke launch provenance is invalid (" + mismatch + ").", out failure);
+                if (!HasMatchingArmedPrelude(root, launch))
+                    return Reject("RuntimeSmoke launch transcript is missing its matching runner-armed prelude.", out failure);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
                 exception is ArgumentException || exception is NotSupportedException || exception is InvalidOperationException || exception is OverflowException)
@@ -241,18 +243,6 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             {
                 WriteNew(Path.Combine(root, "runtime-smoke-claim.json"), JsonUtility.ToJson(armed) + "\n");
                 WriteNew(Path.Combine(root, "runtime-smoke-armed.json"), JsonUtility.ToJson(armed) + "\n");
-                WriteNew(Path.Combine(root, "transcript.jsonl"), JsonUtility.ToJson(new RuntimeSmokeTranscriptRecord
-                {
-                    sequence = 0,
-                    type = "armed",
-                    timestampUtc = armed.processStartUtc,
-                    workflowId = armed.workflowId,
-                    scriptHash = armed.scriptHash,
-                    correlationId = armed.correlationId,
-                    scenario = armed.scenario,
-                    seed = armed.seed,
-                    status = "armed"
-                }) + "\n");
                 options.SetClaimedHostPaths(launch.hostRoot, launch.outputRoot, launch.authoredRoot);
                 options.MarkDurablyClaimed();
                 return true;
@@ -268,6 +258,35 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             {
                 armed = null;
                 return Reject("RuntimeSmoke durable claim could not be written.", out failure);
+            }
+        }
+
+        private static bool HasMatchingArmedPrelude(string root, RuntimeSmokeLaunchDocument launch)
+        {
+            var transcriptPath = Path.Combine(root, "transcript.jsonl");
+            try
+            {
+                using (var stream = new FileStream(transcriptPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var reader = new StreamReader(stream, Encoding.UTF8, true))
+                {
+                    var firstLine = reader.ReadLine();
+                    if (string.IsNullOrWhiteSpace(firstLine) || !string.IsNullOrWhiteSpace(reader.ReadLine())) return false;
+                    var prelude = JsonUtility.FromJson<RuntimeSmokeTranscriptRecord>(firstLine);
+                    return prelude != null && prelude.schemaVersion == 1 && prelude.sequence == 0 && prelude.type == "armed" &&
+                        prelude.status == "armed" && prelude.workflowId == launch.workflowId &&
+                        prelude.scriptHash == launch.scriptHash && prelude.correlationId == launch.correlationId &&
+                        prelude.scenario == launch.scenario && prelude.seed == launch.seed &&
+                        DateTime.TryParse(prelude.timestampUtc, CultureInfo.InvariantCulture,
+                            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var timestamp) &&
+                        timestamp <= DateTime.Parse(launch.startedUtc, CultureInfo.InvariantCulture,
+                            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+                }
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                exception is ArgumentException || exception is NotSupportedException || exception is InvalidOperationException ||
+                exception is FormatException)
+            {
+                return false;
             }
         }
 

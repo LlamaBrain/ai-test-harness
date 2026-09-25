@@ -14,6 +14,9 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
         public async Task ListStartAndStatusUseTheSameRegisteredCompiledWorkflow()
         {
             var workflow = Compile();
+            var expectedProgressWeight = workflow.Steps
+                .Where(step => step.Type != "terminal")
+                .Sum(step => Math.Max(1, step.Seconds));
             var registry = Registry(workflow, (step, context) => Task.Delay(250).ContinueWith(_ => new RuntimeSmokeStepResponse
             {
                 CorrelationId = context.CorrelationId,
@@ -27,12 +30,16 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             var active = registry.GetStatus("registry-run");
             Assert.That(active.State, Is.EqualTo(RuntimeSmokeRegistryRunState.Running));
             Assert.That(active.ActiveStepId, Is.EqualTo("begin"));
+            Assert.That(active.TotalProgressWeight, Is.EqualTo(expectedProgressWeight));
             Assert.That(active.ArtifactDirectory, Is.Null, "Ordinary transcript sinks keep working without claiming a path.");
             var snapshot = await registry.WaitForCompletionAsync("registry-run");
             Assert.That(snapshot.State, Is.EqualTo(RuntimeSmokeRegistryRunState.Passed));
             Assert.That(snapshot.WorkflowId, Is.EqualTo(workflow.Id));
             Assert.That(snapshot.CorrelationId, Is.EqualTo("registry-run"));
             Assert.That(snapshot.Transcript.Count(record => record.type == "run_terminal"), Is.EqualTo(1));
+            Assert.That(snapshot.CompletedProgressWeight, Is.EqualTo(expectedProgressWeight));
+            Assert.That(snapshot.TotalProgressWeight, Is.EqualTo(expectedProgressWeight));
+            Assert.That(snapshot.ProgressPercent, Is.EqualTo(100));
         }
 
         [Test]
@@ -124,6 +131,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Assert.That(snapshot.State, Is.EqualTo(RuntimeSmokeRegistryRunState.Failed));
             Assert.That(snapshot.FailureContext.assertionId, Is.EqualTo("is-ready"));
             Assert.That(snapshot.FailureContext.assertionSchemaVersion, Is.EqualTo(1));
+            Assert.That(snapshot.FailureContext.failureCode, Is.EqualTo("assertion_mismatch"));
             Assert.That(snapshot.FailureContext.expectedDisplay, Is.EqualTo("true"));
             Assert.That(snapshot.FailureContext.actualDisplay, Is.EqualTo("false"));
         }

@@ -5,19 +5,20 @@
 
 By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://github.com/LlamaBrain) project, part of the [Captain SDLC](https://github.com/LlamaBrain/captain-sdlc) pipeline.
 
-A reusable Unity package providing a three-layer MCP-driven dev test harness, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
+A reusable Unity test harness with a host-neutral RuntimeSmoke runner and lower-level diagnostic transports, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
-> **Status:** v0.3.0. The v0.2 editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade. v0.3 adds the **EXE remote-console harness** — an optional, off-by-default `ATH_REMOTE` build surface that drives a built player (including a non-dev IL2CPP release) over a `127.0.0.1` loopback socket via the internal `ath-exe` Node client, live-verified against a BeforeTheShade RC build. See `Documentation~/exe-harness.md`.
+> **Status:** v0.3.0. This package implements the host-neutral RuntimeSmoke compiler, typed assertions, coordinator, Editor window, MCP operations, and EXE runner. Consumer-specific registration and end-to-end validation remain separate: Editor/player runs, human review, and exact-artifact build-gate acceptance must be reported from that consumer's own evidence.
 
-The RuntimeSmoke compiler, typed assertion contracts, coordinator, and JSONL transcript sink are documented in [`Documentation~/runtime-smokes.md`](Documentation~/runtime-smokes.md). This is an in-progress platform addition; the guide distinguishes package/consumer tests from the still-required interactive and player transport acceptance gates.
+Start with the [RuntimeSmoke usage and authoring guide](Documentation~/runtime-smoke-usage.md), then see the [RuntimeSmoke API contract](Documentation~/runtime-smokes.md). The older `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`, direct EXE console tools, and procedural smoke skills remain low-level diagnostics; they do not provide an alternate smoke acceptance path. See the [AITH documentation migration audit](Documentation~/runtime-smoke-migration-audit.md).
 
 ## What it is
 
-Three layers:
+The package has a typed smoke runner plus lower-level diagnostic transports:
 
-1. **In-game runtime** — `IngameDebugConsole` commands with `CMD:`/`OK:`/`ERR:` sentinels tagged with correlation IDs. Strips from release builds via `#if UNITY_EDITOR || DEVELOPMENT_BUILD`.
-2. **Editor MCP tools** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`. Synchronous; correlation-id-filtered log capture, state queries, predicate waits, and Captain SDLC trace emission.
-3. **Claude `SKILL.md` workflows** — composed smoke tests that orchestrate the three tools.
+1. **RuntimeSmoke** — checked-in host workflows executed through the shared coordinator, structured results, and JSONL transcript. Host bridges provide declared game capabilities; AITH owns protocol and assertion semantics.
+2. **Editor controls** — the RuntimeSmoke window and typed MCP operations expose the host registry's workflows and run state.
+3. **Built-player runner** — `ath-exe runtime-smoke <spec.json>` watches one declared FSD workflow; `ath-exe runtime-smoke-suite <spec.json>` attests a fresh artifact copy, runs an ordered suite, and emits aggregate gate JSON/JUnit for development or `smoke_harness` builds.
+4. **Diagnostics** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`, and direct EXE remote-console commands help inspect a host. They are not smoke acceptance tools. Legacy procedural skills are retired as acceptance guidance.
 
 Hosts implement `IAthHostAdapter` to expose their game state and lifecycle events to the harness. The package never references host types.
 
@@ -76,17 +77,18 @@ private static void RegisterAth()
 }
 ```
 
-### 6. Install the smoke skills
+### 6. Add host RuntimeSmoke workflows
 
-The package ships its Claude smoke-test skills under `Skills/<name>/SKILL.md`. Manually copy or symlink the relevant skill folders into your host project's `.claude/skills/` directory. (Future improvement: an editor menu item to sync these automatically.)
+Author host-owned workflow JSON in the project's RuntimeSmokes tree, then use the shared guide and the host's quickstart to register and run those documents. The package's old procedural skills are retained only as retired references and must not be used for smoke acceptance. See [RuntimeSmoke usage and authoring](Documentation~/runtime-smoke-usage.md).
 
 ## What's in here
 
-- `Runtime/` — core (`IAthHostAdapter`, `AthServices`, `AthBridge`) + `Commands/` (package-supplied `[ConsoleMethod]` commands).
-- `Editor/McpSkills/` — `Tool_AthCmd`, `Tool_AthState`, `Tool_AthWait`, `Tool_AthTraceEmit` (+ pure `AthTraceWriter`/`AthTraceEmitter`).
-- `Skills/` — Claude `SKILL.md` workflows.
-- `Samples~/MinimalHostAdapter/` — no-op adapter for fresh-project smoke testing.
-- `Documentation~/` — adapter contract (`adapter-contract.md`), operator guide (`using-ath.md`), trace events (`trace-events.md`).
+- `Runtime/` — host contract, diagnostic commands, and host-neutral `RuntimeSmokes/` protocol.
+- `Editor/` — RuntimeSmoke window, typed MCP tools, and low-level diagnostic tools.
+- `Tools~/ath-exe-client/` — direct diagnostics plus the structured `runtime-smoke` artifact runner.
+- `Skills/` — legacy procedural guides retained as explicitly retired references; host workflows belong in the host's checked-in RuntimeSmoke documents.
+- `Samples~/MinimalHostAdapter/` — no-op adapter for a fresh-project package-boundary diagnostic.
+- `Documentation~/` — [RuntimeSmoke operator/authoring guide](Documentation~/runtime-smoke-usage.md), [RuntimeSmoke contract](Documentation~/runtime-smokes.md), migration audit, adapter contract, diagnostic transport guides, and trace events.
 
 ## Architecture notes
 

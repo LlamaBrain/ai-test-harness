@@ -84,6 +84,12 @@ test('accepts exactly one complete PASS bound to the armed process and launch id
   assert.equal(validate(evidence()).accepted, true);
 });
 
+test('accepts a durable runner armed prelude written before the player process starts', () => {
+  const sample = evidence();
+  sample.transcript[0].timestampUtc = startedUtc;
+  assert.equal(validate(sample).accepted, true);
+});
+
 test('rejects scenario or seed drift in armed identity and every transcript event', () => {
   for (const mutate of [
     (sample) => { sample.armed.scenario = 'other'; },
@@ -298,12 +304,14 @@ test('creates a fresh, provenance-bound launch envelope and isolated run folders
 
     const launchOptions = {
       hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
-      runId: 'run-1', correlationId: 'corr-1', workflowId: 'workflows/test', scriptHash: hash,
+      runId: 'run-1', correlationId: 'corr-1', workflowId: 'workflows/test', canonicalScriptHash: '797cfa2aedb128f90eca43b0487a036147f6e05f0a249e9d5c639b9edf9e9b06',
       target: 'development', mode: 'fsd', suiteId: 'suites/test', scenario: 'fixture', seed: 42,
       timeoutSeconds: 60, requiredStepIds: ['ready', 'completed'], now: () => new Date(startedUtc), randomBytes: () => Buffer.from(nonce, 'hex'),
       requiredStepIds: ['ready', 'completed'],
     };
     assert.throws(() => createRuntimeSmokeLaunch({ ...launchOptions, seed: '' }),
+      (error) => error.code === 'launch_input_invalid');
+    assert.throws(() => createRuntimeSmokeLaunch({ ...launchOptions, runId: 'raw-hash-only', canonicalScriptHash: undefined, scriptHash: hash }),
       (error) => error.code === 'launch_input_invalid');
     const result = createRuntimeSmokeLaunch(launchOptions);
     const stringSeed = createRuntimeSmokeLaunch({
@@ -315,6 +323,10 @@ test('creates a fresh, provenance-bound launch envelope and isolated run folders
     }), (error) => error.code === 'launch_input_invalid');
 
     assert.equal(result.envelope.executableSha256, require('node:crypto').createHash('sha256').update('exact-build-bytes').digest('hex'));
+    const compiledHash = '797cfa2aedb128f90eca43b0487a036147f6e05f0a249e9d5c639b9edf9e9b06';
+    assert.equal(result.envelope.scriptHash, compiledHash);
+    const prelude = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'transcript.jsonl'), 'utf8').trim());
+    assert.equal(prelude.scriptHash, compiledHash);
     assert.match(result.envelope.nonce, /^[0-9a-f]{64}$/);
     assert.match(result.envelope.buildToken, /^[0-9a-f]{64}$/);
     assert.equal(fs.existsSync(path.join(result.runDirectory, 'scratch')), true);
@@ -331,6 +343,32 @@ test('creates a fresh, provenance-bound launch envelope and isolated run folders
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
+});
+
+test('rejects a legacy-Windows overlong player log path before claiming a run directory', { skip: process.platform !== 'win32' }, () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'ath-runtime-smoke-long-player-path-'));
+  try {
+    const hostRoot = path.join(parent, 'host');
+    const outputRoot = path.join(hostRoot, 'Artifacts', 'RuntimeSmokes');
+    const authoredRoot = path.join(hostRoot, 'Assets', 'RuntimeSmokes');
+    const buildRoot = path.join(hostRoot, 'Builds');
+    fs.mkdirSync(outputRoot, { recursive: true });
+    fs.mkdirSync(authoredRoot, { recursive: true });
+    fs.mkdirSync(buildRoot, { recursive: true });
+    const executablePath = path.join(buildRoot, 'game.exe');
+    fs.writeFileSync(executablePath, 'build');
+    const buildEvidencePath = path.join(buildRoot, 'build.json');
+    fs.writeFileSync(buildEvidencePath, JSON.stringify({ schemaVersion: 1, artifactPath: executablePath,
+      artifactSha256: require('node:crypto').createHash('sha256').update('build').digest('hex'),
+      revision: 'rev-1', version: '1.2.3', profileHash: 'd'.repeat(64), contentHash: 'e'.repeat(64),
+      backend: 'IL2CPP', stripping: 'High', lane: 'development' }));
+    const runId = 'r'.repeat(160);
+    assert.throws(() => createRuntimeSmokeLaunch({ hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
+      runId, correlationId: 'long-path-corr', workflowId: 'workflows/test', canonicalScriptHash: hash,
+      target: 'development', mode: 'fsd', timeoutSeconds: 60, requiredStepIds: ['ready'] }),
+    (error) => error.code === 'player_artifact_path_too_long' && /-logFile/.test(error.message) && /shorter/.test(error.message));
+    assert.equal(fs.existsSync(path.join(outputRoot, runId)), false);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
 test('does not overwrite a colliding launch run directory or accept changed build bytes', () => {
@@ -350,7 +388,7 @@ test('does not overwrite a colliding launch run directory or accept changed buil
       revision: 'rev-1', version: '1.2.3', profileHash: 'd'.repeat(64), contentHash: 'e'.repeat(64),
       backend: 'IL2CPP', stripping: 'High', lane: 'development', artifactSha256: '0'.repeat(64) }));
     const options = { hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
-      runId: 'collision', correlationId: 'corr-1', workflowId: 'workflows/test', scriptHash: hash,
+      runId: 'collision', correlationId: 'corr-1', workflowId: 'workflows/test', canonicalScriptHash: hash,
       target: 'development', mode: 'fsd', timeoutSeconds: 60, requiredStepIds: ['ready'] };
     assert.throws(() => createRuntimeSmokeLaunch(options), (error) => error.code === 'build_provenance_mismatch');
     const evidenceDocument = JSON.parse(fs.readFileSync(buildEvidencePath, 'utf8'));
@@ -385,7 +423,7 @@ test('requires the build evidence file to remain within the selected host', () =
       backend: 'IL2CPP', stripping: 'High', lane: 'development' }));
     assert.throws(() => createRuntimeSmokeLaunch({ hostRoot, outputRoot, authoredRoot, executablePath,
       buildEvidencePath, runId: 'run-1', correlationId: 'corr-1', workflowId: 'workflows/test',
-      scriptHash: hash, target: 'development', mode: 'fsd', timeoutSeconds: 60, requiredStepIds: ['ready'] }),
+      canonicalScriptHash: hash, target: 'development', mode: 'fsd', timeoutSeconds: 60, requiredStepIds: ['ready'] }),
     (error) => error.code === 'build_provenance_mismatch');
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -411,7 +449,7 @@ test('rejects run IDs that traverse or escape the output root', () => {
       backend: 'IL2CPP', stripping: 'High', lane: 'development' }));
     for (const runId of ['.', '..', '../escape', 'nested/run']) {
       assert.throws(() => createRuntimeSmokeLaunch({ hostRoot, outputRoot, authoredRoot, executablePath,
-        buildEvidencePath, runId, correlationId: 'corr-1', workflowId: 'workflows/test', scriptHash: hash,
+        buildEvidencePath, runId, correlationId: 'corr-1', workflowId: 'workflows/test', canonicalScriptHash: hash,
         target: 'development', mode: 'fsd', timeoutSeconds: 60, requiredStepIds: ['ready'] }),
       (error) => error.code === 'launch_input_invalid' || error.code === 'artifact_root_escape');
     }
@@ -421,7 +459,7 @@ test('rejects run IDs that traverse or escape the output root', () => {
   }
 });
 
-test('launches one owned process, writes its process watch record, and validates terminal evidence', async () => {
+test('waits for late player evidence, writes its process watch record, and validates terminal evidence', async () => {
   const EventEmitter = require('node:events');
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'ath-runtime-smoke-process-'));
   try {
@@ -445,13 +483,34 @@ test('launches one owned process, writes its process watch record, and validates
     let capturedArgs;
     const result = await launchRuntimeSmokeProcess({
       hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
-      runId: 'process-run', correlationId: 'process-corr', workflowId: 'workflows/test', scriptHash: hash,
+      runId: 'process-run', correlationId: 'process-corr', workflowId: 'workflows/test', canonicalScriptHash: hash,
       target: 'development', mode: 'fsd', timeoutSeconds: 30, requiredStepIds: ['ready'],
       spawnProcess: (_exe, args) => {
         capturedArgs = args;
+        const runDirectory = args[args.indexOf('-runtimeSmokeArtifactRoot') + 1];
+        const launchAtSpawn = JSON.parse(fs.readFileSync(path.join(runDirectory, 'runtime-smoke-launch.json'), 'utf8'));
+        assert.equal(fs.existsSync(path.dirname(launchAtSpawn.logPath)), true, 'Unity log parent must exist before spawn');
+        assert.equal(fs.existsSync(path.dirname(path.join(runDirectory, 'logs', 'player.stdout.txt'))), true,
+          'captured process output parent must exist before spawn');
+        assert.match(launchAtSpawn.nonce, /^[0-9a-f]{64}$/);
+        assert.match(launchAtSpawn.buildToken, /^[0-9a-f]{64}$/);
+        assert.equal(args[args.indexOf('-runtimeSmokeNonce') + 1], launchAtSpawn.nonce);
+        assert.equal(args[args.indexOf('-runtimeSmokeBuildToken') + 1], launchAtSpawn.buildToken);
+        const transcriptPath = path.join(runDirectory, 'transcript.jsonl');
+        assert.equal(fs.existsSync(transcriptPath), true, 'armed metadata transcript must be durable before spawn');
+        const preSpawnLines = fs.readFileSync(transcriptPath, 'utf8').trimEnd().split(/\r?\n/);
+        assert.equal(preSpawnLines.length, 1);
+        const preSpawnArmed = JSON.parse(preSpawnLines[0]);
+        assert.equal(preSpawnArmed.sequence, 0);
+        assert.equal(preSpawnArmed.type, 'armed');
+        assert.equal(preSpawnArmed.status, 'armed');
+        assert.equal(preSpawnArmed.correlationId, launchAtSpawn.correlationId);
+        assert.equal(preSpawnArmed.workflowId, launchAtSpawn.workflowId);
+        assert.equal(preSpawnArmed.scriptHash, launchAtSpawn.scriptHash);
+        assert.equal(fs.existsSync(path.join(runDirectory, 'runtime-smoke-armed.json')), false,
+          'player claim identity must not be pre-seeded');
         setImmediate(() => child.emit('spawn'));
         setTimeout(() => {
-          const runDirectory = args[args.indexOf('-runtimeSmokeArtifactRoot') + 1];
           const launch = JSON.parse(fs.readFileSync(path.join(runDirectory, 'runtime-smoke-launch.json'), 'utf8'));
           const processRecord = JSON.parse(fs.readFileSync(path.join(runDirectory, 'runtime-smoke-process.json'), 'utf8'));
           const terminalTime = new Date().toISOString();
@@ -462,18 +521,17 @@ test('launches one owned process, writes its process watch record, and validates
             executableSha256: launch.executableSha256, buildRevision: launch.buildRevision,
             profileHash: launch.profileHash, contentHash: launch.contentHash, scenario: launch.scenario, seed: launch.seed };
           const transcript = [
-            { ...common, sequence: 0, type: 'armed', status: 'armed', timestampUtc: processRecord.processStartUtc },
             { ...common, sequence: 1, type: 'run_started', status: 'running', timestampUtc: processRecord.processStartUtc },
             { ...common, sequence: 2, type: 'step_completed', stepId: 'ready', status: 'passed', timestampUtc: terminalTime },
             { ...common, sequence: 3, type: 'run_terminal', status: 'passed', timestampUtc: terminalTime },
           ];
           fs.writeFileSync(path.join(runDirectory, 'runtime-smoke-armed.json'), JSON.stringify(armed));
-          fs.writeFileSync(path.join(runDirectory, 'transcript.jsonl'), transcript.map(JSON.stringify).join('\n') + '\n');
+          fs.appendFileSync(path.join(runDirectory, 'transcript.jsonl'), transcript.map(JSON.stringify).join('\n') + '\n');
           fs.writeFileSync(path.join(runDirectory, 'result.json'), JSON.stringify({ ...common, terminalState: 'passed',
             startedUtc: processRecord.processStartUtc, endedUtc: terminalTime, failureCode: null }));
           fs.writeFileSync(launch.logPath, 'fresh player log');
-          setImmediate(() => child.emit('exit', 0, null));
-        }, 15);
+          setImmediate(() => { child.emit('exit', 0, null); child.emit('close', 0, null); });
+        }, 400);
         return child;
       },
       observeProcessIdentity: () => ({ executablePath, processStartUtc: new Date().toISOString() }),
@@ -481,7 +539,12 @@ test('launches one owned process, writes its process watch record, and validates
     assert.equal(result.accepted, true, JSON.stringify(result));
     assert.equal(capturedArgs[capturedArgs.indexOf('-runtimeSmoke') + 1], 'workflows/test');
     assert.equal(fs.existsSync(path.join(result.runDirectory, 'runtime-smoke-process.json')), true);
-    assert.equal(JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-watch.json'), 'utf8')).state, 'passed');
+    const processExit = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-process-exit.json'), 'utf8'));
+    assert.equal(processExit.exitCode, 0);
+    assert.equal(processExit.exitCodeUnavailableReason, null);
+    const watch = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-watch.json'), 'utf8'));
+    assert.equal(watch.state, 'passed');
+    assert.equal(watch.exitCode, 0);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
@@ -505,12 +568,70 @@ test('records synchronous process-launch failure without treating it as an infra
       revision: 'rev-1', version: '1.2.3', profileHash: 'd'.repeat(64), contentHash: 'e'.repeat(64),
       backend: 'IL2CPP', stripping: 'High', lane: 'development' }));
     const result = await launchRuntimeSmokeProcess({ hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
-      runId: 'spawn-failure', correlationId: 'spawn-failure-corr', workflowId: 'workflows/test', scriptHash: hash,
+      runId: 'spawn-failure', correlationId: 'spawn-failure-corr', workflowId: 'workflows/test', canonicalScriptHash: hash,
       target: 'development', mode: 'fsd', timeoutSeconds: 2, requiredStepIds: ['ready'],
       spawnProcess: () => { throw new Error('executable was not started'); } });
     assert.equal(result.accepted, false);
     assert.equal(result.failureCode, 'player_spawn_failed');
-    assert.equal(JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-watch.json'), 'utf8')).state, 'failed');
+    const watch = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-watch.json'), 'utf8'));
+    assert.equal(watch.state, 'failed');
+    assert.equal(watch.exitCode, null);
+    assert.equal(watch.exitCodeUnavailableReason, 'exit_event_not_observed');
+    assert.match(watch.diagnostic, /executable was not started/);
+    const processExit = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-process-exit.json'), 'utf8'));
+    assert.equal(processExit.exitCodeUnavailableReason, 'exit_event_not_observed');
+    assert.match(processExit.nativeLaunchError, /executable was not started/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test('persists the child exit status and captured native stderr when the player exits before RuntimeSmoke evidence', async () => {
+  const EventEmitter = require('node:events');
+  const { PassThrough } = require('node:stream');
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'ath-runtime-smoke-early-exit-'));
+  try {
+    const hostRoot = path.join(parent, 'host');
+    const outputRoot = path.join(hostRoot, 'Artifacts');
+    const authoredRoot = path.join(hostRoot, 'Assets', 'RuntimeSmokes');
+    const buildRoot = path.join(hostRoot, 'Builds');
+    fs.mkdirSync(outputRoot, { recursive: true });
+    fs.mkdirSync(authoredRoot, { recursive: true });
+    fs.mkdirSync(buildRoot, { recursive: true });
+    const executablePath = path.join(buildRoot, 'game.exe');
+    fs.writeFileSync(executablePath, 'build');
+    const buildEvidencePath = path.join(buildRoot, 'build.json');
+    fs.writeFileSync(buildEvidencePath, JSON.stringify({ schemaVersion: 1, artifactPath: executablePath,
+      artifactSha256: require('node:crypto').createHash('sha256').update('build').digest('hex'),
+      revision: 'rev-1', version: '1.2.3', profileHash: 'd'.repeat(64), contentHash: 'e'.repeat(64),
+      backend: 'IL2CPP', stripping: 'High', lane: 'development' }));
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.pid = 5353;
+    child.kill = () => true;
+    const resultPromise = launchRuntimeSmokeProcess({ hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
+      runId: 'early-exit', correlationId: 'early-exit-corr', workflowId: 'workflows/test', canonicalScriptHash: hash,
+      target: 'development', mode: 'fsd', timeoutSeconds: 10, requiredStepIds: ['ready'],
+      spawnProcess: () => {
+        setImmediate(() => child.emit('spawn'));
+        setTimeout(() => {
+          child.stderr.end('UnityPlayer initialization failed: missing runtime dependency\n');
+          child.emit('exit', 127, null);
+          child.emit('close', 127, null);
+        }, 10);
+        return child;
+      },
+      observeProcessIdentity: () => ({ executablePath, processStartUtc: new Date().toISOString() }),
+    });
+    const result = await resultPromise;
+    const processExit = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-process-exit.json'), 'utf8'));
+    const watch = JSON.parse(fs.readFileSync(path.join(result.runDirectory, 'runtime-smoke-watch.json'), 'utf8'));
+    assert.equal(processExit.exitCode, 127);
+    assert.equal(processExit.signal, null);
+    assert.equal(watch.exitCode, 127);
+    assert.equal(watch.exitCodeUnavailableReason, null);
+    assert.match(fs.readFileSync(path.join(result.runDirectory, 'logs', 'player.stderr.txt'), 'utf8'), /missing runtime dependency/);
+    assert.match(result.diagnostic, /exitCode=127/);
+    assert.match(result.diagnostic, /missing runtime dependency/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
@@ -536,9 +657,9 @@ test('rejects a spawned process whose observed executable image differs from the
       backend: 'IL2CPP', stripping: 'High', lane: 'development' }));
     const child = new EventEmitter();
     child.pid = 777;
-    child.kill = () => { setImmediate(() => child.emit('exit', 1, null)); return true; };
+    child.kill = () => { setImmediate(() => { child.emit('exit', 1, null); child.emit('close', 1, null); }); return true; };
     const result = await launchRuntimeSmokeProcess({ hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
-      runId: 'image-mismatch', correlationId: 'image-mismatch-corr', workflowId: 'workflows/test', scriptHash: hash,
+      runId: 'image-mismatch', correlationId: 'image-mismatch-corr', workflowId: 'workflows/test', canonicalScriptHash: hash,
       target: 'development', mode: 'fsd', timeoutSeconds: 3, requiredStepIds: ['ready'],
       spawnProcess: () => { setImmediate(() => child.emit('spawn')); return child; },
       observeProcessIdentity: () => ({ executablePath: differentImage, processStartUtc: new Date().toISOString() }) });
@@ -570,7 +691,7 @@ test('returns a timeout as termination-unconfirmed when the owned process ignore
     child.pid = 778;
     child.kill = () => true;
     const result = await launchRuntimeSmokeProcess({ hostRoot, outputRoot, authoredRoot, executablePath, buildEvidencePath,
-      runId: 'timeout-run', correlationId: 'timeout-corr', workflowId: 'workflows/test', scriptHash: hash,
+      runId: 'timeout-run', correlationId: 'timeout-corr', workflowId: 'workflows/test', canonicalScriptHash: hash,
       target: 'development', mode: 'fsd', timeoutSeconds: 1, killGraceMs: 10, requiredStepIds: ['ready'],
       spawnProcess: () => { setImmediate(() => child.emit('spawn')); return child; },
       observeProcessIdentity: () => ({ executablePath, processStartUtc: new Date().toISOString() }) });

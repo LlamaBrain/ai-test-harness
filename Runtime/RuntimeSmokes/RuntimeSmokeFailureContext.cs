@@ -158,7 +158,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 seed = result.Seed,
                 proposition = workflow.Proposition,
                 terminalState = result.TerminalState.ToString().ToLowerInvariant(),
-                failureCode = result.FailureCode == RuntimeSmokeRunFailureCode.None ? null : RuntimeSmokeCoordinator.RunFailureLabel(result.FailureCode),
+                failureCode = RuntimeSmokeCoordinator.TerminalFailureLabel(result.FailureCode, assertion),
                 diagnostic = SafeText(result.Diagnostic, 512),
                 assertionSchemaVersion = assertion == null ? 0 : assertion.AssertionSchemaVersion,
                 assertionId = assertion == null ? null : assertion.AssertionId,
@@ -188,7 +188,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 endedUtc = result.EndedUtc.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
                 reproductionTransport = ReproductionTransport(workflow),
                 reproductionCommand = BuildReproductionCommand(workflow, result.ReproductionCorrelationId),
-                reproduction = "Reproduce workflow '" + SafeText(workflow.Id, 160) + "' with the fresh correlation in reproductionCommand; do not reuse '" + SafeText(result.CorrelationId, 160) + "'.",
+                reproduction = ReproductionInstruction(workflow, result),
                 transcriptTail = tail
             };
             ReadLaunchEvidence(context, runDirectory, result);
@@ -210,14 +210,35 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             if (workflow == null || string.IsNullOrWhiteSpace(correlation)) return null;
             var id = SafeText(workflow.Id, 160);
             var runId = SafeText(correlation, 40);
-            if (workflow.Mode == RuntimeSmokeMode.Fsd && workflow.Target != RuntimeSmokeTarget.SmokeHarness)
+            if (workflow.Target == RuntimeSmokeTarget.Editor)
+                return "ath-runtime-smoke-run workflowId=\"" + id + "\" target=\"editor\" mode=\"" + ModeName(workflow.Mode) + "\" correlationId=\"" + runId + "\"";
+            if (workflow.Target == RuntimeSmokeTarget.Development && workflow.Mode == RuntimeSmokeMode.Fsd)
                 return "runtime_smoke.run \"" + id + "\" \"" + runId + "\"";
-            return "ath-runtime-smoke-run workflowId=\"" + id + "\" target=\"" + TargetName(workflow.Target) +
-                "\" mode=\"" + ModeName(workflow.Mode) + "\" correlationId=\"" + runId + "\"";
+            if (workflow.Target == RuntimeSmokeTarget.SmokeHarness && workflow.Mode == RuntimeSmokeMode.Fsd)
+                return "ath-exe runtime-smoke <fresh-launch-spec.json>";
+            return null;
         }
 
-        private static string ReproductionTransport(RuntimeSmokeCompiledWorkflow workflow) => workflow.Mode == RuntimeSmokeMode.Fsd &&
-            workflow.Target != RuntimeSmokeTarget.SmokeHarness ? "development-console" : "editor-mcp";
+        private static string ReproductionTransport(RuntimeSmokeCompiledWorkflow workflow)
+        {
+            if (workflow == null) return "unavailable";
+            if (workflow.Target == RuntimeSmokeTarget.Editor) return "editor-mcp";
+            if (workflow.Target == RuntimeSmokeTarget.Development && workflow.Mode == RuntimeSmokeMode.Fsd) return "development-console";
+            if (workflow.Target == RuntimeSmokeTarget.SmokeHarness && workflow.Mode == RuntimeSmokeMode.Fsd) return "ath-exe";
+            return "unavailable";
+        }
+
+        private static string ReproductionInstruction(RuntimeSmokeCompiledWorkflow workflow, RuntimeSmokeExecutionResult result)
+        {
+            var runId = SafeText(result == null ? null : result.CorrelationId, 160);
+            if (workflow == null || result == null) return "Reproduction details are unavailable.";
+            if (ReproductionTransport(workflow) == "unavailable")
+                return "No supported automatic reproduction transport is registered for target '" + TargetName(workflow.Target) +
+                    "' and mode '" + ModeName(workflow.Mode) + "'. Do not reuse '" + runId + "'.";
+            if (workflow.Target == RuntimeSmokeTarget.SmokeHarness)
+                return "Prepare a fresh FSD launch spec for the same exact artifact and workflow, then run ath-exe runtime-smoke; do not reuse '" + runId + "'.";
+            return "Reproduce workflow '" + SafeText(workflow.Id, 160) + "' with the fresh correlation in reproductionCommand; do not reuse '" + runId + "'.";
+        }
 
         private static string TargetName(RuntimeSmokeTarget target) => target == RuntimeSmokeTarget.Editor ? "editor" :
             target == RuntimeSmokeTarget.Development ? "development" : target == RuntimeSmokeTarget.SmokeHarness ? "smoke_harness" : "invalid";

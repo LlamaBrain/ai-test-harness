@@ -1,8 +1,8 @@
 {
   "name": "com.llamabrainlabs.ai-test-harness",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "displayName": "AI Test Harness",
-  "description": "Three-layer MCP-driven dev test harness for Unity: in-game IngameDebugConsole commands with CMD/OK/ERR sentinels, editor-only MCP tools (ath-cmd, ath-state, ath-wait), and Claude SKILL.md workflows. Mirrors the dirigible2D pattern documented at https://metagrue.com/2026/05/25/ai-test-harness/.",
+  "description": "Unity host-owned RuntimeSmoke workflows with a reusable coordinator, transports, Editor controls, and suite runner. Adapter commands and MCP tools provide diagnostics; legacy skill files are historical references and do not establish RuntimeSmoke acceptance.",
   "unity": "2022.3",
   "author": {
     "name": "Michael Tiller",
@@ -24,7 +24,7 @@
   "samples": [
     {
       "displayName": "Minimal Host Adapter",
-      "description": "No-op IAthHostAdapter that proves the Runtime asmdef is independent of Commands/Editor/IngameDebugConsole/MCP. Used for the fresh-project dry-run.",
+      "description": "No-op IAthHostAdapter sample for the planned Phase 8 clean-project boundary check. Runtime-only asmdef reference; clean-project Unity compilation and diagnostic registration are not yet verified.",
       "path": "Samples~/MinimalHostAdapter"
     }
   ],

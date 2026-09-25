@@ -5,6 +5,14 @@ Claude session against a Unity host project. It assumes the host has
 already implemented `IAthHostAdapter` (see `adapter-contract.md`) and
 that the package is installed and resolved.
 
+> **Smoke acceptance:** use a checked-in RuntimeSmoke workflow through the
+> [RuntimeSmoke usage guide](runtime-smoke-usage.md), the RuntimeSmoke Editor
+> window, or its typed MCP/EXE transport. The `ath-cmd`, `ath-state`,
+> `ath-wait`, and `ath-trace-emit` operations below are low-level diagnostics
+> and trace utilities. A sequence of commands, log sentinels, waits, or a
+> manually emitted trace event is not a RuntimeSmoke result and cannot approve
+> a smoke or build.
+
 ## The MCP tools
 
 **Invocation:** these are MCP tools run through the Unity-MCP bridge — **not**
@@ -27,7 +35,8 @@ release builds.
 
 ## The basic loop
 
-A canonical sequence in a skill looks like:
+For a focused diagnostic investigation (not smoke acceptance), the command
+tools can be used in a bounded sequence such as:
 
 ```jsonc
 // 1. Make sure PlayMode is entered and the adapter is wired.
@@ -170,21 +179,16 @@ whether the *substrate* held up across the wait — if the bridge or
 adapter dropped out mid-wait, that's likely the proximate cause and you
 should look at scene reloads, host singleton lifecycle, or the bootstrap.
 
-## Writing a new smoke skill
+## Authoring smoke acceptance
 
-See `Skills/README.md` for the authoring conventions. The shortest version:
-
-1. Create `Skills/<skill-name>/SKILL.md` in the package repo.
-2. Add YAML frontmatter with `name`, `description`, and `version`.
-3. Step 0 is always a fail-fast version check.
-4. Step 1 enters PlayMode and waits for readiness.
-5. Subsequent steps clear with `harness.reset` *first*, then act, then
-   wait, then assert.
-6. A "PASS criteria" block enumerates every assertion.
-7. A "Failure handling" block describes screenshots + state dumps.
-
-When you bump the package version, bump the frontmatter `version` field
-of every smoke skill in the same commit.
+Do not create a procedural skill that independently drives a smoke through
+per-step commands and waits. Define the proposition, fixture, actions,
+predicates, assertions, targets, mode, and deadline in the host's checked-in
+RuntimeSmoke workflow. See [RuntimeSmoke usage and authoring](runtime-smoke-usage.md)
+and its [complete API contract](runtime-smokes.md). A skill may link to a
+host-owned workflow or explain a non-acceptance diagnostic; it must not define
+a competing PASS rule. The old package smoke skills are retired references,
+not current operating instructions.
 
 ## Common operations cheat sheet
 

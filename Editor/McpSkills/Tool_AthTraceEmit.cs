@@ -2,15 +2,10 @@
 // trace (Seam 1; envelope spec in the captain-sdlc repo's trace-schema.md). Appends one
 // ath.smoke.completed event to <project>/.captain-sdlc/trace/YYYY-MM-DD.jsonl.
 //
-// An ATH smoke is agent-orchestrated (a SKILL drives the editor through
-// ath-cmd/ath-state/ath-wait and the agent computes the verdict), so there is
-// no single host process to hook. This tool is the emitter: the SKILL passes
-// the verdict + context, and the tool owns CORRECTNESS of the record — it
-// mints the event_id, stamps the UTC timestamp, pins
-// schema_version/tool/tool_version, resolves the consuming-project trace
-// path, and serializes via the pure AthTraceWriter. Mirrors the Tool_AthState
-// shape; delegates serialization to AthTraceWriter and IO to AthTraceEmitter
-// so both halves can be unit-tested without an MCP attachment.
+// This optional tool records a trace event after an external workflow has
+// determined its verdict. It is diagnostic bookkeeping, not RuntimeSmoke
+// execution or acceptance. The caller passes verdict and context; the tool
+// stamps and serializes the trace record.
 
 #nullable enable
 
@@ -47,21 +42,22 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             "Append one Captain SDLC `ath.smoke.completed` trace event to the " +
             "consuming project's .captain-sdlc/trace/YYYY-MM-DD.jsonl (append-only " +
             "JSON Lines; envelope spec in the captain-sdlc repo's trace-schema.md). Call this " +
-            "as the final step of an ATH smoke skill, on BOTH pass and fail, so the " +
-            "pipeline can later walk backward from a regression to the smoke that " +
-            "should have caught it. The tool mints the event_id, stamps the UTC " +
+            "after an external workflow when trace bookkeeping is desired. This is not RuntimeSmoke acceptance; the " +
+            "pipeline can later locate the diagnostic trace context for a regression. " +
+            "This legacy event is not a RuntimeSmoke result and cannot satisfy a " +
+            "smoke or build gate. The tool mints the event_id, stamps the UTC " +
             "timestamp, and pins schema_version/tool/tool_version — pass only the " +
-            "verdict and context. `result` must be exactly 'pass' or 'fail'. Does " +
+            "legacy classification and context. `result` must be exactly 'pass' or 'fail'. Does " +
             "not require PlayMode (emit can run after PlayMode exit); the project " +
             "slug falls back to the project folder name when no adapter is " +
             "registered. Status=ok on success; bad_result for a malformed verdict; " +
             "io_error:<type>:<msg> if the write fails.")]
         public Result Emit(
-            [Description("Smoke verdict. Must be exactly 'pass' or 'fail'.")]
+            [Description("Legacy trace context classification only ('pass' or 'fail'); not a RuntimeSmoke verdict or acceptance result.")]
             string result,
-            [Description("Skill that produced this verdict. Default 'ath-smoke-fullloop'.")]
-            string skill = "ath-smoke-fullloop",
-            [Description("Skill frontmatter version (e.g. '0.1.0'). Defaults to the package version.")]
+            [Description("Optional legacy workflow/skill label for trace context; not an acceptance authority.")]
+            string skill = "legacy-smoke-context",
+            [Description("Optional legacy workflow/skill version label for trace context.")]
             string skillVersion = "",
             [Description("On fail: the step that failed, e.g. 'Step 5'. Ignored on pass.")]
             string failedStep = "",
@@ -105,7 +101,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                     Commit       = NullIfBlank(commit),
                     DesignDoc    = NullIfBlank(designDoc),
                     TaskId       = NullIfBlank(taskId),
-                    Skill        = string.IsNullOrWhiteSpace(skill) ? "ath-smoke-fullloop" : skill.Trim(),
+                    Skill        = string.IsNullOrWhiteSpace(skill) ? "legacy-smoke-context" : skill.Trim(),
                     SkillVersion = string.IsNullOrWhiteSpace(skillVersion) ? AthRuntimeFlag.PackageVersion : skillVersion.Trim(),
                     Passed       = passed,
                     FailedStep   = passed ? null : NullIfBlank(failedStep),
