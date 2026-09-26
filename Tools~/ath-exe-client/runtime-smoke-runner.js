@@ -33,7 +33,10 @@ function validateRuntimeSmokeEvidence(evidence, trustedLaunch) {
     armed.profileHash === launch.profileHash && armed.contentHash === launch.contentHash &&
     sameOptionalIdentity(armed.scenario, launch.scenario) && sameOptionalIdentity(armed.seed, launch.seed) &&
     observed.executableSha256 === launch.executableSha256 && pathEquals(observed.executablePath, launch.executablePath);
-  if (!identityMatches) return invalid('provenance_mismatch', 'Player armed record does not match the launch envelope and watched process.');
+  const continuationMatches = launch.continuation == null
+    ? armed.continuation == null
+    : stableJson(armed.continuation) === stableJson(launch.continuation);
+  if (!identityMatches || !continuationMatches) return invalid('provenance_mismatch', 'Player armed record does not match the launch envelope and watched process.');
 
   const launchTime = Date.parse(launch.startedUtc);
   const processTime = Date.parse(observed.processStartUtc);
@@ -171,6 +174,16 @@ function createRuntimeSmokeLaunch(options = {}) {
       !buildEvidence.backend || !buildEvidence.stripping || buildEvidence.lane !== options.target)
     throw Object.assign(new Error('Build evidence does not prove the exact executable, revision, profile, content, backend, stripping, and lane.'), { code: 'build_provenance_mismatch' });
 
+  const continuation = options.continuation || null;
+  if (continuation && (!safeId(continuation.id) || !safeId(continuation.stageId) ||
+      !Number.isInteger(continuation.stageIndex) || !Number.isInteger(continuation.stageCount) ||
+      continuation.stageCount < 2 || continuation.stageIndex < 0 || continuation.stageIndex >= continuation.stageCount ||
+      continuation.profileAction !== (continuation.stageIndex === 0 ? 'create' : 'load') || !safeId(continuation.profileId)))
+    throw Object.assign(new Error('Continuation launch context is malformed.'), { code: 'continuation_invalid' });
+  const nonceBytes = (options.randomBytes || crypto.randomBytes)(32);
+  if (!Buffer.isBuffer(nonceBytes) || nonceBytes.length !== 32)
+    throw Object.assign(new Error('Nonce provider must return exactly 256 bits.'), { code: 'launch_input_invalid' });
+
   if (options.runId === '.' || options.runId === '..')
     throw Object.assign(new Error('Run ID cannot be a path segment.'), { code: 'launch_input_invalid' });
   const runDirectory = path.resolve(outputRoot, options.runId);
@@ -188,9 +201,6 @@ function createRuntimeSmokeLaunch(options = {}) {
   if (!created) throw Object.assign(new Error('Run directory could not be claimed.'), { code: 'run_directory_collision' });
   for (const folder of ['scratch', 'logs', 'captures']) fs.mkdirSync(path.join(runDirectory, folder));
 
-  const nonceBytes = (options.randomBytes || crypto.randomBytes)(32);
-  if (!Buffer.isBuffer(nonceBytes) || nonceBytes.length !== 32)
-    throw Object.assign(new Error('Nonce provider must return exactly 256 bits.'), { code: 'launch_input_invalid' });
   const buildEvidenceHash = hashBuildEvidence(crypto, buildEvidence);
   const startedUtc = (options.now ? options.now() : new Date()).toISOString();
   const buildEvidenceSnapshotPath = path.join(runDirectory, 'build-evidence.json');
@@ -218,6 +228,7 @@ function createRuntimeSmokeLaunch(options = {}) {
     target: options.target,
     mode: options.mode,
     suiteId: options.suiteId || null,
+    continuation,
     scenario: options.scenario || null,
     seed: options.seed == null ? null : String(options.seed),
     requiredStepIds: requiredStepIds.slice(),
@@ -252,6 +263,13 @@ function createRuntimeSmokeLaunch(options = {}) {
     '-runtimeSmokeArtifactRoot', runDirectory,
     '-runtimeSmokeNonce', envelope.nonce,
     '-runtimeSmokeBuildToken', envelope.buildToken,
+    ...(continuation ? ['-runtimeSmokeContinuation', continuation.id,
+      '-runtimeSmokeContinuationStage', continuation.stageId,
+      '-runtimeSmokeContinuationIndex', String(continuation.stageIndex),
+      '-runtimeSmokeContinuationCount', String(continuation.stageCount),
+      '-runtimeSmokeContinuationAction', continuation.profileAction,
+      '-runtimeSmokeContinuationProfile', continuation.profileId,
+      ...(continuation.profileAction === 'load' ? ['-autoload', continuation.profileId] : [])] : []),
     '-logFile', logPath];
   return { envelope, args, runDirectory, logPath };
 }
@@ -555,7 +573,7 @@ function prepareRuntimeSmokeArtifactCopy(options = {}) {
   };
 }
 
-/** Execute a flattened, host-compiled suite against one fresh, attested copy of a built artifact. */
+/** Execute a host-compiled suite against one fresh, attested copy of a built artifact. */
 async function runRuntimeSmokeSuite(spec, dependencies = {}) {
   const fs = dependencies.fs || fsDefault;
   const crypto = dependencies.crypto || cryptoDefault;
@@ -612,59 +630,135 @@ async function runRuntimeSmokeSuite(spec, dependencies = {}) {
       entries.push(skippedSuiteEntry(entry, 'suite_deadline_exceeded', 'Maximum suite deadline elapsed before this workflow started.'));
       continue;
     }
-    const runStartedUtc = now().toISOString();
-    const runOptions = {
-      hostRoot: normalized.hostRoot,
-      outputRoot: runsRoot,
-      authoredRoot: normalized.authoredRoot,
-      executablePath: artifactCopy.executablePath,
-      buildEvidencePath: artifactCopy.buildEvidencePath,
-      runId: entry.runId,
-      correlationId: entry.correlationId,
-      workflowId: entry.workflowId,
-      canonicalScriptHash: entry.canonicalScriptHash,
-      proposition: entry.proposition,
-      requiredCapabilities: entry.requiredCapabilities.slice(),
-      parityContract: entry.parityContract,
-      target: normalized.target,
-      mode: 'fsd',
-      suiteId: normalized.suiteId,
-      scenario: entry.scenario,
-      seed: entry.seed,
-      timeoutSeconds: Math.min(entry.timeoutSeconds, remainingSeconds),
-      requiredStepIds: entry.requiredStepIds.slice(),
-    };
-    let execution;
-    try { execution = await launch(runOptions); }
-    catch (error) { execution = { accepted: false, state: 'failed', failureCode: error.code || 'runner_error', diagnostic: cleanText(error.message) }; }
-    const runEndedUtc = now().toISOString();
-    const runDirectory = execution && execution.runDirectory || path.join(runsRoot, entry.runId);
+    const profileBytes = entry.continuation ? (dependencies.randomBytes || crypto.randomBytes)(16) : null;
+    if (profileBytes && (!Buffer.isBuffer(profileBytes) || profileBytes.length !== 16)) {
+      entries.push(skippedSuiteEntry(entry, 'continuation_invalid', 'Continuation profile provider must return exactly 128 random bits.'));
+      continue;
+    }
+    const continuationProfileId = profileBytes ? `athrs_${profileBytes.toString('hex')}` : null;
+    const stages = entry.continuation ? entry.continuation.stages : [entry];
+    const stageResults = [];
+    for (let stageIndex = 0; stageIndex < stages.length; stageIndex++) {
+      const stage = stages[stageIndex];
+      if (stageIndex > 0 && !stageResults[stageIndex - 1].accepted) break;
+      const stageArtifactCheck = verifyRuntimeSmokeArtifactCopy(artifactCopy, fs, crypto);
+      if (!stageArtifactCheck.accepted) {
+        stageResults.push({ stageId: stage.stageId || null, workflowId: stage.workflowId,
+          canonicalScriptHash: stage.canonicalScriptHash, runId: stage.runId, correlationId: stage.correlationId,
+          profileAction: entry.continuation ? stage.profileAction : null,
+          profileIdSha256: continuationProfileId ? crypto.createHash('sha256').update(continuationProfileId).digest('hex') : null,
+          accepted: false, state: 'failed', failureCode: 'artifact_copy_changed',
+          diagnostic: stageArtifactCheck.diagnostic });
+        break;
+      }
+      const stageRemainingSeconds = Math.floor((deadlineMs - Date.parse(now().toISOString())) / 1000);
+      if (stageRemainingSeconds < 1) {
+        stageResults.push({ stageId: stage.stageId || null, workflowId: stage.workflowId,
+          canonicalScriptHash: stage.canonicalScriptHash, runId: stage.runId, correlationId: stage.correlationId,
+          profileAction: entry.continuation ? stage.profileAction : null,
+          profileIdSha256: continuationProfileId ? crypto.createHash('sha256').update(continuationProfileId).digest('hex') : null,
+          accepted: false, state: 'skipped', failureCode: 'suite_deadline_exceeded',
+          diagnostic: 'Maximum suite deadline elapsed before this process stage started.' });
+        break;
+      }
+      const runStartedUtc = now().toISOString();
+      const runOptions = {
+        hostRoot: normalized.hostRoot,
+        outputRoot: runsRoot,
+        authoredRoot: normalized.authoredRoot,
+        executablePath: artifactCopy.executablePath,
+        buildEvidencePath: artifactCopy.buildEvidencePath,
+        runId: stage.runId,
+        correlationId: stage.correlationId,
+        workflowId: stage.workflowId,
+        canonicalScriptHash: stage.canonicalScriptHash,
+        proposition: entry.proposition,
+        requiredCapabilities: entry.requiredCapabilities.slice(),
+        parityContract: entry.parityContract,
+        target: normalized.target,
+        mode: 'fsd',
+        suiteId: normalized.suiteId,
+        scenario: entry.scenario,
+        seed: entry.seed,
+        timeoutSeconds: Math.min(stage.timeoutSeconds, stageRemainingSeconds),
+        requiredStepIds: stage.requiredStepIds.slice(),
+        continuation: entry.continuation ? {
+          id: entry.continuation.continuationId,
+          stageId: stage.stageId,
+          stageIndex,
+          stageCount: stages.length,
+          profileAction: stage.profileAction,
+          profileId: continuationProfileId,
+        } : null,
+      };
+      let execution;
+      try { execution = await launch(runOptions); }
+      catch (error) { execution = { accepted: false, state: 'failed', failureCode: error.code || 'runner_error', diagnostic: cleanText(error.message) }; }
+      const runEndedUtc = now().toISOString();
+      const runDirectory = execution && execution.runDirectory || path.join(runsRoot, stage.runId);
+      stageResults.push({
+        stageId: stage.stageId || null,
+        workflowId: stage.workflowId,
+        canonicalScriptHash: stage.canonicalScriptHash,
+        correlationId: stage.correlationId,
+        runId: stage.runId,
+        profileAction: entry.continuation ? stage.profileAction : null,
+        profileIdSha256: continuationProfileId ? crypto.createHash('sha256').update(continuationProfileId).digest('hex') : null,
+        accepted: !!(execution && execution.accepted === true),
+        state: execution && execution.state || 'failed',
+        failureCode: execution && (execution.failureCode || (execution.accepted ? null : execution.code)) || null,
+        diagnostic: execution && (execution.diagnostic || execution.message) || null,
+        startedUtc: runStartedUtc,
+        endedUtc: runEndedUtc,
+        runDirectory,
+        launchPath: path.join(runDirectory, 'runtime-smoke-launch.json'),
+        resultPath: path.join(runDirectory, 'result.json'),
+        transcriptPath: path.join(runDirectory, 'transcript.jsonl'),
+        playerLogPath: path.join(runDirectory, 'logs', 'player.log'),
+        runtimeSmokeEvidence: collectRuntimeSmokeRunEvidence(execution && execution.evidence, runDirectory, fs, crypto),
+      });
+      if (!stageResults[stageIndex].accepted) break;
+    }
+    const firstFailure = stageResults.find((stage) => !stage.accepted);
+    while (stageResults.length < stages.length) {
+      const stage = stages[stageResults.length];
+      stageResults.push({ stageId: stage.stageId, workflowId: stage.workflowId, canonicalScriptHash: stage.canonicalScriptHash,
+        runId: stage.runId, correlationId: stage.correlationId, profileAction: stage.profileAction,
+        profileIdSha256: continuationProfileId ? crypto.createHash('sha256').update(continuationProfileId).digest('hex') : null,
+        accepted: false, state: 'skipped', failureCode: 'continuation_stage_not_run',
+        diagnostic: `Stage was not run because ${firstFailure && firstFailure.stageId || 'a prior stage'} did not pass.`,
+        runDirectory: null, launchPath: null, resultPath: null, transcriptPath: null, playerLogPath: null });
+    }
+    const finalStage = stageResults[stageResults.length - 1];
+    const firstStage = stages[0];
+    const firstDirectory = path.join(runsRoot, firstStage.runId);
     entries.push({
       entryId: entry.entryId,
       required: entry.required,
-      workflowId: entry.workflowId,
-      canonicalScriptHash: entry.canonicalScriptHash,
+      workflowId: firstStage.workflowId,
+      canonicalScriptHash: firstStage.canonicalScriptHash,
       proposition: entry.proposition,
       requiredCapabilities: entry.requiredCapabilities.slice(),
       parityContract: entry.parityContract,
-      correlationId: entry.correlationId,
+      correlationId: firstStage.correlationId,
       scenario: entry.scenario == null ? null : entry.scenario,
       seed: entry.seed == null ? null : String(entry.seed),
       target: normalized.target,
       mode: 'fsd',
-      timeoutSeconds: runOptions.timeoutSeconds,
-      accepted: !!(execution && execution.accepted === true),
-      state: execution && execution.state || 'failed',
-      failureCode: execution && (execution.failureCode || (execution.accepted ? null : execution.code)) || null,
-      diagnostic: execution && (execution.diagnostic || execution.message) || null,
-      startedUtc: runStartedUtc,
-      endedUtc: runEndedUtc,
-      runDirectory,
-      launchPath: path.join(runDirectory, 'runtime-smoke-launch.json'),
-      resultPath: path.join(runDirectory, 'result.json'),
-      transcriptPath: path.join(runDirectory, 'transcript.jsonl'),
-      playerLogPath: path.join(runDirectory, 'logs', 'player.log'),
-      runtimeSmokeEvidence: collectRuntimeSmokeRunEvidence(execution && execution.evidence, runDirectory, fs, crypto),
+      timeoutSeconds: finalStage ? Math.min(entry.timeoutSeconds, Math.max(1, remainingSeconds)) : entry.timeoutSeconds,
+      accepted: stageResults.length === stages.length && stageResults.every((stage) => stage.accepted),
+      state: stageResults.length === stages.length && stageResults.every((stage) => stage.accepted) ? 'passed' : 'failed',
+      continuationId: entry.continuation ? entry.continuation.continuationId : null,
+      stages: stageResults,
+        failureCode: firstFailure && firstFailure.failureCode || null,
+      diagnostic: firstFailure && firstFailure.diagnostic || null,
+      startedUtc: stageResults[0] && stageResults[0].startedUtc || now().toISOString(),
+      endedUtc: finalStage && finalStage.endedUtc || now().toISOString(),
+      runDirectory: firstDirectory,
+      launchPath: path.join(firstDirectory, 'runtime-smoke-launch.json'),
+      resultPath: path.join(firstDirectory, 'result.json'),
+      transcriptPath: path.join(firstDirectory, 'transcript.jsonl'),
+      playerLogPath: path.join(firstDirectory, 'logs', 'player.log'),
     });
   }
 
@@ -812,26 +906,61 @@ function validateRuntimeSmokeSuiteSpec(spec, fs) {
         (entry.parityContract != null && !safeId(entry.parityContract)))
       throw Object.assign(new Error('Suite entries must be unique FSD workflows with matching target, canonical hash, correlation, deadline, and required steps.'), { code: 'suite_entry_invalid' });
     ids.add(entry.entryId); scripts.add(entry.workflowId); runs.add(entry.runId); correlations.add(entry.correlationId);
+    let continuation = null;
+    if (entry.continuation != null) {
+      const value = entry.continuation;
+      if (!value || !safeId(value.continuationId) || !Array.isArray(value.stages) || value.stages.length < 2 || value.stages.length > 8)
+        throw Object.assign(new Error('Continuation requires a stable ID and two to eight ordered process stages.'), { code: 'continuation_invalid' });
+      const stageIds = new Set();
+      continuation = { continuationId: value.continuationId, stages: value.stages.map((stage, index) => {
+        const firstStage = index === 0;
+        if (!stage || !safeId(stage.stageId) || stageIds.has(stage.stageId) || !isDocumentId(stage.workflowId) ||
+            !HEX_256.test(stage.canonicalScriptHash || '') || !safeId(stage.runId) ||
+            (firstStage ? (stage.workflowId !== entry.workflowId || stage.canonicalScriptHash !== entry.canonicalScriptHash || stage.runId !== entry.runId) :
+              (scripts.has(stage.workflowId) || runs.has(stage.runId))) ||
+            !safeId(stage.correlationId) || (firstStage ? stage.correlationId !== entry.correlationId : correlations.has(stage.correlationId)) ||
+            !Number.isInteger(stage.timeoutSeconds || entry.timeoutSeconds) ||
+            (stage.timeoutSeconds != null && (stage.timeoutSeconds < 1 || stage.timeoutSeconds > 86400)) ||
+            !Array.isArray(stage.requiredStepIds) || stage.requiredStepIds.length === 0 ||
+            new Set(stage.requiredStepIds).size !== stage.requiredStepIds.length || stage.requiredStepIds.some((id) => !safeId(id)) ||
+            (firstStage && JSON.stringify(stage.requiredStepIds) !== JSON.stringify(entry.requiredStepIds)) ||
+            stage.profileAction !== (index === 0 ? 'create' : 'load'))
+          throw Object.assign(new Error('Continuation stages must be ordered; stage zero must match the logical entry, and later stages need fresh identities, required steps, and load actions.'), { code: 'continuation_invalid' });
+        stageIds.add(stage.stageId);
+        if (!firstStage) { scripts.add(stage.workflowId); runs.add(stage.runId); correlations.add(stage.correlationId); }
+        return { ...stage, timeoutSeconds: stage.timeoutSeconds || entry.timeoutSeconds, requiredStepIds: stage.requiredStepIds.slice() };
+      }) };
+    }
     return { ...entry, requiredCapabilities: entry.requiredCapabilities ? entry.requiredCapabilities.slice() : [],
       proposition: entry.proposition || null, parityContract: entry.parityContract || null,
-      requiredStepIds: entry.requiredStepIds.slice() };
+      requiredStepIds: entry.requiredStepIds.slice(), continuation };
   });
   for (const entry of entries) {
-    const runDirectory = path.join(outputDirectory, 'runs', entry.runId);
-    assertWindowsPlayerArtifactPaths(runDirectory, path.join(runDirectory, 'logs', 'player.log'));
+    const runIds = entry.continuation ? entry.continuation.stages.map((stage) => stage.runId) : [entry.runId];
+    for (const runId of runIds) {
+      const runDirectory = path.join(outputDirectory, 'runs', runId);
+      assertWindowsPlayerArtifactPaths(runDirectory, path.join(runDirectory, 'logs', 'player.log'));
+    }
   }
   return { ...spec, hostRoot, authoredRoot, sourceArtifactRoot, sourceExecutablePath, buildEvidencePath, outputDirectory,
     copyId: safeId(spec.copyId) ? spec.copyId : 'artifact-copy', entries };
 }
 
 function skippedSuiteEntry(entry, code, diagnostic) {
+  const stages = entry.continuation ? entry.continuation.stages.map((stage) => ({
+    stageId: stage.stageId, workflowId: stage.workflowId, canonicalScriptHash: stage.canonicalScriptHash,
+    correlationId: stage.correlationId, runId: stage.runId, profileAction: stage.profileAction,
+    profileIdSha256: null, accepted: false, state: 'skipped', failureCode: code, diagnostic,
+    runDirectory: null, launchPath: null, resultPath: null, transcriptPath: null, playerLogPath: null,
+  })) : [];
   return { entryId: entry.entryId, required: entry.required, workflowId: entry.workflowId,
     proposition: entry.proposition || null, parityContract: entry.parityContract || null,
     canonicalScriptHash: entry.canonicalScriptHash,
     requiredCapabilities: entry.requiredCapabilities || [], correlationId: entry.correlationId,
     scenario: entry.scenario == null ? null : entry.scenario, seed: entry.seed == null ? null : String(entry.seed),
     target: entry.target, mode: 'fsd', timeoutSeconds: entry.timeoutSeconds, accepted: false, state: 'skipped',
-    failureCode: code, diagnostic, runDirectory: null, launchPath: null, resultPath: null, transcriptPath: null, playerLogPath: null };
+    failureCode: code, diagnostic, runDirectory: null, launchPath: null, resultPath: null, transcriptPath: null, playerLogPath: null,
+    continuationId: entry.continuation ? entry.continuation.continuationId : null, stages };
 }
 
 function verifyRuntimeSmokeArtifactCopy(copy, fs, crypto) {

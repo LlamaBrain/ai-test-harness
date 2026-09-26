@@ -53,7 +53,18 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                 timeoutSeconds = 90, workflowId = "workflows/test"
             };
             Assert.That(RuntimeSmokeDurableLaunchClaim.ComputeBuildToken(launch),
-                Is.EqualTo("d0c037f9baf8fdcff2d6d509f5f26f565c5d5b329ac9e1badd2013e0eccf8450"));
+                Is.EqualTo("55bdd423439e92d5a62dd8b5a2e44d1c50bb274990c17c9c2aae57d23de086e3"));
+            launch.continuation = new RuntimeSmokeContinuationLaunchDocument();
+            Assert.That(RuntimeSmokeDurableLaunchClaim.ComputeBuildToken(launch),
+                Is.EqualTo("55bdd423439e92d5a62dd8b5a2e44d1c50bb274990c17c9c2aae57d23de086e3"));
+            launch.continuation = null;
+            launch.continuation = new RuntimeSmokeContinuationLaunchDocument
+            {
+                id = "save-reload", stageId = "reload", stageIndex = 1, stageCount = 2,
+                profileAction = "load", profileId = "athrs_0123456789abcdef0123456789abcdef"
+            };
+            Assert.That(RuntimeSmokeDurableLaunchClaim.ComputeBuildToken(launch),
+                Is.EqualTo("52dcc0d52735e7e20eb010197fee79d315ad61909b8a0caecbd10739c16e0c95"));
         }
 
         [Test]
@@ -94,6 +105,36 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                 Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(options, wrongImage, Utc(3), out _, out failure), Is.False);
                 Assert.That(failure, Does.Contain("provenance"));
                 Assert.That(File.Exists(Path.Combine(root, "runtime-smoke-claim.json")), Is.False);
+            });
+        }
+
+        [Test]
+        public void ClaimBindsContinuationProfileAndStageToLaunchArguments()
+        {
+            WithFixture((root, unused, identity, document) =>
+            {
+                document.continuation = new RuntimeSmokeContinuationLaunchDocument
+                {
+                    id = "save-reload", stageId = "reload", stageIndex = 1, stageCount = 2,
+                    profileAction = "load", profileId = "athrs_0123456789abcdef0123456789abcdef"
+                };
+                document.buildToken = RuntimeSmokeDurableLaunchClaim.ComputeBuildToken(document);
+                var options = ParseOptions(document.workflowId, document.correlationId, root, document.nonce,
+                    document.buildToken, document.continuation);
+                WriteLaunchAndArmedPrelude(root, document);
+
+                var mismatch = ParseOptions(document.workflowId, document.correlationId, root, document.nonce,
+                    document.buildToken, new RuntimeSmokeContinuationLaunchDocument
+                    {
+                        id = "save-reload", stageId = "reload", stageIndex = 1, stageCount = 2,
+                        profileAction = "load", profileId = "athrs_ffffffffffffffffffffffffffffffff"
+                    });
+                Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(mismatch, identity, Utc(3), out RuntimeSmokeArmedDocument ignoredArmed, out var failure), Is.False);
+                Assert.That(failure, Does.Contain("provenance"));
+                Assert.That(File.Exists(Path.Combine(root, "runtime-smoke-claim.json")), Is.False);
+
+                Assert.That(RuntimeSmokeDurableLaunchClaim.TryClaim(options, identity, Utc(3), out var armed, out failure), Is.True, failure);
+                Assert.That(options.ContinuationProfileId, Is.EqualTo(armed.continuation.profileId));
             });
         }
 
@@ -183,16 +224,26 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             finally { Directory.Delete(parent, true); }
         }
 
-        private static RuntimeSmokePlayerLaunchOptions ParseOptions(string workflow, string correlation, string root, string nonce, string token)
+        private static RuntimeSmokePlayerLaunchOptions ParseOptions(string workflow, string correlation, string root, string nonce, string token,
+            RuntimeSmokeContinuationLaunchDocument continuation = null)
         {
-            Assert.That(RuntimeSmokePlayerLaunchOptions.TryParse(new[] { "-runtimeSmoke", workflow, "-runtimeSmokeCorrelation", correlation,
-                "-runtimeSmokeArtifactRoot", root, "-runtimeSmokeNonce", nonce, "-runtimeSmokeBuildToken", token }, out var options, out var failure), Is.True, failure);
+            var args = new System.Collections.Generic.List<string> { "-runtimeSmoke", workflow, "-runtimeSmokeCorrelation", correlation,
+                "-runtimeSmokeArtifactRoot", root, "-runtimeSmokeNonce", nonce, "-runtimeSmokeBuildToken", token };
+            if (continuation != null) args.AddRange(new[]
+            {
+                "-runtimeSmokeContinuation", continuation.id, "-runtimeSmokeContinuationStage", continuation.stageId,
+                "-runtimeSmokeContinuationIndex", continuation.stageIndex.ToString(), "-runtimeSmokeContinuationCount", continuation.stageCount.ToString(),
+                "-runtimeSmokeContinuationAction", continuation.profileAction, "-runtimeSmokeContinuationProfile", continuation.profileId
+            });
+            Assert.That(RuntimeSmokePlayerLaunchOptions.TryParse(args.ToArray(), out var options, out var failure), Is.True, failure);
             return options;
         }
 
         private static string SerializeExternalLaunch(RuntimeSmokeLaunchDocument document)
         {
             var json = JsonUtility.ToJson(document);
+            if (document.continuation == null)
+                json = json.Replace("\"continuation\":{\"id\":\"\",\"profileAction\":\"\",\"profileId\":\"\",\"stageCount\":0,\"stageId\":\"\",\"stageIndex\":0}", "\"continuation\":null");
             foreach (var nullableField in new[] { "suiteId", "scenario", "seed", "processStartUtc" })
                 json = json.Replace("\"" + nullableField + "\":\"\"", "\"" + nullableField + "\":null");
             return json;

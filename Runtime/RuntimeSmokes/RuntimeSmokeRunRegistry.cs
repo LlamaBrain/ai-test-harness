@@ -219,7 +219,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 if (adapter == null || innerSink == null) throw new InvalidOperationException("Host adapter or transcript sink factory returned null.");
                 var executionTask = RuntimeSmokeCoordinator.RunAsync(workflow, correlationId, adapter,
                     session.Sink, cleanup, () => session.CancelRequested,
-                    waitForCheckpointResumeAsync: session.WaitForCheckpointResumeAsync, scenario: scenario, seed: seed);
+                    waitForCheckpointResumeAsync: session.WaitForCheckpointResumeAsync, scenario: scenario, seed: seed,
+                    playerLaunchOptions: RuntimeSmokePlayerLaunchOptions.FromEnvironment());
                 lock (session.Gate) session.Task = executionTask;
                 return new RuntimeSmokeRegistryCommandResult { Accepted = true, Status = "running", CorrelationId = correlationId };
             }

@@ -11,6 +11,17 @@ using UnityEngine;
 namespace LlamaBrainLabs.Ath.RuntimeSmokes
 {
     [Serializable]
+    public sealed class RuntimeSmokeContinuationLaunchDocument
+    {
+        public string id;
+        public string profileAction;
+        public string profileId;
+        public int stageCount;
+        public string stageId;
+        public int stageIndex;
+    }
+
+    [Serializable]
     public sealed class RuntimeSmokeLaunchDocument
     {
         public int schemaVersion;
@@ -35,6 +46,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public string target;
         public string mode;
         public string suiteId;
+        public RuntimeSmokeContinuationLaunchDocument continuation;
         public string scenario;
         public string seed;
         public string[] requiredStepIds;
@@ -171,6 +183,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public string buildRevision;
         public string profileHash;
         public string contentHash;
+        public RuntimeSmokeContinuationLaunchDocument continuation;
         public string hostRoot;
         public string outputRoot;
         public string authoredRoot;
@@ -235,6 +248,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 buildRevision = launch.buildRevision,
                 profileHash = launch.profileHash,
                 contentHash = launch.contentHash,
+                continuation = launch.continuation,
                 hostRoot = launch.hostRoot,
                 outputRoot = launch.outputRoot,
                 authoredRoot = launch.authoredRoot
@@ -307,7 +321,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             if (!string.IsNullOrEmpty(launch.processStartUtc)) { mismatch = "launch_process_start_already_set"; return false; }
             mismatch = "launch_identity_mismatch";
             if (launch.correlationId != options.CorrelationId || launch.workflowId != options.WorkflowId || launch.nonce != options.Nonce ||
-                launch.buildToken != options.BuildToken) return false;
+                launch.buildToken != options.BuildToken || !ContinuationMatches(launch.continuation, options)) return false;
             mismatch = "build_provenance_invalid";
             if (!IsSha256(launch.scriptHash) || !IsSha256(launch.executableSha256) || !IsSha256(launch.profileHash) || !IsSha256(launch.contentHash) ||
                 string.IsNullOrWhiteSpace(launch.buildRevision) || string.IsNullOrWhiteSpace(launch.buildVersion) ||
@@ -397,6 +411,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 ",\"buildToken\":null" +
                 ",\"buildVersion\":" + Quote(launch.buildVersion) +
                 ",\"contentHash\":" + Quote(launch.contentHash) +
+                ",\"continuation\":" + ContinuationJson(launch.continuation) +
                 ",\"correlationId\":" + Quote(launch.correlationId) +
                 ",\"executablePath\":" + Quote(launch.executablePath) +
                 ",\"executableSha256\":" + Quote(launch.executableSha256) +
@@ -422,6 +437,32 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 ",\"target\":" + Quote(launch.target) +
                 ",\"timeoutSeconds\":" + launch.timeoutSeconds.ToString(CultureInfo.InvariantCulture) +
                 ",\"workflowId\":" + Quote(launch.workflowId) + "}";
+        }
+
+        private static string ContinuationJson(RuntimeSmokeContinuationLaunchDocument continuation)
+        {
+            if (IsEmptyContinuation(continuation)) return "null";
+            return "{\"id\":" + Quote(continuation.id) +
+                ",\"profileAction\":" + Quote(continuation.profileAction) +
+                ",\"profileId\":" + Quote(continuation.profileId) +
+                ",\"stageCount\":" + continuation.stageCount.ToString(CultureInfo.InvariantCulture) +
+                ",\"stageId\":" + Quote(continuation.stageId) +
+                ",\"stageIndex\":" + continuation.stageIndex.ToString(CultureInfo.InvariantCulture) + "}";
+        }
+
+        private static bool IsEmptyContinuation(RuntimeSmokeContinuationLaunchDocument continuation)
+        {
+            return continuation == null || (string.IsNullOrEmpty(continuation.id) &&
+                string.IsNullOrEmpty(continuation.profileAction) && string.IsNullOrEmpty(continuation.profileId) &&
+                continuation.stageCount == 0 && string.IsNullOrEmpty(continuation.stageId) && continuation.stageIndex == 0);
+        }
+
+        private static bool ContinuationMatches(RuntimeSmokeContinuationLaunchDocument launch, RuntimeSmokePlayerLaunchOptions options)
+        {
+            if (IsEmptyContinuation(launch)) return string.IsNullOrEmpty(options.ContinuationId);
+            return launch.id == options.ContinuationId && launch.stageId == options.ContinuationStageId &&
+                launch.stageIndex == options.ContinuationStageIndex && launch.stageCount == options.ContinuationStageCount &&
+                launch.profileAction == options.ContinuationProfileAction && launch.profileId == options.ContinuationProfileId;
         }
 
         private static string QuoteArray(string[] values)

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-26
+
+### Added
+- Ordered multi-process RuntimeSmoke suite continuations for fresh-process persistence checks, with run-scoped profile handoff bound to each launch and per-stage evidence.
+- Typed continuation stage/profile metadata on player launch options and adapter step context.
+
 ## [0.4.1] - 2026-09-25
 
 ### Fixed

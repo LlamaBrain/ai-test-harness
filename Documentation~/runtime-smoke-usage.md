@@ -127,6 +127,32 @@ The version 1 suite spec has this shape:
 
 The output directory must be new and remain inside the host, separate from authored inputs and the source build. Each suite entry must have a unique ID, workflow, run ID, and correlation; entries must be FSD and target the suite lane. `requiredCapabilities` is an optional unique list of stable capability IDs, `proposition` is an optional bounded description, and `parityContract` is an optional stable host-authored contract ID (for example `dirigible.baseline-world.v1`). AITH validates and carries these declarations into gate JSON and JUnit testcase properties; the host compiler remains responsible for validating contract content and workflow compatibility. The canonical hash must come from the host compiler's expanded workflow, never a raw authored-file hash. AITH validates that the original build evidence names and hashes the exact source executable, recursively rejects links in the artifact tree, and copies the whole player directory to `artifact-copy/payload/`. It hashes source and copy trees plus both executables, snapshots build evidence for the copied executable, writes `runtime-smoke-copy-attestation.json`, and rechecks source, copy, attestation, and evidence before, between, and after workflow launches.
 
+A persistence workflow may declare a `continuation` when its assertion requires two or more separate player processes. Keep the logical suite entry's ordinary unique identity and describe each process under `continuation.stages`:
+
+```json
+{
+  "entryId": "bedroll-persistence",
+  "required": true,
+  "workflowId": "workflows/bedroll-save",
+  "canonicalScriptHash": "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "runId": "bedroll-save-20260926",
+  "correlationId": "bedroll-save-correlation-20260926",
+  "timeoutSeconds": 600,
+  "target": "development",
+  "mode": "fsd",
+  "requiredStepIds": ["profile-saved"],
+  "continuation": {
+    "continuationId": "bedroll-save-reload",
+    "stages": [
+      { "stageId": "save", "workflowId": "workflows/bedroll-save", "canonicalScriptHash": "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "runId": "bedroll-save-20260926", "correlationId": "bedroll-save-correlation-20260926", "requiredStepIds": ["profile-saved"], "profileAction": "create" },
+      { "stageId": "reload", "workflowId": "workflows/bedroll-reload", "canonicalScriptHash": "2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "runId": "bedroll-reload-20260926", "correlationId": "bedroll-reload-correlation-20260926", "requiredStepIds": ["same-actor-and-beds-restored"], "profileAction": "load" }
+    ]
+  }
+}
+```
+
+The first stage must create the profile and every later stage loads that same run-scoped profile into a fresh process. AITH creates an opaque profile ID, places the `-autoload` argument on load stages, and binds continuation ID, ordered stage identity, action, and profile ID into each process launch token. The typed player `RuntimeSmokeStepContext` exposes the validated continuation fields to declared host adapters. Each stage has its own fresh evidence directory, transcript, process watch, correlation, and terminal result; the logical entry passes only if every stage passes in order. Aggregate gate evidence contains the stage records and a SHA-256 of the generated profile ID, not its raw value. Never put `-execcmds` or arbitrary command text in the suite continuation.
+
 Workflows run in declared order against that same byte-identical fresh copy, each with an independent run directory, correlation, transcript, result, and cleanup. The suite deadline caps each workflow's process timeout. The gate passes only if artifact provenance remains intact and every required entry passes; optional nonpasses remain visible as skipped JUnit cases. The atomic outputs are `runtime-smoke-gate.json` and `junit.xml`. The gate binds source/copy paths and hashes, source executable timestamp, original build-evidence hash and build revision/version/profile/content/backend/stripping/lane, the attestation receipt, and every workflow's result, transcript, player-log hash, and evidence paths. Assertion/predicate failures become JUnit failures; runtime, deadline, provenance, or protocol failures become JUnit errors. Gate-level integrity failures also produce a JUnit error even when every workflow had previously passed.
 
 Treat the gate JSON plus each run's structured result/transcript as authority. Never promote an artifact from an Editor-only result, a prior player, a stale source revision, or a marker-only log. The AITH suite API does not replace host build-profile validation, build-gate declaration, or human review; the consumer must invoke this runner on the exact artifact just built and preserve these outputs.

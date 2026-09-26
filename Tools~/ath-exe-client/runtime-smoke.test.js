@@ -29,7 +29,7 @@ test('launch build-token canonicalization matches the Unity player claim contrac
   const launch = {
     artifactRoot: 'C:/runs/r1', backend: 'IL2CPP', buildEvidenceHash: '1'.repeat(64),
     buildEvidenceSnapshotPath: 'C:/runs/r1/build-evidence.json', buildRevision: 'rev-1', buildToken: null,
-    buildVersion: '1.2.3', contentHash: '2'.repeat(64), correlationId: 'corr-1',
+    buildVersion: '1.2.3', contentHash: '2'.repeat(64), continuation: null, correlationId: 'corr-1',
     executablePath: 'C:/build/game.exe', executableSha256: '3'.repeat(64), hostRoot: 'C:/runs',
     authoredRoot: 'C:/runs/Assets/RuntimeSmokes', logPath: 'C:/runs/r1/logs/player.log', mode: 'fsd', nonce: '4'.repeat(64), outputRoot: 'C:/runs/output', processId: null,
     processStartUtc: null, profileHash: '5'.repeat(64), requiredStepIds: ['ready', 'finish'],
@@ -38,7 +38,10 @@ test('launch build-token canonicalization matches the Unity player claim contrac
     state: 'awaiting_player', stripping: 'High', suiteId: 'suite-a', target: 'development',
     timeoutSeconds: 90, workflowId: 'workflows/test',
   };
-  assert.equal(createBuildToken(launch), 'd0c037f9baf8fdcff2d6d509f5f26f565c5d5b329ac9e1badd2013e0eccf8450');
+  assert.equal(createBuildToken(launch), '55bdd423439e92d5a62dd8b5a2e44d1c50bb274990c17c9c2aae57d23de086e3');
+  launch.continuation = { id: 'save-reload', stageId: 'reload', stageIndex: 1, stageCount: 2,
+    profileAction: 'load', profileId: 'athrs_0123456789abcdef0123456789abcdef' };
+  assert.equal(createBuildToken(launch), '52dcc0d52735e7e20eb010197fee79d315ad61909b8a0caecbd10739c16e0c95');
 });
 
 function evidence() {
@@ -254,6 +257,15 @@ test('rejects wrong nonce, build token, or watched process identity', () => {
   }
 });
 
+test('rejects an armed record with a different continuation profile or stage', () => {
+  const value = evidence();
+  value.launch.continuation = { id: 'save-reload', stageId: 'reload', stageIndex: 1, stageCount: 2,
+    profileAction: 'load', profileId: 'athrs_0123456789abcdef0123456789abcdef' };
+  value.launch.buildToken = createBuildToken(value.launch);
+  value.armed.continuation = { ...value.launch.continuation, profileId: 'athrs_ffffffffffffffffffffffffffffffff' };
+  assert.equal(validate(value).code, 'provenance_mismatch');
+});
+
 test('rejects a launch envelope changed after the runner created its trust anchor', () => {
   const sample = evidence();
   const trusted = structuredClone(sample.launch);
@@ -318,6 +330,21 @@ test('creates a fresh, provenance-bound launch envelope and isolated run folders
       ...launchOptions, runId: 'string-seed-run', correlationId: 'string-seed-correlation', seed: 'read-only-v1',
     });
     assert.equal(stringSeed.envelope.seed, 'read-only-v1');
+    const continuedLaunch = createRuntimeSmokeLaunch({
+      ...launchOptions, runId: 'continuation-reload', correlationId: 'continuation-correlation',
+      workflowId: 'workflows/reload',
+      continuation: { id: 'fresh-process', stageId: 'reload', stageIndex: 1, stageCount: 2,
+        profileAction: 'load', profileId: 'athrs_0123456789abcdef0123456789abcdef' },
+    });
+    assert.equal(continuedLaunch.envelope.continuation.profileAction, 'load');
+    assert.equal(continuedLaunch.args[continuedLaunch.args.indexOf('-runtimeSmokeContinuationProfile') + 1],
+      'athrs_0123456789abcdef0123456789abcdef');
+    assert.deepEqual(continuedLaunch.args.slice(continuedLaunch.args.indexOf('-autoload'), continuedLaunch.args.indexOf('-autoload') + 2),
+      ['-autoload', 'athrs_0123456789abcdef0123456789abcdef']);
+    assert.throws(() => createRuntimeSmokeLaunch({ ...launchOptions,
+      runId: 'invalid-continuation', correlationId: 'invalid-continuation-correlation',
+      continuation: { id: 'bad', stageId: 'load', stageIndex: 1, stageCount: 1, profileAction: 'load', profileId: 'athrs_invalid' },
+    }), (error) => error.code === 'continuation_invalid');
     assert.throws(() => createRuntimeSmokeLaunch({
       ...launchOptions, runId: 'bad-seed-run', correlationId: 'bad-seed-correlation', seed: 'bad/seed',
     }), (error) => error.code === 'launch_input_invalid');

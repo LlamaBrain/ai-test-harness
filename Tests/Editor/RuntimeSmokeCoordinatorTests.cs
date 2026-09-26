@@ -44,6 +44,42 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
         }
 
         [Test]
+        public async Task ContinuationIdentityReachesTypedAdapterContextAndMustMatchLaunch()
+        {
+            var args = new[]
+            {
+                "-runtimeSmoke", "workflows/coordinator", "-runtimeSmokeCorrelation", "continuation-run",
+                "-runtimeSmokeArtifactRoot", @"C:\Game\Artifacts\continuation-run",
+                "-runtimeSmokeNonce", new string('a', 64), "-runtimeSmokeBuildToken", new string('b', 64),
+                "-runtimeSmokeContinuation", "persistence", "-runtimeSmokeContinuationStage", "reload",
+                "-runtimeSmokeContinuationIndex", "1", "-runtimeSmokeContinuationCount", "2",
+                "-runtimeSmokeContinuationAction", "load", "-runtimeSmokeContinuationProfile", "athrs_0123456789abcdef0123456789abcdef"
+            };
+            Assert.That(RuntimeSmokePlayerLaunchOptions.TryParse(args, out var options, out var failure), Is.True, failure);
+            RuntimeSmokeStepContext observed = null;
+            var result = await RuntimeSmokeCoordinator.RunAsync(Workflow(), "continuation-run",
+                new FakeAdapter((step, context) =>
+                {
+                    observed = context;
+                    return Response(context.CorrelationId, RuntimeSmokeStepResponseStatus.Passed);
+                }), new MemorySink(), playerLaunchOptions: options);
+
+            Assert.That(result.TerminalState, Is.EqualTo(RuntimeSmokeRunTerminalState.Passed));
+            Assert.That(observed.ContinuationId, Is.EqualTo("persistence"));
+            Assert.That(observed.ContinuationStageId, Is.EqualTo("reload"));
+            Assert.That(observed.ContinuationStageIndex, Is.EqualTo(1));
+            Assert.That(observed.ContinuationStageCount, Is.EqualTo(2));
+            Assert.That(observed.ContinuationProfileAction, Is.EqualTo("load"));
+            Assert.That(observed.ContinuationProfileId, Is.EqualTo("athrs_0123456789abcdef0123456789abcdef"));
+
+            var mismatch = await RuntimeSmokeCoordinator.RunAsync(Workflow(), "wrong-correlation",
+                new FakeAdapter((step, context) => Response(context.CorrelationId, RuntimeSmokeStepResponseStatus.Passed)),
+                new MemorySink(), playerLaunchOptions: options);
+            Assert.That(mismatch.TerminalState, Is.EqualTo(RuntimeSmokeRunTerminalState.Failed));
+            Assert.That(mismatch.Diagnostic, Does.Contain("do not match the claimed launch"));
+        }
+
+        [Test]
         public async Task CoordinatorRejectsScenarioOrSeedOverridesOfAuthoredFixture()
         {
             var scenarioOverride = await RuntimeSmokeCoordinator.RunAsync(WorkflowWithFixture(), "fixture-scenario-override",

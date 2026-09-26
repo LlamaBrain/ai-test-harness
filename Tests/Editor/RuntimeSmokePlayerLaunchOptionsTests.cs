@@ -24,6 +24,43 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Assert.That(options.BuildToken, Is.EqualTo(new string('b', 64)));
         }
 
+        [Test]
+        public void ParsesTypedContinuationStageAndProfileHandoff()
+        {
+            var args = new[]
+            {
+                "-runtimeSmoke", "workflows/reload", "-runtimeSmokeCorrelation", "run-2",
+                "-runtimeSmokeArtifactRoot", @"C:\Game\Artifacts\run-2",
+                "-runtimeSmokeNonce", new string('a', 64), "-runtimeSmokeBuildToken", new string('b', 64),
+                "-runtimeSmokeContinuation", "continuation-1", "-runtimeSmokeContinuationStage", "reload",
+                "-runtimeSmokeContinuationIndex", "1", "-runtimeSmokeContinuationCount", "2",
+                "-runtimeSmokeContinuationAction", "load", "-runtimeSmokeContinuationProfile", "athrs_0123456789abcdef0123456789abcdef"
+            };
+
+            Assert.That(RuntimeSmokePlayerLaunchOptions.TryParse(args, out var options, out var failure), Is.True, failure);
+            Assert.That(options.ContinuationId, Is.EqualTo("continuation-1"));
+            Assert.That(options.ContinuationStageId, Is.EqualTo("reload"));
+            Assert.That(options.ContinuationStageIndex, Is.EqualTo(1));
+            Assert.That(options.ContinuationStageCount, Is.EqualTo(2));
+            Assert.That(options.ContinuationProfileAction, Is.EqualTo("load"));
+            Assert.That(options.ContinuationProfileId, Is.EqualTo("athrs_0123456789abcdef0123456789abcdef"));
+        }
+
+        [Test]
+        public void RejectsPartialContinuationIdentity()
+        {
+            var args = new[]
+            {
+                "-runtimeSmoke", "workflows/reload", "-runtimeSmokeCorrelation", "run-2",
+                "-runtimeSmokeArtifactRoot", @"C:\Game\Artifacts\run-2",
+                "-runtimeSmokeNonce", new string('a', 64), "-runtimeSmokeBuildToken", new string('b', 64),
+                "-runtimeSmokeContinuation", "continuation-1"
+            };
+
+            Assert.That(RuntimeSmokePlayerLaunchOptions.TryParse(args, out _, out var failure), Is.False);
+            Assert.That(failure, Does.Contain("continuation"));
+        }
+
         [TestCase(new string[] { "-runtimeSmoke", "workflows/test" }, "launch arguments are missing")]
         [TestCase(new string[] { "-runtimeSmoke", "workflows/test", "-runtimeSmoke=workflows/other" }, "launch argument is duplicated")]
         [TestCase(new string[] { "-runtimeSmoke", "../outside", "-runtimeSmokeCorrelation", "run-1", "-runtimeSmokeArtifactRoot", @"C:\Game\Artifacts\run-1", "-runtimeSmokeNonce", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "-runtimeSmokeBuildToken", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }, "workflow ID is invalid")]

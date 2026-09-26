@@ -20,6 +20,12 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public string BuildToken { get; private set; }
         public string Scenario { get; private set; }
         public string Seed { get; private set; }
+        public string ContinuationId { get; private set; }
+        public string ContinuationStageId { get; private set; }
+        public int ContinuationStageIndex { get; private set; }
+        public int ContinuationStageCount { get; private set; }
+        public string ContinuationProfileAction { get; private set; }
+        public string ContinuationProfileId { get; private set; }
 
         internal void SetFixtureIdentity(string scenario, string seed)
         {
@@ -66,7 +72,9 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             var names = new HashSet<string>(new[]
             {
                 "-runtimeSmoke", "-runtimeSmokeCorrelation", "-runtimeSmokeArtifactRoot",
-                "-runtimeSmokeNonce", "-runtimeSmokeBuildToken"
+                "-runtimeSmokeNonce", "-runtimeSmokeBuildToken", "-runtimeSmokeContinuation",
+                "-runtimeSmokeContinuationStage", "-runtimeSmokeContinuationIndex", "-runtimeSmokeContinuationCount",
+                "-runtimeSmokeContinuationAction", "-runtimeSmokeContinuationProfile"
             }, StringComparer.Ordinal);
             for (var index = 0; index < args.Length; index++)
             {
@@ -89,9 +97,17 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 values.Add(name, value);
             }
 
-            if (values.Count != names.Count)
+            var coreNames = new[] { "-runtimeSmoke", "-runtimeSmokeCorrelation", "-runtimeSmokeArtifactRoot", "-runtimeSmokeNonce", "-runtimeSmokeBuildToken" };
+            var continuationNames = names.Where(name => name.StartsWith("-runtimeSmokeContinuation", StringComparison.Ordinal)).ToArray();
+            var hasContinuation = continuationNames.Any(values.ContainsKey);
+            if (coreNames.Any(name => !values.ContainsKey(name)) || (!hasContinuation && continuationNames.Any(values.ContainsKey)))
             {
                 failure = "RuntimeSmoke launch arguments are missing or incomplete.";
+                return false;
+            }
+            if (hasContinuation && continuationNames.Any(name => !values.ContainsKey(name)))
+            {
+                failure = "RuntimeSmoke continuation arguments are missing or incomplete.";
                 return false;
             }
             var workflow = values["-runtimeSmoke"];
@@ -116,6 +132,21 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 failure = "RuntimeSmoke nonce and build token must be lowercase SHA-256 values.";
                 return false;
             }
+            var continuationId = hasContinuation ? values["-runtimeSmokeContinuation"] : null;
+            var continuationStage = hasContinuation ? values["-runtimeSmokeContinuationStage"] : null;
+            var continuationProfile = hasContinuation ? values["-runtimeSmokeContinuationProfile"] : null;
+            var continuationAction = hasContinuation ? values["-runtimeSmokeContinuationAction"] : null;
+            var continuationIndex = 0;
+            var continuationCount = 0;
+            if (hasContinuation && (!SafeId(continuationId) || !SafeId(continuationStage) || !SafeId(continuationProfile) ||
+                !int.TryParse(values["-runtimeSmokeContinuationIndex"], out continuationIndex) ||
+                !int.TryParse(values["-runtimeSmokeContinuationCount"], out continuationCount) || continuationCount < 2 ||
+                continuationIndex < 0 || continuationIndex >= continuationCount ||
+                (continuationIndex == 0 ? continuationAction != "create" : continuationAction != "load")))
+            {
+                failure = "RuntimeSmoke continuation identity is invalid or incomplete.";
+                return false;
+            }
             try
             {
                 options = new RuntimeSmokePlayerLaunchOptions
@@ -124,7 +155,13 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                     CorrelationId = correlation,
                     ArtifactRoot = Path.GetFullPath(values["-runtimeSmokeArtifactRoot"]),
                     Nonce = values["-runtimeSmokeNonce"],
-                    BuildToken = values["-runtimeSmokeBuildToken"]
+                    BuildToken = values["-runtimeSmokeBuildToken"],
+                    ContinuationId = continuationId,
+                    ContinuationStageId = continuationStage,
+                    ContinuationStageIndex = continuationIndex,
+                    ContinuationStageCount = continuationCount,
+                    ContinuationProfileAction = continuationAction,
+                    ContinuationProfileId = continuationProfile
                 };
                 return true;
             }

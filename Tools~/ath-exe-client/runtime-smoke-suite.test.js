@@ -189,3 +189,71 @@ test('projects a post-run artifact integrity failure as a build-gate JUnit error
     assert.match(result.junit, /<error type="artifact_copy_changed"/);
   } finally { fs.rmSync(fx.parent, { recursive: true, force: true }); }
 });
+
+test('runs all declared processes in an ordered continuation before accepting the logical workflow', async () => {
+  const fx = fixture();
+  try {
+    const continued = entry('persistence');
+    continued.continuation = {
+      continuationId: 'fresh-process-persistence',
+      stages: [
+        { stageId: 'save', workflowId: 'workflows/persistence', canonicalScriptHash: 'a'.repeat(64), runId: 'run-persistence', correlationId: 'correlation-persistence', requiredStepIds: ['ready'], profileAction: 'create' },
+        { stageId: 'reload', workflowId: 'workflows/persistence-reload', canonicalScriptHash: 'c'.repeat(64), runId: 'run-persistence-reload', correlationId: 'correlation-persistence-reload', requiredStepIds: ['restored'], profileAction: 'load' },
+      ],
+    };
+    const seen = [];
+    const result = await runRuntimeSmokeSuite(suiteSpec(fx, [continued]), {
+      launch: async (options) => { seen.push(options); return { accepted: true, state: 'passed', runDirectory: path.join(options.outputRoot, options.runId) }; },
+    });
+    assert.equal(result.accepted, true);
+    assert.equal(seen.length, 2);
+    assert.deepEqual(seen.map((stage) => stage.workflowId), ['workflows/persistence', 'workflows/persistence-reload']);
+    assert.deepEqual(seen.map((stage) => stage.continuation.stageIndex), [0, 1]);
+    assert.deepEqual(seen.map((stage) => stage.continuation.profileAction), ['create', 'load']);
+    assert.equal(seen[0].continuation.profileId, seen[1].continuation.profileId);
+    assert.equal(seen[0].continuation.stageCount, 2);
+    assert.equal(seen[0].continuation.id, 'fresh-process-persistence');
+    assert.notEqual(seen[0].correlationId, seen[1].correlationId);
+    assert.notEqual(seen[0].runId, seen[1].runId);
+    assert.equal(result.entries[0].stages.length, 2);
+    assert.match(result.entries[0].stages[0].resultPath, /run-persistence/);
+    assert.match(result.entries[0].stages[1].transcriptPath, /run-persistence-reload/);
+    assert.equal(result.entries[0].continuationId, 'fresh-process-persistence');
+    assert.notEqual(result.entries[0].stages[0].profileIdSha256, seen[0].continuation.profileId);
+    assert.equal(result.entries[0].accepted, true);
+  } finally { fs.rmSync(fx.parent, { recursive: true, force: true }); }
+});
+
+test('rejects broken continuation ordering before making suite output or launching a process', async () => {
+  const fx = fixture();
+  try {
+    const continued = entry('persistence');
+    continued.continuation = { continuationId: 'broken', stages: [
+        { stageId: 'save', workflowId: 'workflows/persistence', canonicalScriptHash: 'a'.repeat(64), runId: 'run-persistence', correlationId: 'correlation-persistence', requiredStepIds: ['ready'], profileAction: 'load' },
+      { stageId: 'reload', workflowId: 'workflows/reload', canonicalScriptHash: 'c'.repeat(64), runId: 'load-run', correlationId: 'load-correlation', requiredStepIds: ['loaded'], profileAction: 'load' },
+    ] };
+    await assert.rejects(runRuntimeSmokeSuite(suiteSpec(fx, [continued]), { launch: async () => { throw new Error('must not launch'); } }),
+      (error) => error.code === 'continuation_invalid');
+    assert.equal(fs.existsSync(fx.outputDirectory), false);
+  } finally { fs.rmSync(fx.parent, { recursive: true, force: true }); }
+});
+
+test('stops a persistence continuation at its first failed process', async () => {
+  const fx = fixture();
+  try {
+    const continued = entry('persistence');
+    continued.continuation = { continuationId: 'failed-save', stages: [
+      { stageId: 'save', workflowId: 'workflows/persistence', canonicalScriptHash: 'a'.repeat(64), runId: 'run-persistence', correlationId: 'correlation-persistence', requiredStepIds: ['ready'], profileAction: 'create' },
+      { stageId: 'reload', workflowId: 'workflows/reload', canonicalScriptHash: 'c'.repeat(64), runId: 'load-run', correlationId: 'load-correlation', requiredStepIds: ['loaded'], profileAction: 'load' },
+    ] };
+    let launches = 0;
+    const result = await runRuntimeSmokeSuite(suiteSpec(fx, [continued]), {
+      launch: async () => { launches++; return { accepted: false, state: 'failed', failureCode: 'assertion_mismatch' }; },
+    });
+    assert.equal(launches, 1);
+    assert.equal(result.accepted, false);
+    assert.equal(result.entries[0].stages.length, 2);
+    assert.equal(result.entries[0].stages[1].state, 'skipped');
+    assert.equal(result.entries[0].failureCode, 'assertion_mismatch');
+  } finally { fs.rmSync(fx.parent, { recursive: true, force: true }); }
+});

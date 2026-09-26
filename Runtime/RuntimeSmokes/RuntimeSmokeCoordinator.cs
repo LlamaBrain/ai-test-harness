@@ -21,6 +21,12 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public string WorkflowId { get; internal set; }
         public string Scenario { get; internal set; }
         public string Seed { get; internal set; }
+        public string ContinuationId { get; internal set; }
+        public string ContinuationStageId { get; internal set; }
+        public int ContinuationStageIndex { get; internal set; }
+        public int ContinuationStageCount { get; internal set; }
+        public string ContinuationProfileAction { get; internal set; }
+        public string ContinuationProfileId { get; internal set; }
         public string StepId { get; internal set; }
         public DateTime DeadlineUtc { get; internal set; }
         public int StepIndex { get; internal set; }
@@ -171,10 +177,15 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public static async Task<RuntimeSmokeExecutionResult> RunAsync(RuntimeSmokeCompiledWorkflow workflow, string correlationId,
             IRuntimeSmokeStepAdapter adapter, IRuntimeSmokeTranscriptSink sink, IRuntimeSmokeCleanup cleanup = null,
             Func<bool> isCancellationRequested = null, Func<DateTime> utcNow = null,
-            Func<string, Task<bool>> waitForCheckpointResumeAsync = null, string scenario = null, string seed = null)
+            Func<string, Task<bool>> waitForCheckpointResumeAsync = null, string scenario = null, string seed = null,
+            RuntimeSmokePlayerLaunchOptions playerLaunchOptions = null)
         {
+            playerLaunchOptions = playerLaunchOptions ?? RuntimeSmokePlayerLaunchOptions.FromEnvironment();
             var now = utcNow ?? (() => DateTime.UtcNow);
             var fixtureMismatch = HasFixtureOverride(workflow?.Scenario, scenario) || HasFixtureOverride(workflow?.Seed, seed);
+            var launchMismatch = playerLaunchOptions != null && (workflow == null ||
+                !string.Equals(workflow.Id, playerLaunchOptions.WorkflowId, StringComparison.Ordinal) ||
+                !string.Equals(correlationId, playerLaunchOptions.CorrelationId, StringComparison.Ordinal));
             scenario = fixtureMismatch || string.IsNullOrWhiteSpace(scenario) ? workflow?.Scenario : scenario;
             seed = fixtureMismatch || string.IsNullOrWhiteSpace(seed) ? workflow?.Seed : seed;
             var started = now();
@@ -184,7 +195,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 TerminalState = RuntimeSmokeRunTerminalState.Failed,
                 SchemaVersion = 1,
                 FailureCode = RuntimeSmokeRunFailureCode.ProtocolInvalid,
-                Diagnostic = fixtureMismatch ? "Run scenario and seed must match the authored workflow fixture." : null,
+                Diagnostic = launchMismatch ? "RuntimeSmoke player continuation and workflow identity do not match the claimed launch." :
+                    fixtureMismatch ? "Run scenario and seed must match the authored workflow fixture." : null,
                 CorrelationId = correlationId,
                 WorkflowId = workflow == null ? null : workflow.Id,
                 ScriptHash = workflow == null ? null : workflow.CanonicalHash,
@@ -193,7 +205,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 StartedUtc = started,
                 Transcript = records.AsReadOnly()
             };
-            if (fixtureMismatch || workflow == null || adapter == null || sink == null || !IsCorrelationId(correlationId) || workflow.Steps == null || workflow.Steps.Count < 2)
+            if (fixtureMismatch || launchMismatch || workflow == null || adapter == null || sink == null || !IsCorrelationId(correlationId) || workflow.Steps == null || workflow.Steps.Count < 2)
                 return result;
 
             lock (RegistryLock)
@@ -320,6 +332,12 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                             WorkflowId = workflow.Id,
                             Scenario = scenario,
                             Seed = seed,
+                            ContinuationId = playerLaunchOptions?.ContinuationId,
+                            ContinuationStageId = playerLaunchOptions?.ContinuationStageId,
+                            ContinuationStageIndex = playerLaunchOptions?.ContinuationStageIndex ?? 0,
+                            ContinuationStageCount = playerLaunchOptions?.ContinuationStageCount ?? 0,
+                            ContinuationProfileAction = playerLaunchOptions?.ContinuationProfileAction,
+                            ContinuationProfileId = playerLaunchOptions?.ContinuationProfileId,
                             StepId = step.Id,
                             DeadlineUtc = deadline,
                             StepIndex = index
@@ -398,6 +416,12 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                             WorkflowId = workflow.Id,
                             Scenario = scenario,
                             Seed = seed,
+                            ContinuationId = playerLaunchOptions?.ContinuationId,
+                            ContinuationStageId = playerLaunchOptions?.ContinuationStageId,
+                            ContinuationStageIndex = playerLaunchOptions?.ContinuationStageIndex ?? 0,
+                            ContinuationStageCount = playerLaunchOptions?.ContinuationStageCount ?? 0,
+                            ContinuationProfileAction = playerLaunchOptions?.ContinuationProfileAction,
+                            ContinuationProfileId = playerLaunchOptions?.ContinuationProfileId,
                             StepId = step.Id,
                             DeadlineUtc = deadline,
                             StepIndex = index
