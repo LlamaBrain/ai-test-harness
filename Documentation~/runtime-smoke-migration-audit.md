@@ -6,6 +6,10 @@
 
 RuntimeSmoke is the sole supported smoke orchestration and acceptance practice in AITH guidance. The structured run result and transcript establish the workflow outcome. Low-level command transports and legacy trace payloads remain available for bounded diagnostics/history; they cannot establish, override, or approve a smoke result. This AITH package audit does not complete the cross-repository Phase 7 migration or prove a consumer integration.
 
+## Follow-up verification — 2026-09-26
+
+The maintained AITH documentation, API references, generated-skill retirement notices, command help, and minimal-host examples were re-audited at commit 3ff124842e6388ab85aa76c6c9f98b30280802d3 (AITH 0.5.1). No new AITH-scope conflict was found. The audit above remains the original 2026-09-25 change record at 7188c30c6a799fbab065a46ade2d52ab0c7e061; this follow-up binds the current package state without changing that historical provenance. BTS and Dirigible documentation/example reproduction remain separate consumer gates.
+
 ## Affected AITH sources and disposition
 
 | Source | Finding before migration | Disposition in this AITH change |

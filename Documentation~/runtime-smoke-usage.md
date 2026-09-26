@@ -14,6 +14,8 @@ The Editor MCP tools operate on the same registry:
 
 ```text
 ath-runtime-smoke-list(target="editor", mode="fsd")
+# For a player suite generator, list the compiled player-lane hashes instead:
+ath-runtime-smoke-list(target="development", mode="fsd")
 ath-runtime-smoke-run(workflowId="workflows/<host-workflow>", target="editor", mode="fsd", correlationId="<new-unique-id>")
 ath-runtime-smoke-status(correlationId="<same-id>")
 ```
