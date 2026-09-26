@@ -87,6 +87,12 @@ test('accepts exactly one complete PASS bound to the armed process and launch id
   assert.equal(validate(evidence()).accepted, true);
 });
 
+test('accepts Unity JsonUtility empty continuation fields for a non-continuation launch', () => {
+  const sample = evidence();
+  sample.armed.continuation = { id: '', profileAction: '', profileId: '', stageCount: 0, stageId: '', stageIndex: 0 };
+  assert.equal(validate(sample).accepted, true);
+});
+
 test('accepts a durable runner armed prelude written before the player process starts', () => {
   const sample = evidence();
   sample.transcript[0].timestampUtc = startedUtc;

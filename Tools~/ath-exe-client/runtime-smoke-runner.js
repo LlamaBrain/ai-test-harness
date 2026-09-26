@@ -33,9 +33,8 @@ function validateRuntimeSmokeEvidence(evidence, trustedLaunch) {
     armed.profileHash === launch.profileHash && armed.contentHash === launch.contentHash &&
     sameOptionalIdentity(armed.scenario, launch.scenario) && sameOptionalIdentity(armed.seed, launch.seed) &&
     observed.executableSha256 === launch.executableSha256 && pathEquals(observed.executablePath, launch.executablePath);
-  const continuationMatches = launch.continuation == null
-    ? armed.continuation == null
-    : stableJson(armed.continuation) === stableJson(launch.continuation);
+  const normalizedArmedContinuation = isEmptyContinuation(armed.continuation) ? null : armed.continuation;
+  const continuationMatches = stableJson(normalizedArmedContinuation) === stableJson(launch.continuation ?? null);
   if (!identityMatches || !continuationMatches) return invalid('provenance_mismatch', 'Player armed record does not match the launch envelope and watched process.');
 
   const launchTime = Date.parse(launch.startedUtc);
@@ -108,6 +107,13 @@ function validateRuntimeSmokeEvidence(evidence, trustedLaunch) {
     return invalid('result_mismatch', 'Structured result timestamps do not bind to the terminal transcript and process lifetime.');
 
   return { accepted: true, code: 'pass', terminal };
+}
+
+function isEmptyContinuation(value) {
+  return value == null || (value && typeof value === 'object' && !Array.isArray(value) &&
+    (value.id == null || value.id === '') && (value.profileAction == null || value.profileAction === '') &&
+    (value.profileId == null || value.profileId === '') && (value.stageCount == null || value.stageCount === 0) &&
+    (value.stageId == null || value.stageId === '') && (value.stageIndex == null || value.stageIndex === 0));
 }
 
 /** Refuse reuse of any artifact directory; evidence is never cleared to make a run fit. */
