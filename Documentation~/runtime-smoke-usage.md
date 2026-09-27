@@ -22,7 +22,7 @@ ath-runtime-smoke-status(correlationId="<same-id>")
 
 Use the host's exact workflow ID. Generate a new correlation for each attempt and retain it for every status, resume, cancel, export, and investigation request in that attempt. The run tool returns immediately; poll status until a terminal state or review checkpoint. Never reuse a failed, cancelled, timed-out, or already-claimed correlation.
 
-The development-only in-game command surface is `runtime_smoke.list`, `runtime_smoke.run`, `runtime_smoke.status`, `runtime_smoke.cancel`, `runtime_smoke.resume`, and `runtime_smoke.export_context`. It is a transport to declared workflows, not an arbitrary script executor. Normal release builds must not expose this surface. Use `ath-exe`'s direct `cmd`, `state`, `wait`, and `snap` commands only for bounded diagnostics; their output is not a RuntimeSmoke PASS.
+The development-only in-game command surface is `runtime_smoke.list`, `runtime_smoke.run`, `runtime_smoke.status`, `runtime_smoke.cancel`, `runtime_smoke.resume`, `runtime_smoke.export_context`, and `runtime_smoke.investigate`. Investigation actions are declared by the failed workflow and append diagnostic results to its transcript; they do not change the failed result. This surface is a transport to declared workflows, not an arbitrary script executor. Normal release builds must not expose it. Use `ath-exe`'s direct `cmd`, `state`, `wait`, and `snap` commands only for bounded diagnostics; their output is not a RuntimeSmoke PASS.
 
 ## Author workflows and fragments
 

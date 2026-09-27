@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Rebound the migration audit to 0.5.2 and reconciled the documented console and MCP operation lists with the implemented investigate and capture APIs. (v0.5.3)
+
 - Documented the player-lane workflow listing required to generate exact-artifact suite hashes. (v0.5.2)
 
 ## [0.5.1] - 2026-09-26
