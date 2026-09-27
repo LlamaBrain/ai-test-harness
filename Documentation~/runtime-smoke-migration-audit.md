@@ -64,3 +64,7 @@ This AITH audit does not complete the cross-repository Phase 7 migration or prov
 ### Phase 7 package API/reference follow-up — 2026-09-25
 
 The release metadata audit found that `VERSION` and `AthRuntimeFlag.PackageVersion` still reported 0.3.0 while `package.json` was 0.4.0. This commit bumps the package to 0.4.1 and synchronizes those public version surfaces, the README status/install tag, and the changelog. A focused Node contract test now guards the three version sources. Version strings in retired skill frontmatter and historical trace examples remain historical caller/sample data; they are not current package release surfaces.
+
+### Current package docs/API verification — 2026-09-26
+
+The canonical usage guide, API reference, README links, retired-skill notices, CLI help, typed MCP operation declarations, continuation examples, minimal-host examples, and local Markdown links were rechecked at reviewed AITH commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2). No AITH-scope documentation, API-reference, or local-link conflict was found in that scope. The original 2026-09-25 audit and the 0.5.1 follow-up above remain historical records; this entry binds the follow-up to the currently reviewed package commit. This static audit does not prove consumer registration, runtime behavior, human review, or exact-artifact acceptance in BTS or Dirigible.

@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Re-audited current AITH RuntimeSmoke docs, API references, CLI/MCP examples, minimal-host guidance, and local links at reviewed commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2); consumer integration and runtime proofs remain host-owned. (v0.5.2)
 
 - Documented the player-lane workflow listing required to generate exact-artifact suite hashes. (v0.5.2)
 
