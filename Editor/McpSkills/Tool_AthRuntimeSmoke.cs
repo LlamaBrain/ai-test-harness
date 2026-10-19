@@ -123,6 +123,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             var completed = records.Where(record => record != null && record.type == "step_completed")
                 .Select(record => record.stepId).Where(id => !string.IsNullOrEmpty(id)).Distinct(StringComparer.Ordinal).Count();
             var failed = snapshot.State == RuntimeSmokeRegistryRunState.Failed || snapshot.State == RuntimeSmokeRegistryRunState.Cancelled;
+            var failureCode = snapshot.FailureContext?.failureCode;
             return new StatusResult
             {
                 Found = snapshot.Found,
@@ -130,9 +131,9 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
                 WorkflowId = snapshot.WorkflowId ?? "",
                 ScriptHash = snapshot.ScriptHash ?? "",
                 State = StateLabel(snapshot.State),
-                FailureCode = string.IsNullOrEmpty(snapshot.FailureContext?.failureCode)
-                    ? RunFailureLabel(snapshot.FailureCode) ?? ""
-                    : snapshot.FailureContext.failureCode,
+                FailureCode = failureCode != null && failureCode.Length > 0
+                    ? failureCode
+                    : RunFailureLabel(snapshot.FailureCode) ?? "",
                 ActiveStepId = snapshot.ActiveStepId ?? "",
                 ActiveCheckpointId = snapshot.ActiveCheckpointId ?? "",
                 Scenario = snapshot.Scenario ?? "",

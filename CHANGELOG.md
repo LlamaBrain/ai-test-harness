@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Reconcile the retained runtime-smoke documentation with guarded-nullable compiler repairs; preserve both branch histories and public DTOs (v0.5.4).
+- Make existing RuntimeSmoke failure-code and trace CSV null checks explicit for Unity's compiler; preserve fallback values and trace/status DTO shapes (retained v0.5.2 repair).
+
 - Rebound the migration audit to 0.5.2 and reconciled the documented console and MCP operation lists with the implemented investigate and capture APIs. (v0.5.3)
 
 - Documented the player-lane workflow listing required to generate exact-artifact suite hashes. (v0.5.2)

@@ -148,7 +148,7 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
 
         static string[]? SplitCsv(string? csv)
         {
-            if (string.IsNullOrWhiteSpace(csv)) return null;
+            if (csv == null || string.IsNullOrWhiteSpace(csv)) return null;
             var parts = csv.Split(',')
                            .Select(x => x.Trim())
                            .Where(x => x.Length > 0)
