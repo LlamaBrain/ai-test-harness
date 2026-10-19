@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Retain the historical migration-audit appendix and source-cleanup disposition while collecting all reviewed branch histories on dev (v0.6.1).
+- Re-audited current AITH RuntimeSmoke docs, API references, CLI/MCP examples, minimal-host guidance, and local links at reviewed commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2); consumer integration and runtime proofs remain host-owned. (v0.5.2)
+
 - Combine retained Game-view/Recorder capture and raw EXE dispatch with the modern RuntimeSmoke platform, legacy-trace boundary and compiler repairs; preserve test discovery and existing Unity GUIDs (v0.6.0).
 
 - Reconcile the retained runtime-smoke documentation with guarded-nullable compiler repairs; preserve both branch histories and public DTOs (v0.5.4).

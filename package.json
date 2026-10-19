@@ -1,6 +1,6 @@
 {
   "name": "com.llamabrainlabs.ai-test-harness",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "displayName": "AI Test Harness",
   "description": "Unity host-owned RuntimeSmoke workflows with a reusable coordinator, transports, Editor controls, and suite runner. Adapter commands and MCP tools provide diagnostics; legacy skill files are historical references and do not establish RuntimeSmoke acceptance.",
   "unity": "2022.3",

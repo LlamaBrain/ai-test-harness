@@ -1,7 +1,7 @@
 ---
 name: ath-feature-demo
 description: Reference for collecting optional visual review artifacts alongside a host-owned RuntimeSmoke workflow; it does not define smoke acceptance.
-version: 0.6.0
+version: 0.6.1
 ---
 
 # Optional visual review artifacts
