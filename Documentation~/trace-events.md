@@ -49,6 +49,24 @@ are dependency-free (no Newtonsoft — the Editor asmdef pins a closed reference
 set) and unit-testable without an MCP attachment, mirroring the
 `AthStateDispatcher` split.
 
+## Capture artifacts
+
+`ath-snap` (editor MCP tool) captures a **Game-view PNG** as HITL-validation
+evidence, written under `.../trace/media/` and returned as a trace-relative path
+(`media/snap_<ts>.png`) ready to drop into `artifacts`. Capture is non-blocking:
+`action:"capture"` returns `pending` + a `CaptureId` immediately (Unity writes
+the file at end-of-frame), and `action:"query"` (by `CaptureId`, or by a
+trace-relative `path` after a domain reload) reports `ok` with width/height/size
+once the file has landed. Requires PlayMode.
+
+Artifact paths are validated at the emit boundary: only safe **trace-relative**
+paths are accepted (normally `media/<file>`; safe bare filenames too); an
+absolute/rooted, `..`, or backslash path is rejected with `Status=bad_artifact`
+and no event is written.
+
+> Tier-2 motion capture (`ath-record`, Unity Recorder mp4) is an opt-in soft
+> dependency; its payload notes will be added here when it ships.
+
 ## Legacy kind payload: `ath.smoke.completed`
 
 This payload shape is retained for trace-history compatibility and explicit

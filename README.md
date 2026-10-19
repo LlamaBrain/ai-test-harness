@@ -7,7 +7,7 @@ By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://gi
 
 A reusable Unity test harness with a host-neutral RuntimeSmoke runner and lower-level diagnostic transports, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
 
-> **Status:** v0.5.4. This package implements the host-neutral RuntimeSmoke compiler, typed assertions, coordinator, Editor window, MCP operations, and EXE runner. Consumer-specific registration and end-to-end validation remain separate: Editor/player runs, human review, and exact-artifact build-gate acceptance must be reported from that consumer's own evidence.
+> **Status:** v0.6.0. This package implements the host-neutral RuntimeSmoke compiler, typed assertions, coordinator, Editor window, MCP operations, and EXE runner. Consumer-specific registration and end-to-end validation remain separate: Editor/player runs, human review, and exact-artifact build-gate acceptance must be reported from that consumer's own evidence.
 
 Start with the [RuntimeSmoke usage and authoring guide](Documentation~/runtime-smoke-usage.md), then see the [RuntimeSmoke API contract](Documentation~/runtime-smokes.md). The older `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`, direct EXE console tools, and procedural smoke skills remain low-level diagnostics; they do not provide an alternate smoke acceptance path. See the [AITH documentation migration audit](Documentation~/runtime-smoke-migration-audit.md).
 
@@ -61,7 +61,7 @@ Add to `Packages/manifest.json`:
 "com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
 ```
 
-(Or pin a tagged release via git after publication: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.5.4"`.)
+(Or pin a tagged release via git after publication: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.6.0"`.)
 
 ### 4. Implement the adapter
 
@@ -89,6 +89,10 @@ Author host-owned workflow JSON in the project's RuntimeSmokes tree, then use th
 - `Skills/` — legacy procedural guides retained as explicitly retired references; host workflows belong in the host's checked-in RuntimeSmoke documents.
 - `Samples~/MinimalHostAdapter/` — no-op adapter for a fresh-project package-boundary diagnostic.
 - `Documentation~/` — [RuntimeSmoke operator/authoring guide](Documentation~/runtime-smoke-usage.md), [RuntimeSmoke contract](Documentation~/runtime-smokes.md), migration audit, adapter contract, diagnostic transport guides, and trace events.
+
+## Optional capture and raw diagnostic commands
+
+`ath-snap` captures Game-view PNGs; `ath-record` uses the optional Unity Recorder package for video and reports `recorder_unavailable` when it is absent. Captures are review artifacts; RuntimeSmoke remains the acceptance authority. Live capture/Recorder proof is retained as pending. The EXE client supports `cmd --raw` for commands with bare overloads, alongside the existing `runtime-smoke` and `runtime-smoke-suite` commands.
 
 ## Architecture notes
 

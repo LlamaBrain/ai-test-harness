@@ -10,3 +10,5 @@ Low-level command usage may still be useful for a narrowly scoped diagnostic. La
 
 - `ath-smoke-fullloop/SKILL.md`: historical BTS-specific command-driven procedure, retained only as investigation context. It does not establish current BTS workflow coverage or acceptance; consult BTS-owned workflow docs and run evidence for that status.
 - `ath-exe-smoke/SKILL.md`: historical manual EXE command/wait template, retained only as investigation context. Built-player acceptance uses the canonical `ath-exe runtime-smoke` or `runtime-smoke-suite` runner with a declared host workflow and exact-artifact evidence; the retired file is not its authoring guide.
+
+Optional capture reference: [ath-feature-demo](ath-feature-demo/SKILL.md) describes media collection alongside a host-owned checkpoint; it defines no independent smoke verdict.

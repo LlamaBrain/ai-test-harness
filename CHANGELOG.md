@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Combine retained Game-view/Recorder capture and raw EXE dispatch with the modern RuntimeSmoke platform, legacy-trace boundary and compiler repairs; preserve test discovery and existing Unity GUIDs (v0.6.0).
+
 - Reconcile the retained runtime-smoke documentation with guarded-nullable compiler repairs; preserve both branch histories and public DTOs (v0.5.4).
 - Make existing RuntimeSmoke failure-code and trace CSV null checks explicit for Unity's compiler; preserve fallback values and trace/status DTO shapes (retained v0.5.2 repair).
 

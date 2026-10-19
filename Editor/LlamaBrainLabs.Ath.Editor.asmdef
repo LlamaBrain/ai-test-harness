@@ -27,6 +27,11 @@
             "name": "com.ivanmurzak.unity.mcp",
             "expression": "0.0.1",
             "define": "UNITY_MCP_READY"
+        },
+        {
+            "name": "com.unity.recorder",
+            "expression": "4.0.0",
+            "define": "ATH_RECORDER"
         }
     ],
     "noEngineReferences": false

@@ -11,6 +11,7 @@
 //
 // Subcommands:
 //   cmd    <command...>          fire one console command, print the result
+//                                (--raw: no corrId appended, no capture)
 //   state  <key>                 query harness.state <key>
 //   wait   <predicate>           poll harness.state until satisfied/timeout
 //   snap   <label>               harness.snap, then poll the PNG path
@@ -116,7 +117,12 @@ async function cmdCmd(positionals, flags) {
   const command = positionals.join(' ').trim();
   if (!command) return fail('cmd requires a command string');
   const port = resolvePort(flags);
-  const resp = await sendCommand(port, command, { timeoutMs: num(flags['timeout-ms'], DEFAULT_CMD_TIMEOUT_MS) });
+  // --raw = the editor tool's tagId:false: the server dispatches verbatim and appends no
+  // correlation id, for commands that define only the bare overload (the console matches on
+  // exact arity, so a tagged call would fail to dispatch). No sentinels come back — assert
+  // through `state` instead.
+  const wire = flags.raw ? '!raw ' + command : command;
+  const resp = await sendCommand(port, wire, { timeoutMs: num(flags['timeout-ms'], DEFAULT_CMD_TIMEOUT_MS) });
   print({ ...resp, fields: proto.terminalFields(resp) });
   return resp.status === 'failed' ? 1 : 0;
 }
