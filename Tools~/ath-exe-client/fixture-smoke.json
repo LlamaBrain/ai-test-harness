@@ -1,0 +1,24 @@
+{
+  "name": "ath-fixture-smoke",
+  "requires": ["state", "commands", "events", "async", "reset"],
+  "steps": [
+    { "name": "Protocol round trip", "type": "command", "command": "harness.ping" },
+    { "name": "Fixture ready", "type": "wait", "predicate": "ath.fixture.ready", "timeoutMs": 30000 },
+    { "name": "Reset fixture", "type": "command", "command": "ath.fixture.reset" },
+    { "name": "Counter starts at zero", "type": "assert", "key": "ath.fixture.counter", "equals": "0" },
+    { "name": "Clear event observations", "type": "command", "command": "harness.reset" },
+    { "name": "Event starts unobserved", "type": "assert", "key": "event:ath.fixture.changed", "equals": "false" },
+    { "name": "Registered command changes state", "type": "command", "command": "ath.fixture.increment" },
+    { "name": "Predicate observes counter", "type": "wait", "predicate": "state_equals:ath.fixture.counter=1" },
+    { "name": "Sticky event remains observable", "type": "wait", "predicate": "event:ath.fixture.changed" },
+    { "name": "Reset sticky event", "type": "command", "command": "harness.reset" },
+    { "name": "Sticky event cleared", "type": "assert", "key": "event:ath.fixture.changed", "equals": "false" },
+    { "name": "Deactivate fixture", "type": "execute", "command": "ath.fixture.set_active", "arguments": { "active": false } },
+    { "name": "State getter sees mutation", "type": "assert", "key": "ath.fixture.active", "equals": "false" },
+    { "name": "Begin asynchronous operation", "id": "operation", "type": "command", "command": "ath.fixture.async_increment 50" },
+    { "name": "Observe correlated completion", "type": "wait", "predicate": "async_done:${operation.correlationId}", "timeoutMs": 10000 },
+    { "name": "Completion succeeded", "type": "assert", "key": "async_success:${operation.correlationId}", "equals": "true" },
+    { "name": "Asynchronous mutation visible", "type": "assert", "key": "ath.fixture.counter", "equals": "2" },
+    { "name": "Restore fixture", "type": "command", "command": "ath.fixture.reset" }
+  ]
+}

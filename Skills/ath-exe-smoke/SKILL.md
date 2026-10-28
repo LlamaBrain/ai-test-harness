@@ -24,8 +24,11 @@ cd <ath-package>/Tools~/ath-exe-client
 node ath-exe.js <cmd|state|wait|snap|launch|attach> …
 ```
 
-The final trace-emit step uses the **editor** MCP tool `ath-trace-emit` (the editor must be
-connected). For a fully headless CI run, record the pass/fail verdict yourself.
+Trace emission is available through the shared CLI without Unity Editor:
+`node ath-exe.js trace <result.json> --project-root <host-project>`.
+The existing editor MCP `ath-trace-emit` remains supported. See
+`Documentation~/shared-tooling.md` for executable smoke specifications and the
+standalone MCP server; use `Skills/ath-unreal-smoke` for the Unreal fixture suite.
 
 ## Prerequisites (one-time, see exe-harness.md)
 
@@ -80,7 +83,14 @@ node ath-exe.js cmd  "harness.reset"                # clear edge-sticky flags be
 node ath-exe.js snap "<label>" --out <local-dir>    # PNG to the player's media dir; client polls it
 ```
 
-### Step 5 — emit the trace (editor connected)
+### Step 5 — emit the trace (shared CLI or editor)
+
+For an executable smoke specification, `node ath-exe.js smoke <spec.json>
+--project-root <host-project> --trace` emits a compatible trace on both pass and
+fail. To emit an already-computed result without Editor, write a JSON result
+containing `name`, `result`, `failedStep`, `summary` and safe `artifacts`, then run
+`node ath-exe.js trace <result.json> --project-root <host-project>`.
+The original connected-Editor path remains available:
 
 ```bash
 unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","skill":"ath-exe-smoke","summary":"<what passed> in a non-dev release build"}'

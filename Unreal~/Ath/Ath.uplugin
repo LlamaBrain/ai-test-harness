@@ -1,0 +1,27 @@
+{
+  "FileVersion": 3,
+  "Version": 300,
+  "VersionName": "0.3.0",
+  "FriendlyName": "AI Test Harness",
+  "Description": "Opt-in, game-agnostic ATH runtime command, state and evidence adapter.",
+  "Category": "Testing",
+  "CreatedBy": "LlamaBrainLabs",
+  "CreatedByURL": "https://github.com/LlamaBrain",
+  "DocsURL": "https://github.com/LlamaBrain/ai-test-harness",
+  "CanContainContent": false,
+  "EnabledByDefault": true,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "AthRuntime",
+      "Type": "Runtime",
+      "LoadingPhase": "PostEngineInit",
+      "TargetConfigurationDenyList": ["Shipping", "Test"]
+    },
+    {
+      "Name": "AthEditor",
+      "Type": "Editor",
+      "LoadingPhase": "PostEngineInit"
+    }
+  ]
+}

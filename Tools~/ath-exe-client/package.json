@@ -2,8 +2,10 @@
   "name": "ath-exe-client",
   "version": "0.3.0",
   "private": true,
-  "description": "Internal, developer-only CLI that drives a built ATH_REMOTE Unity player over a loopback socket. Not shipped.",
+  "description": "Engine-independent ATH client, smoke runner and evidence CLI for Unity and Unreal runtimes.",
   "type": "commonjs",
-  "bin": { "ath-exe": "ath-exe.js" },
-  "scripts": { "test": "node --test" }
+  "main": "client.js",
+  "bin": { "ath": "ath-exe.js", "ath-exe": "ath-exe.js", "ath-mcp": "mcp-server.js" },
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test", "check": "node --check ath-exe.js && node --check client.js && node --check protocol.js && node --check report.js && node --check mcp-server.js" }
 }

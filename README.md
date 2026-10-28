@@ -3,91 +3,143 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Unity](https://img.shields.io/badge/Unity-2022.3%2B-black.svg)](https://unity.com)
 
-By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://github.com/LlamaBrain) project, part of the [Captain SDLC](https://github.com/LlamaBrain/captain-sdlc) pipeline.
+By **Michael Tiller** (<contact@michaeltiller.com>), a
+[LlamaBrain](https://github.com/LlamaBrain) project in the
+[Captain SDLC](https://github.com/LlamaBrain/captain-sdlc) pipeline.
 
-A reusable Unity package providing a three-layer MCP-driven dev test harness, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
+ATH is a runtime testing and evidence framework for Unity and Unreal Engine.
+Agents use shared commands, named state, predicate waits, events, correlated
+asynchronous operations, screenshots and smoke reports through one CLI/MCP
+surface. Native engine integrations remain independently installable.
 
-> **Status:** v0.3.0. The v0.2 editor MCP tools (`ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`), the in-game command surface, the host adapter contract, and the smoke pipeline are functional and dogfooded against BeforeTheShade. v0.3 adds the **EXE remote-console harness** — an optional, off-by-default `ATH_REMOTE` build surface that drives a built player (including a non-dev IL2CPP release) over a `127.0.0.1` loopback socket via the internal `ath-exe` Node client, live-verified against a BeforeTheShade RC build. See `Documentation~/exe-harness.md`. Footage capture (`ath-snap` stills + an opt-in `ath-record` video tool gated on the `com.unity.recorder` soft dependency) for HITL-validation evidence is in progress on a feature branch — **pending in-editor verification** — for a later release.
+The package remains version `0.3.0`; cross-engine work is currently unreleased.
+The real KinecadeSandbox integration compiled and passed nine native Unreal
+tests, a 26-step nonvisual PIE smoke, and 27-step rendered PIE, standalone and
+packaged Development smokes with screenshot and Captain evidence.
+Shared Node (58), installer/acceptance (15), engine-free C# (9) and final Unity
+regression (34) tests passed. Normal Shipping compiled with zero ATH link inputs;
+its staged listener-absence check and remote CI remain open. Full delivery is
+not yet CI green. See the [verification matrix](Documentation~/verification.md)
+for exact counts, report paths and limits. Historical v0.3 Unity remote-console
+verification remains in [CHANGELOG.md](CHANGELOG.md).
 
-## What it is
-
-Three layers:
-
-1. **In-game runtime** — `IngameDebugConsole` commands with `CMD:`/`OK:`/`ERR:` sentinels tagged with correlation IDs. Strips from release builds via `#if UNITY_EDITOR || DEVELOPMENT_BUILD`.
-2. **Editor MCP tools** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-snap`, `ath-trace-emit`. Synchronous; correlation-id-filtered log capture, state queries, predicate waits, Game-view still capture, and Captain SDLC trace emission.
-3. **Claude `SKILL.md` workflows** — composed smoke tests that orchestrate the three tools.
-
-Hosts implement `IAthHostAdapter` to expose their game state and lifecycle events to the harness. The package never references host types.
-
-## Compatibility
-
-| Component             | Status       | Verified                                                                                            |
-|-----------------------|--------------|-----------------------------------------------------------------------------------------------------|
-| Unity                 | required     | 6000.3.10f1                                                                                         |
-| Unity MCP             | hard dep     | `com.ivanmurzak.unity.mcp@0.76.0` (declared in `package.json`)                                      |
-| IngameDebugConsole    | hard peer    | yasirkula's `IngameDebugConsole.Runtime` asmdef. NOT in `package.json`. **Package will not compile without it.** |
-| Host project          | required     | works with default `Assembly-CSharp` via `autoReferenced` on the package's Runtime asmdef           |
-
-## Installing (host project)
-
-### 1. Configure the OpenUPM scoped registry
-
-Edit your host project's `Packages/manifest.json` to include:
-
-```json
-"scopedRegistries": [
-  { "name": "OpenUPM (ivanmurzak)", "url": "https://package.openupm.com",
-    "scopes": ["com.ivanmurzak"] },
-  { "name": "OpenUPM (yasirkula)", "url": "https://package.openupm.com",
-    "scopes": ["com.yasirkula"] }
-]
+```text
+Claude / Codex -> shared ATH MCP / CLI -> protocol, predicates, smoke, evidence
+                                                   |
+                              Unity integration / Unreal native plugin
+                                       |                   |
+                                  Unity project       Unreal project
 ```
 
-Packages cannot bring their own scoped registries; this is your responsibility as the host.
+The shared Node tooling builds and tests without either engine installed. The
+Unreal plugin uses native C++ and does not consume .NET assemblies or depend on
+Lyra. KinecadeSandbox, an existing Lyra project, is the real Unreal acceptance
+host. ATH-owned fixtures and native world state prove ATH without changing Lyra
+gameplay.
 
-### 2. Install peer dependencies
+## Quick start
 
-- **Unity MCP** — resolves automatically once the registry is configured.
-- **IngameDebugConsole** — install `com.yasirkula.ingamedebugconsole` from OpenUPM. Verify the imported package contains the `IngameDebugConsole.Runtime` asmdef. (If you already have IngameDebugConsole imported as an asset under `Assets/Plugins/IngameDebugConsole/`, that's fine too — the asmdef name is the same.)
-
-### 3. Install AI Test Harness
-
-Add to `Packages/manifest.json`:
-
-```json
-"com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
+```sh
+cd <ath>/Tools~/ath-exe-client
+npm test
+npm run check
+npm link
+ath version
+ath attach 8787
+ath cmd "harness.ping" --port 8787
+ath capabilities --port 8787
+ath state ath.fixture.ready --port 8787
+ath cmd "ath.fixture.increment" --port 8787
+ath wait "state_equals:ath.fixture.counter=1" --port 8787
+ath smoke fixture-smoke.json --port 8787 --project-root <consuming-project> --trace --rendered
 ```
 
-(Or pin a tagged release via git: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.3.0"`.)
+Use Node 18 or newer. `ath-exe` remains an alias, and direct
+`node Tools~/ath-exe-client/ath-exe.js ...` invocation remains supported. Runtime
+operations require a launched, explicitly instrumented host with the fixture
+capability. Omit `--rendered` only for an explicitly identified nonvisual smoke.
 
-### 4. Implement the adapter
+Read [shared CLI/MCP usage](Documentation~/shared-tooling.md), the
+[wire protocol](Documentation~/protocol.md), and
+[architecture / compatibility audit](Documentation~/cross-engine-architecture.md).
 
-Create a class that implements `IAthHostAdapter` in your project (e.g., under `Assets/Game/Source/Testing/`). See `Documentation~/adapter-contract.md` for the full contract. A no-op example is available via Package Manager > Samples > "Minimal Host Adapter".
+## Unity installation and compatibility
 
-### 5. Register the adapter at startup
+The root remains the existing UPM package
+`com.llamabrainlabs.ai-test-harness`. Existing `IAthHostAdapter`, `AthServices`,
+console commands, Editor MCP tools, remote protocol and build gates are preserved.
+The new generic host surface is additive; legacy adapters do not acquire new
+mandatory members.
 
-```csharp
-[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-private static void RegisterAth()
-{
-    LlamaBrainLabs.Ath.AthServices.Register(new MyAthAdapter());
-}
-```
+1. Configure the consuming project's OpenUPM registries:
 
-### 6. Install the smoke skills
+   ```json
+   "scopedRegistries": [
+     {"name":"OpenUPM (ivanmurzak)","url":"https://package.openupm.com","scopes":["com.ivanmurzak"]},
+     {"name":"OpenUPM (yasirkula)","url":"https://package.openupm.com","scopes":["com.yasirkula"]}
+   ]
+   ```
 
-The package ships its Claude smoke-test skills under `Skills/<name>/SKILL.md`. Manually copy or symlink the relevant skill folders into your host project's `.claude/skills/` directory. (Future improvement: an editor menu item to sync these automatically.)
+2. Install `com.yasirkula.ingamedebugconsole` (or the existing asset version with
+   `IngameDebugConsole.Runtime`). It remains a hard peer dependency. Unity MCP
+   `com.ivanmurzak.unity.mcp@0.76.0` remains declared in `package.json`.
+3. Add the package reference to `Packages/manifest.json`:
 
-## What's in here
+   ```json
+   "com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
+   ```
 
-- `Runtime/` — core (`IAthHostAdapter`, `AthServices`, `AthBridge`) + `Commands/` (package-supplied `[ConsoleMethod]` commands).
-- `Editor/McpSkills/` — `Tool_AthCmd`, `Tool_AthState`, `Tool_AthWait`, `Tool_AthSnap`, `Tool_AthTraceEmit` (+ pure `AthTraceWriter`/`AthTraceEmitter`/`AthMediaUtil`).
-- `Skills/` — Claude `SKILL.md` workflows.
-- `Samples~/MinimalHostAdapter/` — no-op adapter for fresh-project smoke testing.
-- `Documentation~/` — adapter contract (`adapter-contract.md`), operator guide (`using-ath.md`), trace events (`trace-events.md`).
+4. Implement and register the existing adapter:
 
-## Architecture notes
+   ```csharp
+   [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+   private static void RegisterAth()
+       => LlamaBrainLabs.Ath.AthServices.Register(new MyAthAdapter());
+   ```
 
-The package never references host types. All host data flows through `IAthHostAdapter`. The runtime/commands asmdef split is an architectural seam for future transport swap-out — v0.2 still requires IngameDebugConsole as a peer dep.
+See [adapter contract](Documentation~/adapter-contract.md), the Package Manager
+**Minimal Host Adapter** sample, [Unity operator guide](Documentation~/using-ath.md),
+and [Unity player remote console](Documentation~/exe-harness.md).
 
-ATH is the QA tool in the broader Captain SDLC pipeline. See the nerve center ([`LlamaBrain/captain-sdlc`](https://github.com/LlamaBrain/captain-sdlc)) for the cross-tool design, the trace schema, and the roadmap.
+Unity runtime instrumentation stays behind
+`UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE`, with a separate runtime
+remote-console opt-in. Normal uninstrumented releases do not bind a listener.
+The existing Unity Editor tools remain available, including optional Recorder
+video; the shared MCP server does not replace Editor controls.
+
+## Unreal installation
+
+Link or install `Unreal~/Ath` into an existing project's Plugins directory, build
+its native Editor target, and launch with `-ath-remote-console -ath-port=8787`.
+The module is excluded from normal Shipping/Test targets. Supported
+instrumentation uses non-Shipping builds with explicit runtime enablement.
+
+Follow [Unreal installation and KinecadeSandbox acceptance](Documentation~/unreal.md)
+for exact local engine/project observations, PIE selection, standalone,
+packaged Development, lifecycle and screenshot verification. Read
+[verification.md](Documentation~/verification.md) before interpreting any mode
+as verified.
+
+## Evidence and skills
+
+Shared smoke/trace emission needs no Unity Editor. It writes canonical Captain
+`ath.smoke.completed` schema-v1 events and safe artifact references into the
+**consuming project's** `.captain-sdlc/trace/`. See
+[trace events](Documentation~/trace-events.md).
+
+Generic workflows live under [Skills/](Skills/README.md). The original
+BeforeTheShade full-loop procedure is preserved under
+[HostWorkflows~/BeforeTheShade/](HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md),
+outside generic distribution. Existing copied BTS skills keep their name and
+version. New gameplay-specific procedures belong in the consuming project.
+
+## Repository layout
+
+| Path | Responsibility |
+|---|---|
+| `Runtime/`, `Editor/`, `Tests/`, `Samples~/` | Preserved Unity UPM integration and regression tests. |
+| `Tools~/ath-exe-client/` | Engine-independent protocol, client, CLI, MCP, smoke and trace reporting. |
+| `Unreal~/Ath/` | Reusable native plugin and ATH fixture. |
+| `Tools~/unreal-acceptance/` | KinecadeSandbox consumer acceptance workflow. |
+| `Documentation~/` | Architecture, contracts, protocol, installation and evidence. |
+| `Skills/`, `HostWorkflows~/` | Generic workflows and isolated legacy host procedures. |

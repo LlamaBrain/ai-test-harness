@@ -5,7 +5,8 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "LlamaBrainLabs.Ath.Editor",
-        "LlamaBrainLabs.Ath.Runtime"
+        "LlamaBrainLabs.Ath.Runtime",
+        "LlamaBrainLabs.Ath.Commands"
     ],
     "includePlatforms": [
         "Editor"

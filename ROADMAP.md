@@ -2,7 +2,34 @@
 
 Planned work, in rough priority order. None of these block the package's current use; they're improvements that came out of dogfooding against BeforeTheShade.
 
-## Shipped
+## Cross-engine migration (current)
+
+- Shared Node protocol/client, CLI aliases, MCP and smoke/trace tooling.
+- Additive generic Unity host boundary with legacy adapter compatibility.
+- Reusable native Unreal plugin, ATH-owned fixture and world observations.
+- Standalone Captain evidence emission into the consuming project.
+- Real KinecadeSandbox (stock Lyra, Unreal 5.8.3) acceptance using existing maps.
+
+See [architecture audit](Documentation~/cross-engine-architecture.md),
+[Unreal procedure](Documentation~/unreal.md), and the
+[verification matrix](Documentation~/verification.md). Compilation, PIE,
+standalone, rendering, lifecycle, packaged Development and Unity regression are
+individual gates; implemented source does not mark them complete.
+
+Local acceptance now includes 58 shared Node tests, 15 installer/acceptance tests,
+nine engine-free C# checks, 34 real Unity regressions, nine native Unreal tests,
+and real PIE, standalone and packaged Development smokes. Rendered evidence and
+Captain traces were captured in standalone and the package. Normal Shipping
+compiled with no ATH products/link inputs and its staged process exposed no ATH
+listener even with the enable flag supplied. Remote CI remains pending. The
+demonstrated runtime package exercises one Win64 DX12 Lyra map;
+broader production-content/platform coverage is not implied.
+
+BeforeTheShade's gameplay procedure has been isolated under
+`HostWorkflows~/BeforeTheShade/`. Generic distribution contains the portable
+Unreal fixture smoke and host-neutral authoring templates.
+
+## Historical shipped work
 
 ### Phase 1 — Runtime core (`v0.1.0-preview.1`)
 `IAthHostAdapter` portability seam, `AthHostEvents`, `AthServices` (Register/Unregister with idempotent semantics), `AthBridge` (DontDestroyOnLoad singleton, edge-sticky `*SinceLastReset` flags, 16-slot async ring buffer, validity-guarded `GameReady`), `AthBootstrap` (`RuntimeInitializeOnLoadMethod`), `AthAsyncOpRecord`, `AthRuntimeFlag`, `Logging/AthLog` (CMD/OK/ERR sentinel helpers). All file-gated by `#if UNITY_EDITOR || DEVELOPMENT_BUILD`.
@@ -31,13 +58,8 @@ Dogfooding caught three real BTS bugs (respawn race, teleport read-back stale, g
 
 ## Later
 
-### Extract `ath-smoke-fullloop` out of the package (portability fix)
-The skill currently lives at `Skills/ath-smoke-fullloop/SKILL.md` and references `world.restart`, `player.kill`, `world.goal`, scene coordinates `(−4.50, 0.50)` / `(12.50, 3.50)`, `BtsAthBootstrap`, `Game.Testing.BtsAthBootstrap` — all BTS-specific. It is BTS knowledge masquerading as a package-shipped artifact, the same kind of leak that the Runtime asmdef carefully avoids. The fix is to move it (and any future host-specific smoke) to a BTS-side bridge plugin (proposed name `bts-ath-bridge`, living at `BeforeTheShade/.claude/plugins/bts-ath-bridge/`), leaving the ATH package with only:
-
-- A host-agnostic authoring template / skeleton SKILL.md.
-- A minimal-adapter dry-run smoke that runs entirely against `Samples~/MinimalHostAdapter` and asserts nothing about gameplay (overlaps with Phase 8 below — they're the same artifact).
-
-Bump the version and CHANGELOG the move. Hosts that already copied the BTS-coupled SKILL into their `.claude/skills/` will fail-fast on the version pre-flight, which is the right behavior.
+### Host-specific workflow separation (implemented, unreleased)
+The original BeforeTheShade workflow is retained under `HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/`; the former `Skills/` location contains a relocation pointer. New host-specific smokes belong in the consuming project. Generic Unreal fixture smoke lives under `Skills/ath-unreal-smoke/`.
 
 ### Phase 8 — Fresh-project minimal-adapter dry-run
 Install the package into a clean Unity project, wire only `Samples~/MinimalHostAdapter`, and confirm `/ath-cmd { harness.ping }` round-trips and `/ath-state { adapter_ready }` returns `true` without any host-specific code. Tests the package boundary — that Runtime really doesn't leak into Commands/Editor and that `autoReferenced` works on a project with no `Assets/` code yet. Independent of BTS gameplay findings.

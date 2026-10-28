@@ -26,6 +26,25 @@ namespace LlamaBrainLabs.Ath.Commands
             Debug.Log($"OK:harness.reset id={correlationId} cleared=edge_flags");
         }
 
+        [ConsoleMethod("harness.reset", "Reset explicit scope; correlation-id form", "scope", "correlationId")]
+        public static void Reset(string scope, string correlationId)
+        {
+            if (scope == "edges") { Reset(correlationId); return; }
+            AthLog.Cmd("harness.reset", correlationId, scope);
+            if (scope != "all") { AthLog.Err("harness.reset", correlationId, "unsupported_scope"); return; }
+            var host = AthServices.Host;
+            if (host == null || !host.IsValid) { AthLog.Err("harness.reset", correlationId, "not_ready"); return; }
+            try
+            {
+                var result = host.Reset(scope);
+                if (result.Status == "failed") { AthLog.Err("harness.reset", correlationId, result.Error); return; }
+                AthServices.Observations.BeginSession();
+                AthBridge.Instance?.ResetEdgeFlags();
+                AthLog.Ok("harness.reset", correlationId, "cleared=all");
+            }
+            catch (Exception ex) { AthLog.ErrException("harness.reset", correlationId, ex); }
+        }
+
         // ---- harness.ping ----
         [ConsoleMethod("harness.ping", "Round-trip smoke for log-capture wiring")]
         public static void Ping() => Ping(NewId());

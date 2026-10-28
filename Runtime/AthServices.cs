@@ -13,6 +13,18 @@ namespace LlamaBrainLabs.Ath
     {
         public static IAthHostAdapter Adapter { get; private set; }
         public static AthBridge       Bridge  { get; internal set; }
+        private static readonly AthHostRegistration Registration = new AthHostRegistration();
+        public static IAthHost Host => Registration.Host;
+        public static AthObservationStore Observations => Registration.Observations;
+
+        /// <summary>Register a game-independent host on the Unity main thread; ownership transfers to ATH.</summary>
+        public static void RegisterHost(IAthHost host)
+        {
+            if (host == null) throw new ArgumentNullException(nameof(host));
+            if (ReferenceEquals(Host, host)) return;
+            Unregister();
+            Registration.Register(host);
+        }
 
         /// <summary>
         /// Register a host adapter. If a prior adapter exists, it is detached
@@ -24,14 +36,11 @@ namespace LlamaBrainLabs.Ath
         {
             if (adapter == null)
                 throw new ArgumentNullException(nameof(adapter));
-
-            if (Adapter != null)
-            {
-                Bridge?.DetachFromAdapter();
-                try { Adapter.Dispose(); } catch { /* swallow — partial teardown is fine */ }
-            }
+            if (ReferenceEquals(Adapter, adapter)) return;
+            Unregister();
 
             Adapter = adapter;
+            Registration.Register(new LegacyAthHost(adapter));
             Bridge?.AttachToAdapter(adapter);
         }
 
@@ -42,7 +51,9 @@ namespace LlamaBrainLabs.Ath
         /// </summary>
         public static void Unregister()
         {
+            Bridge?.ResetSession();
             Bridge?.DetachFromAdapter();
+            Registration.Unregister();
             var a = Adapter;
             Adapter = null;
             if (a != null)
@@ -55,7 +66,11 @@ namespace LlamaBrainLabs.Ath
         /// Per-field clear used by harness teardown paths. Does NOT dispose
         /// — call <see cref="Unregister"/> for full teardown.
         /// </summary>
-        public static void ClearAdapter() => Adapter = null;
+        public static void ClearAdapter()
+        {
+            if (Host is LegacyAthHost) Registration.Unregister();
+            Adapter = null;
+        }
         public static void ClearBridge()  => Bridge  = null;
     }
 }

@@ -1,5 +1,6 @@
 ---
 name: ath-smoke-fullloop
+requires-host: BeforeTheShade
 description: End-to-end PlayMode smoke for the BeforeTheShade full death-rewind-and-finish loop. Asserts that the harness can spawn a player, kill it, observe ghost-replay materialization, fire the goal event, restart cleanly, and that all the relevant edge-flag state machinery converges within bounded timeouts. Closes the regression gap for ghost replay + restart cleanup in BTS v0.1+.
 version: 0.3.0
 ---
@@ -80,7 +81,7 @@ if (live.Value != "0.3.0") {
   ABORT: stale skill copy.
   "Frontmatter declares version 0.3.0 but the live package
    reports " + live.Value + ". Re-copy
-   E:/Personal/ai-test-harness/Skills/ath-smoke-fullloop/SKILL.md
+   E:/Personal/ai-test-harness/HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md
    into <project>/.claude/skills/ath-smoke-fullloop/SKILL.md and
    re-invoke."
 }

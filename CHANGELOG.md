@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Shared engine-independent Node client, `ath` CLI alias, capability/version
+  discovery, registered JSON command execution, bounded/cancellable predicate
+  waits, fixture smoke orchestration and standalone MCP tools. The existing
+  `ath-exe` entrypoint and newline/sentinel protocol remain supported.
+- Native `Unreal~/Ath` plugin with opt-in loopback transport, Game Thread
+  dispatch, deterministic runtime-world targeting, registered native/Blueprint
+  hosts, named states/events, bounded asynchronous completion and screenshots.
+  Normal Shipping/Test targets exclude its runtime module.
+- Portable ATH counter fixture, generic Unreal smoke skill and separate
+  KinecadeSandbox acceptance runner. The reusable plugin has no Lyra or
+  Kinecade gameplay dependency.
+- Engine-free Captain `ath.smoke.completed` emission and consuming-project
+  report/media artifacts. Existing schema-v1 fields remain intact; smoke ID,
+  engine/version, build mode, elapsed time and diagnostics are additive payload
+  context.
+- Architecture audit, protocol contract, shared-tooling guide, Unreal
+  installation/acceptance procedure and explicit verification matrix.
 - **Un-tagged dispatch (`!raw`)** — the remote console appends its own correlation
   id to every command, but `IngameDebugConsole` matches commands on *exact* arity,
   so any console method that defines only the bare overload could not be driven
@@ -46,6 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attached. Host-specific smokes stay in the consuming project.
 
 ### Changed
+- Added a generic host contract alongside the unchanged Unity legacy adapter
+  contract; new hosts do not require player/item/ghost properties. Existing
+  Unity package/assembly identity and Editor MCP integration remain available.
+- BeforeTheShade's full-loop skill is preserved under
+  `HostWorkflows~/BeforeTheShade/ath-smoke-fullloop`; its former generic skill
+  directory now points to the host-specific procedure. Existing installed
+  copies retain the original name and version.
 - `ath-trace-emit` now validates each `artifacts` entry: only safe trace-relative
   paths are accepted (normally `media/<file>`); absolute/rooted, `..`, and
   backslash paths are rejected with `Status=bad_artifact` and no event is written.
@@ -54,7 +78,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `side-store/` lines (fixing a pre-existing-file gap), so captured media under
   `trace/media/` is reliably ignored.
 
+### Fixed
+- Fence asynchronous Unity observations across host/session replacement, keep
+  duplicate bridge destruction from clearing live observations, and release
+  registered hosts when the active bridge or PlayMode session ends.
+- Reject missing/mismatched command terminals and malformed JSON arguments;
+  preserve host-owned capability metadata during read-only discovery.
+
 ### Note
+- Cross-engine implementation and verified acceptance are tracked separately in
+  `Documentation~/verification.md`. Source tests do not substitute for actual
+  Unity regression, Unreal compilation, PIE/lifecycle or packaged execution.
 - The Recorder integration (`ath-record`) and `ath-snap`'s in-editor capture
   behavior are **pending live-verify** in a real Unity Editor; the pure helpers
   are verified by unit tests. Footage capture is not yet released — it ships in a
