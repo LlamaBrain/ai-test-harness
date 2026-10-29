@@ -122,7 +122,26 @@ or every Lyra experience. See [the repeatable package command](unreal.md#package
 |---|---|---|
 | Instrumented release-shaped scope | Packaged Development acceptance passed for one Win64 DX12 map | Broader production content/platform coverage remains outside the demonstrated slice; ordinary Shipping debugging is not enabled. |
 | Remote CI | **12 checks passed at `9baa67c`** | Check the current PR head for later commits; the recorded result belongs only to `9baa67c`. |
-| Signed Captain merge preparation | **Not issued** | The repository has no committed Captain policy; ordinary local and CI evidence is not a signed readiness receipt. |
+| Signed Captain merge preparation | **Not issued** | The committed policy enables a future signed preparation; ordinary local and CI evidence is not a readiness receipt. |
+
+## Captain checks
+
+The repository's Captain policy defaults to the `low` implementation profile;
+merge prep uses `standard` strictness and runs all four declared gates. Its build gate
+compiles the engine-independent .NET host contracts and checks shared Node
+syntax; the declared artifact is the compiled contract test assembly. Ticket
+checks cover the shared protocol and client, the feature smoke exercises the
+fixture through a loopback test server, and affected regression checks cover the
+Unreal installer, acceptance specification and .NET host contracts. These
+engine-independent checks do not build Unity or Unreal or replace the real-engine
+verification above; run the relevant engine checks when engine integrations
+change.
+
+The explicit commit policy requires Conventional Commit subjects and records
+`VERSION` and `CHANGELOG.md` as version and changelog files. Captain's current
+commit validation requires both files to be changed for ordinary governed
+commits. Version suffixes and deterministic per-commit version bumps are not
+enabled by this policy; releases still follow the repository's normal process.
 
 ## Reproduce Unity regression without importing generated hosts
 

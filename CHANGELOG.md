@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Captain SDLC policy for engine-independent build, protocol, smoke and host
+  contract checks, with generated build output restricted to its core slot.
 - Blueprint host nodes for session-guarded event observation and asynchronous
   completion, preventing delayed callbacks from entering a replacement session.
 - Shared engine-independent Node client, `ath` CLI alias, capability/version
