@@ -19,6 +19,7 @@
 /** Parse the JSON response envelope. Throws on malformed JSON. */
 function parseResponse(jsonLine) {
   const obj = JSON.parse(jsonLine);
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('invalid ATH response envelope');
   return {
     correlationId: obj.correlationId ?? null,
     status: obj.status ?? null,
@@ -105,7 +106,9 @@ function parseFields(s) {
       value = s.slice(i, k);
       i = k;
     }
-    fields[key] = value;
+    // Define own properties so a host field named __proto__ cannot alter the
+    // parsed object's prototype.
+    Object.defineProperty(fields, key, { value, enumerable: true, configurable: true, writable: true });
   }
   return { fields, markers };
 }
@@ -165,9 +168,14 @@ function parsePredicate(pred) {
  * surfaces its reason as the status.
  */
 function readState(response) {
+  if (typeof response.correlationId !== 'string' || !response.correlationId.length) return { status: 'error', value: '' };
   const term = terminalSentinel(response.lines, response.correlationId);
   if (term && term.kind === 'ERR') return { status: term.fields.reason || 'error', value: '' };
+  if (response.status !== 'success' || !term || term.command !== 'harness.state')
+    return { status: 'error', value: '' };
   const f = term ? term.fields : {};
+  if (!Object.prototype.hasOwnProperty.call(f, 'value') || !f.status)
+    return { status: 'error', value: '' };
   return { status: f.status || 'ok', value: f.value != null ? f.value : '' };
 }
 
@@ -178,8 +186,8 @@ function readState(response) {
  */
 function evalPredicate(desc, state) {
   if (!state) return 'pending';
-  if (state.status === 'unknown_key' || state.status === 'error') return 'fail';
   if (state.status === 'not_ready') return 'pending';
+  if (state.status !== 'ok') return 'fail';
   const v = state.value;
   switch (desc.op) {
     case 'truthy': return v === 'true' ? 'satisfied' : 'pending';

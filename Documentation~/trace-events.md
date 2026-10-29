@@ -15,6 +15,21 @@ exactly one kind.
 
 ## Where events go
 
+The shared Node emitter additionally supports **any consuming project** through
+an explicit `projectRoot` / CLI `--project-root` argument. It does not require
+Unity, Unreal, a running game or Unity Editor. The same schema-v1 envelope and
+original smoke payload remain compatible with the Unity emitter.
+
+```sh
+ath smoke <spec.json> --port 8787 --project-root <consuming-project> --trace
+ath trace <result.json> --project-root <consuming-project> --commit <revision>
+```
+
+The shared MCP `ath-trace-emit` delegates to this emitter. Run reports are stored
+under `trace/runs/`, screenshot evidence under `trace/media/`, and each is
+referenced using a safe trace-relative artifact path. Existing ignore contents
+are preserved when adding `trace/` and `side-store/`.
+
 `<consuming-project-root>/.captain-sdlc/trace/YYYY-MM-DD.jsonl` — append-only
 JSON Lines, one event per line, one file per UTC day. The "consuming project" is
 the Unity project under test (e.g. BeforeTheShade), resolved as the parent of
@@ -28,6 +43,9 @@ Because they live under `trace/`, the same `.gitignore` keeps them out of
 version control.
 
 ## Emitter
+
+The original Unity Editor emitter is preserved below. For engine-independent
+emission and MCP setup see [shared-tooling.md](shared-tooling.md).
 
 The `ath-trace-emit` editor MCP tool — invoked through the Unity-MCP bridge,
 **not** as a slash-command:
@@ -85,7 +103,28 @@ do not require a `tool_version` bump but are good practice to note).
 | `summary` | string \| null | yes | One-line human summary of the run. `null` when not supplied. |
 | `artifacts` | string[] | yes | Trace-relative artifact paths — normally `media/<file>` produced by `ath-snap` (safe bare filenames also accepted). Absolute/rooted, `..`, and backslash paths are rejected by the emitter. `[]` when none. |
 
-### refs used by this kind
+### Optional cross-engine payload context
+
+The shared emitter adds these fields without changing the schema-v1 envelope or
+renaming any original required payload field. Existing consumers may ignore
+unknown optional fields. `tool_version` continues to identify the ATH package
+version; a future breaking envelope change requires a schema-version change.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `smoke_test_id` | string | Stable smoke/specification identifier. |
+| `engine` | string or null | Runtime engine identifier, normally `unity` or `unreal`. |
+| `engine_version` | string or null | Version reported by runtime capabilities, when available. |
+| `build_mode` | string or null | Actual build configuration reported by the runtime/caller. |
+| `elapsed_ms` | number or null | Measured smoke duration, null if no duration was supplied. |
+| `diagnostics` | object/array/string or null | Structured failure/runtime details retained by the runner. |
+
+Do not fabricate missing engine or build metadata. The detailed JSON run artifact
+retains observed steps, responses, first failure and timing. Both pass and fail
+events are emitted; a trace-write error must be reported separately from the
+runtime verdict.
+
+### refs used by this kind (preserved)
 
 | Ref | Source | Notes |
 |---|---|---|

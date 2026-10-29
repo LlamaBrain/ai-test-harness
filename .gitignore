@@ -11,6 +11,7 @@ Recordings/
 
 # Visual Studio / Rider / generated solutions
 *.csproj
+!Tools~/ath-core-tests/Ath.Core.Tests.csproj
 *.unityproj
 *.sln
 *.suo
@@ -27,6 +28,14 @@ Recordings/
 .vs/
 .vscode/
 .idea/
+
+# Engine-independent checks and native plugin build output
+**/bin/
+**/obj/
+artifacts/
+artifacts.meta
+Unreal~/**/Binaries/
+Unreal~/**/Intermediate/
 
 # OS
 .DS_Store

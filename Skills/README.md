@@ -1,93 +1,53 @@
-# AI Test Harness — Claude skills
+# AI Test Harness skills
 
-This folder contains the smoke-test `SKILL.md` workflows the harness ships
-with. Each skill orchestrates `/ath-cmd`, `/ath-state`, `/ath-wait`, and `/ath-trace-emit`
-through Unity MCP to drive a multi-step regression scenario end-to-end.
+These generic workflows exercise ATH through the shared CLI/MCP or existing Unity
+Editor tools. They do not require a particular game's player, items or replay
+mechanics.
 
-## Installing skills into a host project
+| Skill | Scope |
+|---|---|
+| `ath-unreal-smoke` | Runnable ATH fixture/world/evidence workflow in any instrumented Unreal project. |
+| `ath-exe-smoke` | Built Unity player template; fill in the host's scenario. |
+| `ath-feature-demo` | Unity Editor/Recorder capture template; fill in feature commands. |
 
-Claude Code reads skills from `<project>/.claude/skills/<name>/SKILL.md`.
-Unity Package Manager does **not** auto-discover skills shipped inside a
-package's `Skills/` folder. Each skill you want available in a host
-project must be copied or symlinked into that project's `.claude/skills/`
-directory.
+BeforeTheShade's original `ath-smoke-fullloop` is preserved under
+[`HostWorkflows~/BeforeTheShade/`](../HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md).
+Its old generic skill directory contains a relocation pointer. Existing installed
+copies keep working; new generic installations should not copy this gameplay
+workflow. Project-specific smokes belong in the consuming project or a host bridge
+plugin.
 
-### Copy (cross-platform)
+## Install
 
-```bash
-cp -r <ath-package-path>/Skills/ath-smoke-fullloop  <host-project>/.claude/skills/
+Skills are not auto-discovered by UPM. Copy or link only the selected directory
+into `<project>/.claude/skills/<name>/` (or the agent client's skill directory).
+
+```sh
+cp -r <ath>/Skills/ath-unreal-smoke <project>/.claude/skills/
+# Linux/macOS alternative:
+ln -s <ath>/Skills/ath-unreal-smoke <project>/.claude/skills/ath-unreal-smoke
 ```
-
-### Symlink (Linux/macOS — keeps the skill live-updating against the package)
-
-```bash
-ln -s <ath-package-path>/Skills/ath-smoke-fullloop  <host-project>/.claude/skills/ath-smoke-fullloop
-```
-
-### Symlink (Windows, in an elevated shell)
 
 ```powershell
-New-Item -ItemType SymbolicLink `
-  -Path "<host-project>\.claude\skills\ath-smoke-fullloop" `
-  -Target "<ath-package-path>\Skills\ath-smoke-fullloop"
+# Windows development link:
+New-Item -ItemType Junction -Path '<project>/.claude/skills/ath-unreal-smoke' -Target '<ath>/Skills/ath-unreal-smoke'
 ```
 
-## Verifying the copied skill is current
+Inspect an existing destination before changing a link. Skills carry a `version`
+frontmatter value; compare the live `package_version` state or runtime
+`ath version --port <port>` with `0.3.1` before running. Recopy stale skills after
+upgrading the package.
 
-Every shipped skill includes a `version:` frontmatter field that names the
-package version it was authored against. The skill's first step (Step 0)
-queries `/ath-state { key: "package_version" }` and aborts with a
-"re-copy from `<source>`" message if the runtime version doesn't match.
+## Author
 
-Concretely:
+Declare the host capability requirements and expected values. Use registered
+commands for mutations and cheap state queries for observations. Reset sticky
+flags before the triggering action; never reset between that action and its
+wait. Track asynchronous operations by the returned correlation ID and inspect
+their success separately from completion.
 
-```yaml
----
-name: ath-smoke-fullloop
-version: 0.3.0
----
-```
-
-```jsonc
-let live = ath-state { "key": "package_version" }
-if (live.Value != "0.3.0") ABORT
-```
-
-When you bump the AI Test Harness package version, re-copy or re-sync
-all installed skills.
-
-## Available skills
-
-| Skill | Description |
-|---|---|
-| `ath-smoke-fullloop` | BeforeTheShade death → ghost replay → goal → clean-restart smoke. Locks in the BTS gameplay loop end-to-end. |
-| `ath-exe-smoke` | **Host-agnostic template for a built-player (EXE) smoke.** Drives a `DEVELOPMENT_BUILD` or `ATH_REMOTE` non-dev release player over the loopback socket via the internal Node client (`Tools~/ath-exe-client`) — the build-vs-editor parity tier. Copy in and fill the scenario. See `Documentation~/exe-harness.md`. |
-| `ath-feature-demo` | **Host-agnostic authoring template** for capturing HITL-validation footage (`ath-record` video + `ath-snap` stills) of a feature working. Copy into your host project and fill in the placeholder steps. |
-
-Host-*specific* smokes (like `ath-smoke-fullloop`, which hard-codes BeforeTheShade
-scenes and commands) belong in the **consuming project** or a host-side plugin,
-not in this package — the harness stays game-agnostic. `ath-feature-demo` is the
-skeleton to start from.
-
-## Authoring new skills
-
-Skills live in subdirectories under `Skills/<skill-name>/SKILL.md`. The
-preferred structure:
-
-- YAML frontmatter with `name`, `description`, `version`.
-- Numbered steps; each step is a small block of `/ath-cmd` / `/ath-state`
-  / `/ath-wait` calls plus the expected outcome.
-- Explicit `harness.reset` between sequenced waits to clear edge-sticky
-  flags — and a note explaining when *not* to issue it (e.g. between a
-  command that fires the spawn and the wait that observes it).
-- A "PASS criteria" block enumerating every assertion that must hold.
-- A "Failure handling" block describing the `ath-snap` stills + state dumps to
-  capture before triage.
-
-See `ath-smoke-fullloop/SKILL.md` for a worked example.
-
-## Future improvement
-
-An editor menu item `Tools > AI Test Harness > Sync Skills` would mirror
-`<package>/Skills/*` into `<project>/.claude/skills/` on demand, removing
-the manual copy step. Tracked for a future polish release.
+Define explicit pass criteria, timeouts and first-failure diagnostics. Emit
+`ath.smoke.completed` on both pass and fail and keep evidence beneath the
+consuming project's `.captain-sdlc/trace/`. Shared trace emission requires neither
+engine nor Unity Editor. See [shared tooling](../Documentation~/shared-tooling.md)
+and [trace events](../Documentation~/trace-events.md).

@@ -1,5 +1,55 @@
 # `IAthHostAdapter` — the adapter contract
 
+This is the preserved **legacy Unity contract**. Existing adapters continue to
+implement it unchanged; new cross-engine hosts use the additive `IAthHost`
+contract and do not implement its player/item/ghost members. Unity registers a
+generic host through `AthServices.RegisterHost`; legacy registration remains
+`AthServices.Register`. Unreal uses native `IAthHost` / `FAthRuntime` or
+`UAthHostSubsystem`, rather than consuming a C# assembly. See
+[cross-engine architecture](cross-engine-architecture.md) and
+[Unreal extension contract](unreal.md#extension-contract).
+
+## Generic Unity host alongside the legacy adapter
+
+`IAthHost` contains only host identity, validity/readiness, capabilities, named
+state, registered execution, reset and disposal. `AthHostBase` supplies optional
+defaults; `IAthScreenshotHost` adds capture when the host implements it.
+Register through `AthServices.RegisterHost(host)` on the Unity main thread.
+Registration owns the host until unregistration or replacement; registering the
+same instance is idempotent. A legacy `AthServices.Register(adapter)` gets a
+`LegacyAthHost` view while retaining all existing adapter members and bridge
+behavior. Do not register both integration forms for the same runtime.
+
+Use `GetCapabilities()` to advertise exact supported commands/state keys. Return
+stable text from `TryGetState`; return false only for unknown keys. Execute
+mutations in `Execute(command, argumentsJson, correlationId)` and report
+`AthCommandResult.Ok`, `Fail`, or `Dispatched`. The shared wire uses
+`harness.execute` with base64 JSON to avoid console tokenization differences.
+
+Capability metadata includes `engineVersion`, `buildMode`, `version` and
+`athVersion` in addition to protocol/host identity. Optional
+`IAthScreenshotHost.CaptureScreenshot(label, correlationId)` lets generic hosts
+provide capture through the same explicit command surface; it does not introduce
+a new mandatory method into `IAthHostAdapter`.
+
+Raise named events with `Events.Raise("host.ready")`; clients observe
+`event:host.ready` as a sticky boolean. Track tasks through
+`AthServices.Observations.TrackAsync(name, correlationId, task)` (or the existing
+`AthBridge.TrackAsync`). The observation store synchronizes worker completion
+and fences old generations across teardown/replacement. Retained completion
+history is bounded to 16 entries; missing completion stays pollable.
+
+All host getters/actions/registration/disposal run on Unity's main thread.
+Only the observation store is worker-thread-safe. A host that starts external
+work must cancel or fence its own callbacks after teardown; it must never mutate
+destroyed engine objects. Getters retain the purity rules below. The original
+gameplay-shaped sections apply to `IAthHostAdapter` implementations only.
+
+Destroying the active `AthBridge` or exiting PlayMode unregisters the live host
+and clears registration ownership. Destroying a duplicate bridge leaves the
+active bridge's host intact. These lifecycle paths are covered by the final
+34-test Unity regression run; see [verification.md](verification.md).
+
 This document codifies the rules every `IAthHostAdapter` implementation must
 honor. The package itself enforces none of these mechanically; they exist
 because the `AthBridge` and the MCP tools rely on them. Violations are

@@ -1,7 +1,7 @@
 ---
 name: ath-exe-smoke
 description: Host-agnostic template for a built-player (EXE) smoke. Drives a DEVELOPMENT_BUILD or ATH_REMOTE non-dev release player over the loopback socket via the internal Node client (Tools~/ath-exe-client), asserting that the shipping-shaped artifact boots, the harness command surface survives stripping, and game state is reachable — the build-vs-editor parity tier the editor smokes structurally cannot cover. Copy into your host project and fill in the placeholder scenario steps.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Built-player (EXE) smoke — template
@@ -24,8 +24,11 @@ cd <ath-package>/Tools~/ath-exe-client
 node ath-exe.js <cmd|state|wait|snap|launch|attach> …
 ```
 
-The final trace-emit step uses the **editor** MCP tool `ath-trace-emit` (the editor must be
-connected). For a fully headless CI run, record the pass/fail verdict yourself.
+Trace emission is available through the shared CLI without Unity Editor:
+`node ath-exe.js trace <result.json> --project-root <host-project>`.
+The existing editor MCP `ath-trace-emit` remains supported. See
+`Documentation~/shared-tooling.md` for executable smoke specifications and the
+standalone MCP server; use `Skills/ath-unreal-smoke` for the Unreal fixture suite.
 
 ## Prerequisites (one-time, see exe-harness.md)
 
@@ -41,8 +44,8 @@ connected). For a fully headless CI run, record the pass/fail verdict yourself.
 ```bash
 node ath-exe.js launch "<path-to-player.exe>"      # waits for harness.ping
 node ath-exe.js state package_version
-# Frontmatter declares version: 0.3.0
-# expected: value == "0.3.0"; if not, the built player is a stale package — rebuild,
+# Frontmatter declares version: 0.3.1
+# expected: value == "0.3.1"; if not, the built player is a stale package — rebuild,
 # or re-copy this skill from <ath-package>/Skills/ath-exe-smoke.
 ```
 
@@ -80,7 +83,14 @@ node ath-exe.js cmd  "harness.reset"                # clear edge-sticky flags be
 node ath-exe.js snap "<label>" --out <local-dir>    # PNG to the player's media dir; client polls it
 ```
 
-### Step 5 — emit the trace (editor connected)
+### Step 5 — emit the trace (shared CLI or editor)
+
+For an executable smoke specification, `node ath-exe.js smoke <spec.json>
+--project-root <host-project> --trace` emits a compatible trace on both pass and
+fail. To emit an already-computed result without Editor, write a JSON result
+containing `name`, `result`, `failedStep`, `summary` and safe `artifacts`, then run
+`node ath-exe.js trace <result.json> --project-root <host-project>`.
+The original connected-Editor path remains available:
 
 ```bash
 unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","skill":"ath-exe-smoke","summary":"<what passed> in a non-dev release build"}'

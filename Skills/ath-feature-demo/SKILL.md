@@ -1,7 +1,7 @@
 ---
 name: ath-feature-demo
 description: Host-agnostic AUTHORING TEMPLATE for capturing HITL-validation footage of a feature working. Brackets a feature demonstration with ath-record (Unity Recorder mp4) and/or ath-snap (PNG stills), then emits an ath.smoke.completed trace with the footage attached. Copy this into your host project and replace the placeholder steps (<scene-name>, <feature commands>) with your feature's actual commands — keep the record/snap scaffolding.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Feature-demo capture (template)
@@ -49,11 +49,11 @@ trace-relative path (`media/<file>`) ready for `ath-trace-emit`'s `artifacts`.
 ## Step 0 — Version pre-flight (fail-fast)
 
 ```jsonc
-// Frontmatter declares: version: 0.3.0
+// Frontmatter declares: version: 0.3.1
 let live = ath-state { "key": "package_version" }
-// expected: live.Value == "0.3.0"
+// expected: live.Value == "0.3.1"
 
-if (live.Value != "0.3.0") {
+if (live.Value != "0.3.1") {
   ABORT: stale skill copy. Re-copy this SKILL.md into
   <project>/.claude/skills/ath-feature-demo/SKILL.md and re-invoke.
 }
@@ -152,4 +152,4 @@ editor-application-set-state { "isPlaying": false }
   problems, not test failures — unless evidence capture is itself the gate.
 - Capture artifacts live under `.captain-sdlc/trace/media/` and are covered by
   the trace `.gitignore`, so they are never committed.
-- Skill version `0.3.0` tracks the package in lockstep; bump both together.
+- Skill version `0.3.1` tracks the package in lockstep; bump both together.
