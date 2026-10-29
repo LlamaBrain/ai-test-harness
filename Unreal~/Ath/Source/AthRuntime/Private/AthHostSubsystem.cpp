@@ -13,6 +13,20 @@ void UAthHostSubsystem::RemoveState(const FString& Key) { check(IsInGameThread()
 void UAthHostSubsystem::ObserveEvent(const FString& EventName) { FAthRuntime::ObserveEvent(EventName); }
 void UAthHostSubsystem::CompleteAsync(const FString& Name, const FString& CorrelationId, bool bSuccess, const FString& Error)
 { FAthRuntime::CompleteAsync(Name, CorrelationId, bSuccess, Error); }
+int64 UAthHostSubsystem::GetSessionGeneration() const
+{
+    if (!FAthRuntime::IsRemoteActive()) return 0;
+    const uint64 Generation = FAthRuntime::GetSessionGeneration();
+    return Generation <= static_cast<uint64>(MAX_int64) ? static_cast<int64>(Generation) : 0;
+}
+void UAthHostSubsystem::ObserveEventForSession(int64 Generation, const FString& EventName)
+{
+    if (Generation > 0) FAthRuntime::ObserveEventForSession(static_cast<uint64>(Generation), EventName);
+}
+void UAthHostSubsystem::CompleteAsyncForSession(int64 Generation, const FString& Name, const FString& CorrelationId, bool bSuccess, const FString& Error)
+{
+    if (Generation > 0) FAthRuntime::CompleteAsyncForSession(static_cast<uint64>(Generation), Name, CorrelationId, bSuccess, Error);
+}
 
 bool UAthHostSubsystem::RegisterCommand(const FString& Command, FAthCommandHandler Handler)
 {

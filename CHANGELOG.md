@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Blueprint host nodes for session-guarded event observation and asynchronous
+  completion, preventing delayed callbacks from entering a replacement session.
 - Shared engine-independent Node client, `ath` CLI alias, capability/version
   discovery, registered JSON command execution, bounded/cancellable predicate
   waits, fixture smoke orchestration and standalone MCP tools. The existing

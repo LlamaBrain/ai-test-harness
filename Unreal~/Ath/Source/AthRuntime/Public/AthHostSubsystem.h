@@ -24,6 +24,18 @@ public:
     UFUNCTION(BlueprintCallable, Category = "ATH")
     void CompleteAsync(const FString& Name, const FString& CorrelationId, bool bSuccess, const FString& Error);
 
+    /** Capture before starting delayed work; zero means no valid generation. */
+    UFUNCTION(BlueprintPure, Category = "ATH")
+    int64 GetSessionGeneration() const;
+
+    /** Ignore observations from an earlier session or full reset. */
+    UFUNCTION(BlueprintCallable, Category = "ATH")
+    void ObserveEventForSession(int64 Generation, const FString& EventName);
+
+    /** Ignore completions from an earlier session or full reset. */
+    UFUNCTION(BlueprintCallable, Category = "ATH")
+    void CompleteAsyncForSession(int64 Generation, const FString& Name, const FString& CorrelationId, bool bSuccess, const FString& Error);
+
     UFUNCTION(BlueprintCallable, Category = "ATH")
     bool RegisterCommand(const FString& Command, FAthCommandHandler Handler);
 

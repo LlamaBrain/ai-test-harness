@@ -259,6 +259,9 @@ For delayed callbacks capture `FAthRuntime::GetSessionGeneration()` when startin
 work, then call `ObserveEventForSession(generation, name)` or
 `CompleteAsyncForSession(generation, name, id, success, error)` on the Game Thread.
 Prior-session callbacks are ignored after full reset, replacement or world cleanup.
+Blueprint hosts can use the corresponding `GetSessionGeneration`,
+`ObserveEventForSession` and `CompleteAsyncForSession` nodes on the ATH host
+subsystem. Capture the generation before starting delayed work; zero is invalid.
 Immediate `ObserveEvent`/`CompleteAsync` address the current session. Adapters must
 still cancel game-owned work and avoid dereferencing destroyed UObjects; ATH
 cannot preempt a native handler that blocks the Game Thread.

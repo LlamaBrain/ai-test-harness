@@ -70,6 +70,28 @@ than the 640x360 standalone and packaged viewports.
 
 ## Retained failures and limits
 
+On 2026-10-29, the Blueprint session-guard repair was tested on `c2c900e` plus
+the repair working tree. KinecadeSandbox's UE 5.8.3 Editor and Development game
+targets compiled, and a Development package built successfully. The bounded
+`StartsWith:ATH` automation suite passed **10/10** tests, including
+`ATH.Runtime.BlueprintSessionIsolation`; the test calls the subsystem methods,
+checks their Blueprint reflection flags, and verifies stale observations are
+rejected after a full reset. The focused test also passed with instrumentation
+disabled. Both final reports and logs are retained in the consuming project at
+`.captain-sdlc/trace/native-blueprint-final/`.
+
+Before the final opt-out correction, the shared KinecadeSandbox acceptance
+runner passed **26/26** nonvisual steps against both the standalone Editor
+executable and a packaged Development executable. Their consuming-project reports are
+`trace/runs/16d6b38c-7fd2-4c07-8d34-0baed1f7d971.json` and
+`trace/runs/2e6f61c7-0ce3-438c-abd1-cb48a6389e47.json`, respectively. These
+runs used NullRHI and do not verify screenshots. After the correction, a fresh
+Development package passed **27/27** rendered steps; its report is
+`trace/runs/3e32e67a-f7e8-4975-9ccb-0146200d2134.json` and its viewed 640x360
+PNG is `trace/media/kinecade-acceptance_871A28EA4E589BA55B500BB76EDDC4A5.png`.
+Earlier rendered results above remain evidence for their original working-tree
+revision.
+
 The isolated BeforeTheShade import logged two URP shader asset import errors
 under its deeply nested temporary path, although the player build and the
 nonvisual nine-step smoke succeeded. The smoke did not verify visual rendering

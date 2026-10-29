@@ -216,6 +216,9 @@ void FAthRuntime::CompleteAsyncForSession(uint64 Generation, const FString& Name
     check(IsInGameThread());
     if (Generation != 0 && Generation == GetSessionGeneration()) CompleteAsync(Name, CorrelationId, bSuccess, Error);
 }
+#if WITH_DEV_AUTOMATION_TESTS
+#include "Tests/AthBlueprintSessionTests.inl"
+#endif
 #else
 IMPLEMENT_MODULE(FDefaultModuleImpl, AthRuntime)
 void FAthRuntime::RegisterHost(const TSharedRef<IAthHost>& Host) {}
