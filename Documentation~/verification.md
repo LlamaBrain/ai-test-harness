@@ -1,13 +1,14 @@
 # Cross-engine migration verification
 
-Recorded 2026-10-28 against source based on `2c93c78` plus the migration working
-tree. Evidence explicitly identifies `2c93c78+working-tree`; it does not claim a
-committed release revision, signed Captain implementation completion or remote
-CI success. Shared tests, real Unity regression, native Unreal automation and
-real Unreal client smokes, including a packaged Development executable, have
-completed. Local runtime acceptance, including normal Shipping exclusion, is
-established for the tested modes. Remote CI remains open, so delivery is not yet
-CI-certified.
+Local runtime evidence was recorded 2026-10-28 against source based on `2c93c78`
+plus the migration working tree; its trace references remain
+`2c93c78+working-tree` and are not relabeled as committed-build evidence. The
+migration source was subsequently committed as `41ecbe2`. GitHub Actions passed
+all 12 checks at `9baa67c`, which adds a merge changelog to that source. These
+results do not claim signed Captain implementation or merge-prep completion.
+Shared tests, Unity regression, native Unreal automation and real Unreal client
+smokes, including a packaged Development executable, completed for the tested
+modes.
 
 ## Completed checks
 
@@ -17,6 +18,7 @@ CI-certified.
 | Portable Unreal installer and acceptance specifications | **15 passed** | Real temporary junction/link creation, verify-only, dry-run/conflict preservation, full default fixture composition and custom-scenario ordering. |
 | Pure C# generic host contracts | **9 passed** | Engine-independent production-source compilation and checks for ownership, legacy events, bounded observations and session generations. |
 | Unity EditMode regression | **34/34 passed** | Final actual Unity 6000.3.10f1 run; XML start time `2026-10-28 22:22:44Z`. Includes valid/malformed Unicode JSON, metadata ownership, replacement, duplicate bridges and shutdown disposal. The isolated host embeds the worktree's source; final source hashes match. |
+| BeforeTheShade runtime integration | **9/9 smoke steps passed** | An isolated copy of committed BTS `23b4d32` embedded the migration source and built its existing Unity 6000.3.10f1 `Release + ATH_REMOTE` player. A shared-client smoke verified the real BTS host and Game scene, bridge, adapter, game and player readiness, ping, player position and legacy echo. The live BTS project was not modified. |
 | Unreal host compilation | **Succeeded** | Existing KinecadeSandbox `LyraEditor` target compiled the native `AthRuntime` and editor-only `AthEditor` modules against Unreal 5.8.3. |
 | Native Unreal automation | **9/9 passed**, zero failed/not run | Consumer `.captain-sdlc/trace/native-automation/index.json`, exported HTML report and engine log. Use the bounded `StartsWith:ATH` filter. |
 | Real PIE attachment and command/state/wait/event/async smoke | **26 steps passed** | Consumer `trace/runs/324e557c-a1fd-49f5-a491-05f53a53d67c.json`; external shared Node client against real KinecadeSandbox PIE. |
@@ -68,6 +70,11 @@ than the 640x360 standalone and packaged viewports.
 
 ## Retained failures and limits
 
+The isolated BeforeTheShade import logged two URP shader asset import errors
+under its deeply nested temporary path, although the player build and the
+nonvisual nine-step smoke succeeded. The smoke did not verify visual rendering
+or the BTS death, ghost and restart loop.
+
 The initial rendered screenshot check hit its 10-second client deadline, leaving
 a failed smoke event and a valid PNG that arrived late. That evidence was retained.
 The rendered acceptance step was given an explicit 30-second deadline and rerun;
@@ -92,8 +99,8 @@ or every Lyra experience. See [the repeatable package command](unreal.md#package
 | Remaining gate | Current state | Evidence still required |
 |---|---|---|
 | Instrumented release-shaped scope | Packaged Development acceptance passed for one Win64 DX12 map | Broader production content/platform coverage remains outside the demonstrated slice; ordinary Shipping debugging is not enabled. |
-| Remote CI | Workflow added; **not run remotely** | Actual pipeline result at the delivered commit. |
-| Full delivery acceptance | Local tested runtime modes passed; **not CI green** | Run the remote workflow at a delivered commit. No commit or publication is authorized by this record. |
+| Remote CI | **12 checks passed at `9baa67c`** | Check the current PR head for later commits; the recorded result belongs only to `9baa67c`. |
+| Signed Captain merge preparation | **Not issued** | The repository has no committed Captain policy; ordinary local and CI evidence is not a signed readiness receipt. |
 
 ## Reproduce Unity regression without importing generated hosts
 
