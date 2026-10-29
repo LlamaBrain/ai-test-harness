@@ -1,6 +1,6 @@
 {
   "name": "com.llamabrainlabs.ai-test-harness",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "displayName": "AI Test Harness",
   "description": "AI Test Harness Unity integration, portable Node CLI/MCP tooling, and independently installable native Unreal Engine plugin. Commands, states, waits, events, screenshots and Captain SDLC evidence share the existing CMD/OK/ERR protocol.",
   "unity": "2022.3",

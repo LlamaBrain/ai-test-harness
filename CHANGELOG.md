@@ -67,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attached. Host-specific smokes stay in the consuming project.
 
 ### Changed
+- Synchronize the Unity package, shared CLI, Unreal plugin and active skills at
+  version `0.3.1` for the Captain policy and merge record.
 - Added a generic host contract alongside the unchanged Unity legacy adapter
   contract; new hosts do not require player/item/ghost properties. Existing
   Unity package/assembly identity and Editor MCP integration remain available.

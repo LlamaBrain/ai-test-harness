@@ -1,7 +1,7 @@
 ---
 name: ath-exe-smoke
 description: Host-agnostic template for a built-player (EXE) smoke. Drives a DEVELOPMENT_BUILD or ATH_REMOTE non-dev release player over the loopback socket via the internal Node client (Tools~/ath-exe-client), asserting that the shipping-shaped artifact boots, the harness command surface survives stripping, and game state is reachable — the build-vs-editor parity tier the editor smokes structurally cannot cover. Copy into your host project and fill in the placeholder scenario steps.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Built-player (EXE) smoke — template
@@ -44,8 +44,8 @@ standalone MCP server; use `Skills/ath-unreal-smoke` for the Unreal fixture suit
 ```bash
 node ath-exe.js launch "<path-to-player.exe>"      # waits for harness.ping
 node ath-exe.js state package_version
-# Frontmatter declares version: 0.3.0
-# expected: value == "0.3.0"; if not, the built player is a stale package — rebuild,
+# Frontmatter declares version: 0.3.1
+# expected: value == "0.3.1"; if not, the built player is a stale package — rebuild,
 # or re-copy this skill from <ath-package>/Skills/ath-exe-smoke.
 ```
 

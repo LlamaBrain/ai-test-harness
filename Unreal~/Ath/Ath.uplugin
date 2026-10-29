@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 300,
-  "VersionName": "0.3.0",
+  "Version": 301,
+  "VersionName": "0.3.1",
   "FriendlyName": "AI Test Harness",
   "Description": "Opt-in, game-agnostic ATH runtime command, state and evidence adapter.",
   "Category": "Testing",

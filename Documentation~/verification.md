@@ -70,6 +70,24 @@ than the 640x360 standalone and packaged viewports.
 
 ## Retained failures and limits
 
+The subsequent `0.3.1` version synchronization was checked against its
+working tree: the shared Node suite passed **58/58**, the engine-independent C#
+contracts **9/9**, Unreal installer and acceptance tests **15/15**, and the
+Unity 6000.3.10f1 EditMode suite **34/34**. KinecadeSandbox's UE 5.8.3 Editor
+and Development game targets compiled, the native ATH report recorded **10/10**
+passing tests, and a fresh packaged Development build passed the **27/27**
+rendered smoke. The packaged runtime and shared CLI both reported `0.3.1`; the
+consumer's report is `trace/runs/b68b16c5-ff0f-410a-8e8b-7f3a563a772f.json`,
+and its viewed 640x360 PNG is
+`trace/media/kinecade-acceptance_DDE3BCF64E6ED59AA09517ABD9BAFB57.png`. The
+native report and log are in `.captain-sdlc/trace/native-ath-031/`. These are
+working-tree results, not a claim of signed Captain readiness.
+
+BeforeTheShade's locally installed full-loop skill was already at `0.2.0` and
+has a strict version preflight. Refresh that consuming-project skill from
+`HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/` when adopting ATH `0.3.1`;
+the local installed copy and full gameplay loop were not changed or revalidated.
+
 On 2026-10-29, the Blueprint session-guard repair was tested on `c2c900e` plus
 the repair working tree. KinecadeSandbox's UE 5.8.3 Editor and Development game
 targets compiled, and a Development package built successfully. The bounded

@@ -1,6 +1,6 @@
 {
   "name": "ath-exe-client",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Engine-independent ATH client, smoke runner and evidence CLI for Unity and Unreal runtimes.",
   "type": "commonjs",

@@ -12,7 +12,7 @@ Agents use shared commands, named state, predicate waits, events, correlated
 asynchronous operations, screenshots and smoke reports through one CLI/MCP
 surface. Native engine integrations remain independently installable.
 
-The package remains version `0.3.0`; cross-engine work is currently unreleased.
+The package version is `0.3.1`; cross-engine work is currently unreleased.
 The real KinecadeSandbox integration compiled and passed nine native Unreal
 tests, a 26-step nonvisual PIE smoke, and 27-step rendered PIE, standalone and
 packaged Development smokes with screenshot and Captain evidence.

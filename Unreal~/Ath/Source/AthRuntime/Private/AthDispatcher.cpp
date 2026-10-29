@@ -61,7 +61,7 @@ FString FAthDispatcher::Execute(const FString& Request)
 
     if (Command == TEXT("harness.ping") && Tokens.Num() == 1) return Respond(TEXT("pong=true"));
     if (Command == TEXT("harness.version") && Tokens.Num() == 1)
-        return Respond(FString::Printf(TEXT("version=0.3.0 protocolVersion=1 engine=unreal engineVersion=\"%s\" buildMode=%s"),
+        return Respond(FString::Printf(TEXT("version=0.3.1 protocolVersion=1 engine=unreal engineVersion=\"%s\" buildMode=%s"),
             *FAthProtocol::Escape(FEngineVersion::Current().ToString()), *BuildMode()));
     if (Command == TEXT("test.echo") && Tokens.Num() == 2)
         return Respond(FString::Printf(TEXT("message=\"%s\""), *FAthProtocol::Escape(Tokens[1])));
@@ -70,7 +70,7 @@ FString FAthDispatcher::Execute(const FString& Request)
         const FString& Key = Tokens[1];
         FString Status = TEXT("ok"), Value;
         if (Key == TEXT("engine_name")) Value = TEXT("unreal");
-        else if (Key == TEXT("package_version")) Value = TEXT("0.3.0");
+        else if (Key == TEXT("package_version")) Value = TEXT("0.3.1");
         else if (Key == TEXT("bridge_ready")) Value = TEXT("true");
         else if (Key == TEXT("adapter_ready")) Value = bHostValid ? TEXT("true") : TEXT("false");
         else if (Key == TEXT("host_name")) Value = bHostValid ? Host->GetHostName() : TEXT("<none>");
@@ -92,7 +92,7 @@ FString FAthDispatcher::Execute(const FString& Request)
         Metadata->SetStringField(TEXT("engine"), TEXT("unreal"));
         Metadata->SetStringField(TEXT("engineVersion"), FEngineVersion::Current().ToString());
         Metadata->SetStringField(TEXT("buildMode"), BuildMode());
-        Metadata->SetStringField(TEXT("athVersion"), TEXT("0.3.0"));
+        Metadata->SetStringField(TEXT("athVersion"), TEXT("0.3.1"));
         Metadata->SetStringField(TEXT("hostName"), bHostValid ? Host->GetHostName() : TEXT("<none>"));
         TArray<FString> Capabilities = {TEXT("state"), TEXT("commands"), TEXT("events"), TEXT("async"), TEXT("reset")};
         TArray<FString> StateKeys = {TEXT("engine_name"), TEXT("host_name"), TEXT("package_version"), TEXT("bridge_ready"),

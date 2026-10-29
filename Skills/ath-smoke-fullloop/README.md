@@ -1,9 +1,9 @@
 # BeforeTheShade workflow relocated
 
-The full, unchanged gameplay procedure is now
+The same gameplay procedure is now
 [HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md](../../HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md).
 Copy or link that directory only into a BeforeTheShade project. Its skill name
-and `0.3.0` version remain unchanged, so existing installed copies still work.
+remains unchanged. Update installed copies to version `0.3.1` so their version check matches the package.
 
 This compatibility pointer is deliberately not an installable generic skill.
 For unrelated projects use the [generic Unreal smoke](../ath-unreal-smoke/SKILL.md)

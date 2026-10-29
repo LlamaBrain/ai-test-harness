@@ -35,7 +35,7 @@ New-Item -ItemType Junction -Path '<project>/.claude/skills/ath-unreal-smoke' -T
 
 Inspect an existing destination before changing a link. Skills carry a `version`
 frontmatter value; compare the live `package_version` state or runtime
-`ath version --port <port>` with `0.3.0` before running. Recopy stale skills after
+`ath version --port <port>` with `0.3.1` before running. Recopy stale skills after
 upgrading the package.
 
 ## Author

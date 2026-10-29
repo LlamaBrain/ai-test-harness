@@ -1,7 +1,7 @@
 ---
 name: ath-unreal-smoke
 description: Prove ATH command/state/wait/event/async/evidence behavior inside any instrumented Unreal project using ATH-owned fixtures and native world state. No Lyra or gameplay dependencies.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Unreal ATH fixture smoke
@@ -23,7 +23,7 @@ not close an unrelated user-owned engine session.
 
 ## Procedure
 
-1. Run `ath version --port <port>` and confirm ATH `0.3.0` / protocol 1. Run
+1. Run `ath version --port <port>` and confirm ATH `0.3.1` / protocol 1. Run
    `ath capabilities --port <port>`; require Unreal plus state, commands, events,
    asynchronous completion and reset. Confirm the intended world/PIE instance.
 2. Run `ath state unreal.world_name --port <port>` and
