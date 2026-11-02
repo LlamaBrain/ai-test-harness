@@ -1,0 +1,38 @@
+﻿{
+  "modelLoadMs": 32.2284,
+  "modelLoaded": true,
+  "runs": [
+    {
+      "firstAnalysisMs": 234.4655,
+      "height": 1080,
+      "imagesPerSecond": 4.4740259083681915,
+      "iterations": 5,
+      "meanAnalysisMs": 223.51234,
+      "outcome": "pass",
+      "peakProcessMemoryBytes": 170872832,
+      "width": 1920
+    },
+    {
+      "firstAnalysisMs": 247.0366,
+      "height": 1440,
+      "imagesPerSecond": 4.002676349514339,
+      "iterations": 5,
+      "meanAnalysisMs": 249.83283999999998,
+      "outcome": "pass",
+      "peakProcessMemoryBytes": 214487040,
+      "width": 2560
+    },
+    {
+      "firstAnalysisMs": 297.2804,
+      "height": 2160,
+      "imagesPerSecond": 3.672227005909935,
+      "iterations": 5,
+      "meanAnalysisMs": 272.31432,
+      "outcome": "pass",
+      "peakProcessMemoryBytes": 338976768,
+      "width": 3840
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "In-process CPU batch reuses model; excludes PNG decode and OS process startup"
+}

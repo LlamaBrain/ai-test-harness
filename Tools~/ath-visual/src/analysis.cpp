@@ -11,6 +11,26 @@ double luminance(cv::Vec3b c) { return .2126*linear(c[2])+.7152*linear(c[1])+.07
 double ratio(double a,double b) { return (std::max(a,b)+.05)/(std::min(a,b)+.05); }
 double median(std::vector<double> values) { std::sort(values.begin(),values.end()); return values[values.size()/2]; }
 Json bounds(cv::Rect r) { return {{"x",r.x},{"y",r.y},{"width",r.width},{"height",r.height}}; }
+cv::Rect clearBorder(const cv::Mat& image,cv::Rect region,cv::Rect limit) {
+    limit&=cv::Rect(0,0,image.cols,image.rows);region&=limit;
+    if(region.empty()||limit.empty()) return region;
+    double bg=luminance(image.at<cv::Vec3b>(limit.y,limit.x));
+    for(int iteration=0;iteration<4096;++iteration) {
+        bool left=false,right=false,top=false,bottom=false;
+        for(int y=region.y;y<region.y+region.height;++y) {
+            left|=ratio(luminance(image.at<cv::Vec3b>(y,region.x)),bg)>=1.1;
+            right|=ratio(luminance(image.at<cv::Vec3b>(y,region.x+region.width-1)),bg)>=1.1;
+        }
+        for(int x=region.x;x<region.x+region.width;++x) {
+            top|=ratio(luminance(image.at<cv::Vec3b>(region.y,x)),bg)>=1.1;
+            bottom|=ratio(luminance(image.at<cv::Vec3b>(region.y+region.height-1,x)),bg)>=1.1;
+        }
+        auto expanded=cv::Rect(region.x-(left?4:0),region.y-(top?4:0),region.width+(left?4:0)+(right?4:0),region.height+(top?4:0)+(bottom?4:0))&limit;
+        if(expanded==region) break;
+        region=expanded;
+    }
+    return region;
+}
 std::optional<double> measureContrast(const cv::Mat& image,cv::Rect r,double bg) {
     cv::Mat mask(r.height,r.width,CV_8U,cv::Scalar(0));
     for(int y=0;y<r.height;++y)for(int x=0;x<r.width;++x)
@@ -31,6 +51,8 @@ std::optional<double> measureContrast(const cv::Mat& image,cv::Rect r,double bg)
             if(values[i][values[i].size()*9/10]-values[i][values[i].size()/10]>.02) return std::nullopt;
             interior[i]=values[i];
         }
+        std::sort(interior[i].begin(),interior[i].end());
+        if(interior[i][interior[i].size()*9/10]-interior[i][interior[i].size()/10]>.1) return std::nullopt;
         minimum=std::min(minimum,ratio(median(interior[i]),bg));
     }
     return glyphs>=2?std::optional<double>(minimum):std::nullopt;
@@ -80,31 +102,46 @@ Json measure(const cv::Mat& image,const Region& region,const Policy& policy) {
     if(components<2||area>r.area()*.65||bottom<top) {result["message"]="Mask lacks sufficient glyph-like components";return result;}
     int tallest=0;
     for(int i=1;i<count;++i) if(stats.at<int>(i,cv::CC_STAT_AREA)>=3) tallest=std::max(tallest,stats.at<int>(i,cv::CC_STAT_HEIGHT));
-    int commonTop=0,commonBottom=r.height;bool sizeAmbiguous=false;
+    std::vector<int> glyphTop(count),glyphBottom(count);std::vector<bool> attached(count,false);
+    for(int i=1;i<count;++i) {glyphTop[i]=stats.at<int>(i,cv::CC_STAT_TOP);glyphBottom[i]=glyphTop[i]+stats.at<int>(i,cv::CC_STAT_HEIGHT)-1;}
     for(int i=1;i<count;++i) {
         int h=stats.at<int>(i,cv::CC_STAT_HEIGHT);
-        if(stats.at<int>(i,cv::CC_STAT_AREA)<3||h<=3) continue;
-        bool accent=false;
-        for(int j=1;j<count&&h<tallest*.35;++j) {
+        if(h>=tallest*.35) continue;
+        int owner=0;
+        for(int j=1;j<count;++j) {
             if(i==j||stats.at<int>(j,cv::CC_STAT_HEIGHT)<=h*2) continue;
-            int gap=stats.at<int>(j,cv::CC_STAT_TOP)-stats.at<int>(i,cv::CC_STAT_TOP)-h;
+            int gap=glyphTop[j]-glyphBottom[i]-1,lowerGap=glyphTop[i]-glyphBottom[j]-1;
             int left=std::max(stats.at<int>(i,cv::CC_STAT_LEFT),stats.at<int>(j,cv::CC_STAT_LEFT));
             int right=std::min(stats.at<int>(i,cv::CC_STAT_LEFT)+stats.at<int>(i,cv::CC_STAT_WIDTH),stats.at<int>(j,cv::CC_STAT_LEFT)+stats.at<int>(j,cv::CC_STAT_WIDTH));
-            if(gap>=0&&gap<tallest*.35&&right>left) accent=true;
+            if(((gap>=0&&gap<tallest*.35)||(lowerGap>=0&&lowerGap<tallest*.35))&&right>left) {if(owner) {owner=-1;break;}owner=j;}
         }
-        if(accent) continue;
-        if(h<policy.minHeightPx&&tallest>=policy.minHeightPx) sizeAmbiguous=true;
-        commonTop=std::max(commonTop,stats.at<int>(i,cv::CC_STAT_TOP));
-        commonBottom=std::min(commonBottom,stats.at<int>(i,cv::CC_STAT_TOP)+h-1);
+        if(owner>0) {attached[i]=true;glyphTop[owner]=std::min(glyphTop[owner],glyphTop[i]);glyphBottom[owner]=std::max(glyphBottom[owner],glyphBottom[i]);}
+    }
+    tallest=0;for(int i=1;i<count;++i) if(!attached[i]) tallest=std::max(tallest,glyphBottom[i]-glyphTop[i]+1);
+    int commonTop=0,commonBottom=r.height,minGlyphTop=r.height,maxGlyphTop=0,minGlyphBottom=r.height,maxGlyphBottom=0,shortest=tallest;
+    for(int i=1;i<count;++i) {
+        int h=glyphBottom[i]-glyphTop[i]+1;
+        if(stats.at<int>(i,cv::CC_STAT_AREA)<3||h<=3) continue;
+        if(attached[i]) continue;
+        minGlyphTop=std::min(minGlyphTop,glyphTop[i]);maxGlyphTop=std::max(maxGlyphTop,glyphTop[i]);
+        minGlyphBottom=std::min(minGlyphBottom,glyphBottom[i]);maxGlyphBottom=std::max(maxGlyphBottom,glyphBottom[i]);
+        shortest=std::min(shortest,h);
+        commonTop=std::max(commonTop,glyphTop[i]);
+        commonBottom=std::min(commonBottom,glyphBottom[i]);
     }
     if(commonTop>commonBottom) {result["message"]="Multiple text lines cannot share a height measurement";return result;}
+    // Joint upper/lower bands support ordinary ascenders and descenders. A
+    // height split sharing only one baseline is unresolved mixed-size evidence.
+    // The classification never depends on the selected policy threshold.
+    int upperBand=maxGlyphTop-minGlyphTop,lowerBand=maxGlyphBottom-minGlyphBottom;
+    bool sizeAmbiguous=tallest-shortest>1&&(upperBand<=1||lowerBand<=1||std::max(upperBand,lowerBand)>2*std::min(upperBand,lowerBand));
     const int height=bottom-top+1;
     const bool boundary=top==0||bottom==r.height-1||cv::countNonZero(mask.col(0))||cv::countNonZero(mask.col(r.width-1));
     result["measuredHeightPx"]=height;
     result["contrastRatio"]=independentContrast?Json(*independentContrast):Json(nullptr);
     result["measurementConfidence"]=boundary?.25:.8;
     result["clippingOutcome"]=boundary?"inconclusive":"pass";
-    result["heightOutcome"]=boundary||sizeAmbiguous?"inconclusive":height>=policy.minHeightPx?"pass":region.representativeGlyphs?"fail":"inconclusive";
+    result["heightOutcome"]=boundary?"inconclusive":height<policy.minHeightPx?(region.representativeGlyphs?"fail":"inconclusive"):sizeAmbiguous?"inconclusive":"pass";
     result["contrastOutcome"]=boundary||!independentContrast?"inconclusive":*independentContrast>=policy.minContrastRatio?"pass":"fail";
     result["message"]=boundary?"Foreground touches region boundary":region.representativeGlyphs?"Visible pixel extent measured with 2:1 boundary inclusion":"Visible extent measured; absent representative glyphs cannot establish an undersize failure";
     return result;
@@ -174,12 +211,16 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
                         measuredBounds[j]|=detected;
                     }
                 } else for(auto j:candidates) ambiguous[j]=true;
-            } else regions.push_back({"",detected,false,confidence[i]});
+            } else {
+                auto padded=clearBorder(image,detected+cv::Size(10,10)-cv::Point(5,5),cv::Rect(0,0,image.cols,image.rows));
+                regions.push_back({"",padded,false,confidence[i]});
+            }
         }
         if(strict) for(size_t j=0;j<regions.size();++j) {
             if(matches[j]>0&&!ambiguous[j]) {
                 int padding=std::max(5,measuredBounds[j].height/3);
                 regions[j].bounds=(measuredBounds[j]+cv::Size(padding*2,padding*2)-cv::Point(padding,padding))&regions[j].bounds;
+                regions[j].bounds=clearBorder(image,regions[j].bounds,regions[j].expectedBounds);
             }
             else regions[j].detectionConfidence=0;
         }

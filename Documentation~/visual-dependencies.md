@@ -1,6 +1,6 @@
 # Visual analyzer dependency review
 
-Review date: 2026-11-02. The Windows build resolved dependencies at vcpkg baseline `af839a44c17a927468f35c7a65e200aeba337da4`; installed package notices were collected and checked. Embedded OpenCV notices remain under review. AITH remains MIT licensed. Model weights were downloaded to temporary test storage and hash-verified; no weights or third-party source are committed.
+Review date: 2026-11-02. The Windows build resolved dependencies at vcpkg baseline `af839a44c17a927468f35c7a65e200aeba337da4`; installed package notices were collected and checked. AITH remains MIT licensed. Model weights were downloaded to temporary test storage and hash-verified; no weights or third-party source are committed.
 
 | Component | Revision/version | License and provenance | Redistribution / release status | Unresolved work |
 | --- | --- | --- | --- | --- |
@@ -37,5 +37,7 @@ Installed copyright files were inspected and collected by `Tools~/visual-verific
 | vcpkg-get-python-packages | 2025-04-05 | Build tooling; notice retained | Not a runtime DLL |
 
 The actual executable output directory contains OpenCV core/dnn/imgcodecs/imgproc, Abseil, Protobuf, PNG and zlib DLLs. No video/videoio or FFmpeg DLL is copied there. The vcpkg port builds extra OpenCV modules in its dependency tree; those are not analyzer links or distribution requirements. CMake cache confirms `WITH_FFMPEG=OFF`, `WITH_IPP=OFF`, and `WITH_ITT=OFF`.
+
+The port downloaded tiny-dnn while preparing its source cache. Searches of the OpenCV release `CMakeCache.txt`, `build.ninja`, and module sources found no tiny-dnn compilation references; no corresponding runtime library is shipped. This download is not treated as a bundled analyzer component. Recheck the installed dependency inventory when changing the vcpkg baseline or requested OpenCV features. Preserve the complete OpenCV package copyright file, including its embedded notices, rather than replacing it with an Apache-only summary.
 
 Fixture generation uses Pillow 12.0.0 and an operator-provided licensed font. Font binaries are never copied into the repository or release. Fixture manifests record font digests and Pillow versions. CI uses DejaVu Sans on Linux and installed Arial on Windows, so reports must identify the font rather than pretending the two platform corpora are identical.

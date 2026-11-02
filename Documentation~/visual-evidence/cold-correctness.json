@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "scope": "Fresh OS process each sample; includes model load and PNG decode; filesystem caches may be warm",
+  "platform": "Windows-11-10.0.22631-SP0",
+  "analyzerSha256": "338d8e478164809255a9179809c7c7f0cc238ca66be78a1bf5319aa04b68329b",
+  "modelSha256": "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
+  "runs": [
+    {
+      "height": 1080,
+      "samplesMs": [
+        611.0240999987582,
+        536.13790000054,
+        388.37360000070476,
+        381.1353999990388,
+        343.6189000003651
+      ],
+      "medianMs": 388.37360000070476,
+      "meanMs": 452.05797999988135,
+      "outcomes": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "imageSha256": "b51b4694b9eb50547b7bbbb87171a37a382344d2d8f690c59ed0af9e190f8bda"
+    },
+    {
+      "height": 1440,
+      "samplesMs": [
+        380.423200000223,
+        360.5815999999322,
+        373.30930000098306,
+        382.4580000000424,
+        366.91419999988284
+      ],
+      "medianMs": 373.30930000098306,
+      "meanMs": 372.7372600002127,
+      "outcomes": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "imageSha256": "3731dd63359e663bb79fe3bdb82b1ead08a4788331265a0879f2b02904505b58"
+    },
+    {
+      "height": 2160,
+      "samplesMs": [
+        485.6412999997701,
+        489.8284999999305,
+        472.30189999936556,
+        483.6131000010937,
+        436.6738999997324
+      ],
+      "medianMs": 483.6131000010937,
+      "meanMs": 473.61173999997845,
+      "outcomes": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "imageSha256": "c1fe8fe8ae9ce1073d3eb9e3d236a6fb964e2c54efdb7cf0ffdc478eb5f922e2"
+    }
+  ]
+}

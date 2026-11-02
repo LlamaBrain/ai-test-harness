@@ -76,6 +76,33 @@ int main() {
         for(int x:{20,40})cv::rectangle(mixed,{x,40,6,20},cv::Scalar(255,255,255),cv::FILLED);
         for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
         require(measure(mixed,{"mixed",{5,5,180,90},true,1.0},Policy{"test","1",26,4.5})["heightOutcome"]!="pass","mixed sizes cannot union-pass");
+        mixed.setTo(cv::Scalar(0,0,0));
+        for(int x:{20,40})cv::rectangle(mixed,{x,35,6,25},cv::Scalar(255,255,255),cv::FILLED);
+        for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
+        bool leftPass=false;
+        for(int threshold=1;threshold<=60;++threshold) {
+            auto outcome=measure(mixed,{"mixed25-40",{5,5,180,90},true,1.0},Policy{"test","1",double(threshold),4.5})["heightOutcome"];
+            require(outcome!="pass","mixed25/40 cohort remains ambiguous");
+            if(outcome!="pass")leftPass=true;
+            require(!leftPass||outcome!="pass","tightening threshold cannot turn uncertainty into pass");
+        }
+        auto invalidManifest=manifest;
+        invalidManifest["elements"][0]["bounds"]["x"]=uint64_t(-1);
+        bool rejected=false;try {analyze(empty,invalidManifest,policy,"");}catch(const std::exception&){rejected=true;}
+        require(rejected,"unsigned coordinate wrap rejected");
+        invalidManifest=manifest;invalidManifest.erase("locale");rejected=false;
+        try {analyze(empty,invalidManifest,policy,"");}catch(const std::exception&){rejected=true;}
+        require(rejected,"missing required manifest context rejected");
+        cv::Mat punctuation(120,160,CV_8UC3,cv::Scalar(0,0,0));
+        cv::rectangle(punctuation,{20,34,6,56},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(punctuation,{40,34,6,41},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(punctuation,{40,82,6,8},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(punctuation,{60,33,6,42},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(punctuation,{60,82,6,8},cv::Scalar(255,255,255),cv::FILLED);
+        for(int threshold:{56,57}) {
+            auto p=measure(punctuation,{"punctuation",{5,5,140,110},false,1.0},Policy{"test","1",double(threshold),4.5});
+            require(p["measuredHeightPx"]==57&&p["heightOutcome"]=="pass","detached punctuation counts as complete glyph with monotonic threshold results");
+        }
         cv::Mat contrastMix(100,200,CV_8UC3,cv::Scalar(0,0,0));
         for(int x:{20,40,60})cv::rectangle(contrastMix,{x,20,6,30},cv::Scalar(255,255,255),cv::FILLED);
         cv::rectangle(contrastMix,{80,20,6,30},cv::Scalar(90,90,90),cv::FILLED);
@@ -85,6 +112,31 @@ int main() {
         cv::Mat low(100,200,CV_8UC3,cv::Scalar(0,0,0));
         for(int x:{20,40,60})cv::rectangle(low,{x,20,6,30},cv::Scalar(50,50,50),cv::FILLED);
         require(measure(low,{"lowContrast",{5,5,180,90},true,1.0},policy)["contrastOutcome"]=="fail","contrast below2:1 remains independently measurable");
+        cv::Mat outlined(100,200,CV_8UC3,cv::Scalar(0,0,0));
+        for(int x:{20,50,80}) {
+            cv::rectangle(outlined,{x,20,12,30},cv::Scalar(255,255,255),cv::FILLED);
+            cv::rectangle(outlined,{x+3,23,6,24},cv::Scalar(90,90,90),cv::FILLED);
+        }
+        require(measure(outlined,{"outline",{5,5,180,90},true,1.0},policy)["contrastOutcome"]=="inconclusive","multitone outlines need conservative contrast");
+        cv::Mat texture(100,200,CV_8UC3);
+        for(int y=0;y<texture.rows;++y)for(int x=0;x<texture.cols;++x) {
+            auto shade=static_cast<unsigned char>(((x/5+y/5)%2)?20:100);
+            texture.at<cv::Vec3b>(y,x)=cv::Vec3b(shade,shade,shade);
+        }
+        for(int x:{20,40,60})cv::rectangle(texture,{x,20,6,30},cv::Scalar(255,255,255),cv::FILLED);
+        require(measure(texture,{"textured",{5,5,180,90},true,1.0},policy)["contrastOutcome"]=="inconclusive","textured backgrounds must not receive confident contrast");
+        // Rendered screenshot of a 50%-opaque black panel over uniform blue.
+        // The screenshot is opaque RGB; the panel's alpha is already composited.
+        cv::Mat panel(100,200,CV_8UC3,cv::Scalar(60,20,10));
+        for(int x:{20,40,60})cv::rectangle(panel,{x,20,6,30},cv::Scalar(255,255,255),cv::FILLED);
+        auto panelResult=measure(panel,{"composited-panel",{5,5,180,90},true,1.0},policy);
+        require(panelResult["measuredHeightPx"]==30&&panelResult["heightOutcome"]=="pass"&&panelResult["contrastOutcome"]=="pass","opaque screenshot of transparent panel remains measurable");
+        cv::Mat multiple(120,300,CV_8UC3,cv::Scalar(0,0,0));
+        for(int x:{20,40,60})cv::rectangle(multiple,{x,20,6,20},cv::Scalar(255,255,255),cv::FILLED);
+        for(int x:{170,190,210})cv::rectangle(multiple,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
+        Policy sizePolicy{"multiple-elements","1",26,4.5};
+        require(measure(multiple,{"small",{10,10,80,60},true,1.0},sizePolicy)["heightOutcome"]=="fail","small independent element is not hidden by neighboring large text");
+        require(measure(multiple,{"large",{160,10,80,60},true,1.0},sizePolicy)["heightOutcome"]=="pass","large independent element measured separately");
         std::cout << "measurement golden masks passed\n";
     } catch(const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }
 }
