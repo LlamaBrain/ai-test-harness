@@ -279,7 +279,7 @@ async function cmdRuntimeSmoke(positionals) {
 function print(obj) { process.stdout.write(JSON.stringify(obj, null, 2) + '\n'); }
 function fail(msg) { process.stderr.write(`ath-exe: ${msg}\n`); return 2; }
 
-const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach, 'runtime-smoke': cmdRuntimeSmoke, 'runtime-smoke-suite': cmdRuntimeSmokeSuite };
+const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach, 'runtime-smoke': cmdRuntimeSmoke, 'runtime-smoke-suite': cmdRuntimeSmokeSuite, visual: require('./visual').command };
 
 async function main() {
   const [sub, ...rest] = process.argv.slice(2);

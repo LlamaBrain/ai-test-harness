@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "project-example",
+  "version": "1",
+  "source": "project://accessibility-policy",
+  "scope": "default-rendered-size",
+  "minHeightPx": 24,
+  "minContrastRatio": 4.5
+}

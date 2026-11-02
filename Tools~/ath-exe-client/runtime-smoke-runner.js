@@ -1215,4 +1215,4 @@ function writeAtomicNew(fs, destination, content) {
   }
 }
 
-module.exports = { validateRuntimeSmokeEvidence, prepareRuntimeSmokeRun, createRuntimeSmokeLaunch, launchRuntimeSmokeProcess, observeProcessIdentity, createBuildToken, prepareRuntimeSmokeArtifactCopy, runRuntimeSmokeSuite, createRuntimeSmokeBuildGate, serializeRuntimeSmokeBuildGateJUnit };
+module.exports = { validateRuntimeSmokeEvidence, prepareRuntimeSmokeRun, createRuntimeSmokeLaunch, launchRuntimeSmokeProcess, observeProcessIdentity, createBuildToken, prepareRuntimeSmokeArtifactCopy, runRuntimeSmokeSuite, createRuntimeSmokeBuildGate, serializeRuntimeSmokeBuildGateJUnit, isWithin, assertNoSymlinkPath, writeAtomicNew };

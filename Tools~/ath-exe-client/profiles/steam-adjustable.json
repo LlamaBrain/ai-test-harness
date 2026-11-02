@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "steam-adjustable",
+  "version": "aith-1-source-accessed-2026-11-02",
+  "source": "https://partner.steamgames.com/doc/accessibility_features#adjustable_text_size",
+  "scope": "adjustable-size-capability",
+  "referenceHeight": 1080,
+  "minHeightPx": 38,
+  "minContrastRatio": 4.5,
+  "contrastSource": "https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/102",
+  "contrastAssumption": "AITH conservative standard-text policy; not attributed to Steam",
+  "scaling": "linear-height",
+  "limitation": "Single screenshot checks rendered reachable size only; adjustable text availability requires separate runtime evidence"
+}

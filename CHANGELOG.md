@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add offline visual analyze/audit/compare/report CLI operations, policy profiles, bounded native execution, immutable evidence receipts, and batch validation; native end-to-end verification remains pending (v0.7.0).
+
 - Record visual accessibility integration points, cross-engine compatibility, and verification baseline; implementation and runtime acceptance remain pending (v0.6.2).
 
 - Retain the historical migration-audit appendix and source-cleanup disposition while collecting all reviewed branch histories on dev (v0.6.1).

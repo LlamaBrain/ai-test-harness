@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "xag101-pc",
+  "version": "aith-1-source-accessed-2026-11-02",
+  "source": "https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/101",
+  "scope": "default-rendered-size",
+  "referenceHeight": 1080,
+  "minHeightPx": 18,
+  "minContrastRatio": 4.5,
+  "contrastSource": "https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/102",
+  "contrastAssumption": "Conservative standard-text threshold; no large-text exception applied",
+  "scaling": "linear-height"
+}
