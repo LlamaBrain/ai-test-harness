@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Accept optional manifest identifiers and unlocated required regions with explicit uncertainty, require policy provenance metadata, and separate native executable limits from screenshot limits for Linux static builds (v0.10.2).
+
 - Maintain native result determinism checks across sequential processes, concurrent processes and shared-model batch entries (v0.10.1).
 
 - Configure trusted visual analysis through the existing RuntimeSmoke registry for stock MCP checkpoint/capture/resume workflows, preserving custom factory precedence and legacy behavior. Enforce adjustable-capability uncertainty and resolved policy scaling across native/CLI/RuntimeSmoke; 100 Unity tests, 96 Node tests and 216 labeled threshold cases passed (v0.10.0).

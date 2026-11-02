@@ -26,7 +26,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
+        id: dependencies
         with:
           path: build/vcpkg-cache
           key: visual-${{ runner.os }}-vcpkg-${{ hashFiles('Tools~/ath-visual/vcpkg.json') }}
@@ -46,6 +47,12 @@ jobs:
           fi
       - name: Configure
         run: cmake -S Tools~/ath-visual -B build/visual -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      - name: Retain successful dependency build
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/vcpkg-cache
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
       - name: Build
         run: cmake --build build/visual --config Release --parallel 2
       - name: Validate dependency notices
@@ -103,6 +110,9 @@ jobs:
         with:
           name: visual-verification-${{ matrix.os }}
           path: |
+            build/visual/CMakeFiles/CMakeConfigureLog.yaml
+            build/visual/vcpkg-manifest-install.log
+            build/vcpkg/buildtrees/**/*.log
             build/visual/Testing
             build/visual/example-*
             build/visual/fixture-*.png

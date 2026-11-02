@@ -164,6 +164,7 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
     if(image.empty()||image.type()!=CV_8UC3) throw std::runtime_error("Expected decoded 8-bit RGB screenshot");
     if(policy.id.empty()||policy.id.size()>256||policy.version.empty()||policy.version.size()>128||!std::isfinite(policy.minHeightPx)||policy.minHeightPx<=0||!std::isfinite(policy.minContrastRatio)||policy.minContrastRatio<1||policy.minContrastRatio>21) throw std::runtime_error("Invalid policy identity or thresholds");
     if(policy.scope!="default-rendered-size"&&policy.scope!="adjustable-size-capability") throw std::runtime_error("Unsupported visual policy scope");
+    if(policy.source.find_first_not_of(" \t\r\n")==std::string::npos||policy.source.size()>4096) throw std::runtime_error("Policy requires a bounded nonempty source");
     std::vector<Region> regions;
     bool strict=!manifest.is_null();
     if(strict) {
@@ -174,9 +175,16 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
             throw std::runtime_error("Manifest schema or resolution mismatch");
         std::set<std::string> ids;
         if(!manifest.at("elements").is_array()||manifest.at("elements").size()>1024) throw std::runtime_error("Manifest elements must be an array of at most 1024 entries");
+        size_t elementIndex=0;
         for(const auto& e:manifest.at("elements")) {
-            auto id=e.at("id").get<std::string>(); const auto& b=e.at("bounds");
-            if(id.empty()||!ids.insert(id).second) throw std::runtime_error("Empty or duplicate element id");
+            if(!e.is_object()) throw std::runtime_error("Manifest element must be an object");
+            auto id=e.contains("id")?e.at("id").get<std::string>():"expected-"+std::to_string(elementIndex);
+            ++elementIndex;
+            if(id.empty()||id.size()>256||!ids.insert(id).second) throw std::runtime_error("Empty, oversized or duplicate authored/generated element id");
+            if(!e.contains("bounds")) {
+                Region missing;missing.id=id;missing.hasBounds=false;regions.push_back(missing);continue;
+            }
+            const auto& b=e.at("bounds");
             for(const auto* key:{"x","y","width","height"}) if(!b.at(key).is_number_integer()||(b.at(key).is_number_unsigned()&&b.at(key).get<uint64_t>()>16384)||b.at(key).get<int64_t>() < -16384||b.at(key).get<int64_t>()>16384) throw std::runtime_error("Bounds must contain bounded integer coordinates");
             if(b.at("width").get<int>()<=0||b.at("height").get<int>()<=0) throw std::runtime_error("Bounds must have positive area");
             regions.push_back({id,{b.at("x").get<int>(),b.at("y").get<int>(),b.at("width").get<int>(),b.at("height").get<int>()},e.value("representativeGlyphs",false),0.0});
@@ -202,6 +210,7 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
                 std::vector<size_t> candidates;
                 for(size_t j=0;j<regions.size();++j) {
                     auto& region=regions[j];
+                    if(!region.hasBounds) continue;
                     // Detector evidence must predominantly lie in the expected region.
                     auto overlap=region.bounds&detected;
                     if(detected.area()>0&&double(overlap.area())/detected.area()>=.8) candidates.push_back(j);
@@ -236,12 +245,15 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
     }
     for(size_t i=0;i<regions.size();++i) {
         if(regions[i].id.empty()) regions[i].id="detected-"+std::to_string(i);
-        auto m=measure(image,regions[i],policy);
-        if(strict) {
+        Json m;
+        if(regions[i].hasBounds) m=measure(image,regions[i],policy);
+        else m={{"elementId",regions[i].id},{"bounds",nullptr},{"expectedBounds",nullptr},{"detectionConfidence",0.0},{"measurementConfidence",0.0},{"measuredHeightPx",nullptr},{"contrastRatio",nullptr},
+            {"heightOutcome","inconclusive"},{"contrastOutcome","inconclusive"},{"clippingOutcome","inconclusive"},{"message","Expected region has no render bounds; screenshot correspondence cannot be established"}};
+        if(strict&&regions[i].hasBounds) {
             auto expected=regions[i].expectedBounds;m["expectedBounds"]=bounds(expected);
             if(expected.x<0||expected.y<0||expected.x>image.cols-expected.width||expected.y>image.rows-expected.height) m["clippingOutcome"]="fail";
         }
-        if(regions[i].detectionConfidence<=0) {
+        if(regions[i].hasBounds&&regions[i].detectionConfidence<=0) {
             uncertain=true;
             m["message"]="Text detection did not corroborate expected region; "+m["message"].get<std::string>();
             for(const auto* key:{"heightOutcome","contrastOutcome","clippingOutcome"})
@@ -263,7 +275,7 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
         limitations.push_back(message);uncertain=true;
     }
     return {{"schemaVersion",1},{"outcome",failed?"fail":uncertain?"inconclusive":"pass"},{"context",context},
-        {"image",{{"width",image.cols},{"height",image.rows}}},{"policy",{{"id",policy.id},{"version",policy.version},{"minHeightPx",policy.minHeightPx},{"minContrastRatio",policy.minContrastRatio},{"scope",policy.scope}}},
+        {"image",{{"width",image.cols},{"height",image.rows}}},{"policy",{{"id",policy.id},{"version",policy.version},{"source",policy.source},{"minHeightPx",policy.minHeightPx},{"minContrastRatio",policy.minContrastRatio},{"scope",policy.scope}}},
         {"findings",findings},{"coverage",{{"mode",strict?"manifest":"best-effort"},{"expected",strict?regions.size():0},{"measured",measured},
         {"limitations",limitations}}}};
 }

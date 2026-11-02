@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { analyze, validateResult, invoke, command, validateBatchResult } = require('./visual');
-const valid = () => ({ schemaVersion: 1, outcome: 'pass', policy: { minHeightPx: 24, minContrastRatio: 4.5 }, image: { width: 100, height: 100 }, findings: ['text.height','text.contrast','text.clipping'].map(ruleId => ({ ruleId, elementId: 'title', outcome: 'pass', bounds: { x: 1, y: 1, width: 40, height: 30 }, measuredHeightPx: 30, contrastRatio: 7, measurementConfidence: 1, detectionConfidence: 1, message: 'ok' })), coverage: { mode: 'manifest', expected: 1, measured: 1, limitations: [] } });
+const valid = () => ({ schemaVersion: 1, outcome: 'pass', policy: { id: 'test', version: '1', source: 'fixture://test', minHeightPx: 24, minContrastRatio: 4.5 }, image: { width: 100, height: 100 }, findings: ['text.height','text.contrast','text.clipping'].map(ruleId => ({ ruleId, elementId: 'title', outcome: 'pass', bounds: { x: 1, y: 1, width: 40, height: 30 }, measuredHeightPx: 30, contrastRatio: 7, measurementConfidence: 1, detectionConfidence: 1, message: 'ok' })), coverage: { mode: 'manifest', expected: 1, measured: 1, limitations: [] } });
 test('unknown schemas, empty evidence and uncertain findings cannot pass', () => {
   validateResult(valid(), 0);
   for (const change of [{ schemaVersion: 2 }, { findings: [] }, { outcome: 'unknown' }, { coverage: { mode: 'manifest', expected: 2, measured: 1, limitations: [] } }]) assert.throws(() => validateResult({ ...valid(), ...change }, 0));
@@ -21,6 +21,13 @@ test('unknown schemas, empty evidence and uncertain findings cannot pass', () =>
 test('strict pass requires positive detection and exact nonempty coverage', () => {
   for (const confidence of [0, null]) { const result = valid(); result.findings[0].detectionConfidence = confidence; assert.throws(() => validateResult(result, 0)); }
   const result = valid(); result.coverage.expected = 0; assert.throws(() => validateResult(result, 0));
+});
+
+test('policies require reproducible source, version and identity metadata', () => {
+  for (const key of ['source', 'version', 'id']) for (const missing of [null, '', '  ']) {
+    const result = valid(); result.policy[key] = missing;
+    assert.throws(() => validateResult(result, 0), /policy/i);
+  }
 });
 
 test('adjustability is an inconclusive policy finding rather than a measured element', () => {
@@ -40,6 +47,16 @@ test('strict results cannot substitute manifest identity or omit required elemen
   for (const mutate of [r => { r.context.locale = 'fr'; }, r => { r.findings[0].elementId = 'other'; }, r => { r.findings.pop(); }, r => { r.coverage.expected = 0; }, r => { r.findings[0].bounds.x = 99; }]) {
     const altered = structuredClone(result); mutate(altered); assert.throws(() => validateBindings(altered, { bytes }, manifest, result.policy));
   }
+  delete manifest.elements[0].id; result.findings.forEach(f => { f.elementId = 'expected-0'; });
+  validateBindings(result, { bytes }, manifest, result.policy);
+  manifest.elements.push({ id: 'expected-0', bounds: manifest.elements[0].bounds }); result.coverage.expected = 2;
+  assert.throws(() => validateBindings(result, { bytes }, manifest, result.policy), /Duplicate/);
+  manifest.elements.pop(); result.coverage.expected = 1;
+  delete manifest.elements[0].bounds;
+  result.outcome = 'inconclusive'; result.coverage.measured = 0;
+  result.findings.forEach(f => { f.outcome = 'inconclusive'; f.bounds = null; f.expectedBounds = null; f.measuredHeightPx = null; f.contrastRatio = null; f.detectionConfidence = 0; f.measurementConfidence = 0; });
+  validateResult(result, 2); validateBindings(result, { bytes }, manifest, result.policy);
+  result.findings[0].outcome = 'pass'; assert.throws(() => validateBindings(result, { bytes }, manifest, result.policy));
 });
 
 test('missing analyzer fails closed and duplicate output is refused', async () => {
@@ -48,6 +65,16 @@ test('missing analyzer fails closed and duplicate output is refused', async () =
     const input = path.join(root, 'input.png'); fs.writeFileSync(input, Buffer.from('89504e470d0a1a0a', 'hex'));
     await assert.rejects(analyze({ input, out: path.join(root, 'run'), analyzer: path.join(root, 'missing.exe') }));
     await assert.rejects(analyze({ input, out: path.join(root, 'run'), analyzer: process.execPath }), /exist/i);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('trusted native binaries have a separate bounded size from screenshot evidence', () => {
+  const { readEvidence } = require('./visual');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ath-visual-binary-'));
+  try {
+    const file = path.join(root, 'analyzer.bin'); fs.writeFileSync(file, 'x'); fs.truncateSync(file, 33 * 1024 * 1024);
+    assert.throws(() => readEvidence(file), /32 MiB/);
+    assert.equal(readEvidence(file, 128 * 1024 * 1024).byteLength, 33 * 1024 * 1024);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 test('bounded subprocess transport reports exit and rejects timeout and excessive output', async () => {

@@ -34,8 +34,11 @@ one session is sequential and must not be called concurrently.
 
 ## Version 1 inputs
 
-Policy: `{"schemaVersion":1,"id":"project","version":"1","minHeightPx":26,"minContrastRatio":4.5}`.
+Policy: `{"schemaVersion":1,"id":"project","version":"1","source":"project://accessibility/policy/v1","minHeightPx":26,"minContrastRatio":4.5}`.
 The default is an explicitly custom threshold, not a certification profile.
+Custom policy files require nonempty `id`, `version`, and `source`; the source is
+retained in results. With no policy file, the native default identifies its source
+as `builtin://ath-visual/custom-default/v1`.
 Policy `scope` defaults to `default-rendered-size`. The other supported scope,
 `adjustable-size-capability`, adds the stable `text.adjustability` inconclusive
 finding: a single screenshot cannot prove the user can change text size. Pixel
@@ -63,7 +66,12 @@ Manifest:
 }
 ```
 
-Bounds must isolate one text line with background padding. `representativeGlyphs`
+Element `id` is optional. Omission derives `expected-0`, `expected-1`, and so on
+from the original zero-based array index. Authored and derived IDs must remain
+unique; collisions are rejected. `bounds` is also optional: an element without
+bounds produces explicit inconclusive findings with null coordinates and
+measurements, counts toward expected coverage, and cannot silently pass.
+When supplied, bounds must isolate one text line with background padding. `representativeGlyphs`
 declares that the test text includes the representative ascending/descending
 extents needed for a minimum-height comparison. Without this declaration, a
 short visible span is inconclusive rather than a confirmed failure. The measured

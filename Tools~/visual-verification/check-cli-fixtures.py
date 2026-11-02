@@ -59,6 +59,12 @@ def main():
         parser.error('--analyzer --model --fixtures --out are required')
     fixtures, out = pathlib.Path(args.fixtures).resolve(), pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=False)
+    identities = {}
+    for role in ('analyzer', 'model'):
+        tool_path = pathlib.Path(getattr(args, role)).resolve()
+        identities[role] = {'path': str(tool_path), 'bytes': tool_path.stat().st_size,
+                            'sha256': hashlib.sha256(tool_path.read_bytes()).hexdigest()}
+    (out / 'tool-identities.json').write_text(json.dumps(identities, indent=2), encoding='utf-8')
     ground = json.loads((fixtures / 'ground-truth.json').read_text(encoding='utf-8'))
     selected = [f for f in ground['fixtures'] if f['image'].startswith('representative-1080-')]
     if len(selected) != 2:
@@ -98,6 +104,17 @@ def main():
     run('adjustability-unproven', [*base, '--policy', str(adjustable_policy), '--out', str(out / 'adjustable')], 'inconclusive')
     validate_receipt(out / 'adjustable', 'inconclusive')
     run('report', ['report', str(out / 'pass'), '--format', 'json'], 'pass')
+    for case, bounds, expected in [('optional-id', True, 'pass'), ('unlocated', False, 'inconclusive')]:
+        document = json.loads(manifest.read_text(encoding='utf-8'))
+        for element in document['elements']:
+            element.pop('id', None)
+            if not bounds:
+                element.pop('bounds', None)
+        optional_manifest = out / (case + '-manifest.json')
+        optional_manifest.write_text(json.dumps(document), encoding='utf-8')
+        run(case, ['analyze', str(image), '--manifest', str(optional_manifest), '--policy', str(pass_policy), '--out', str(out / case), *common], expected)
+        validate_receipt(out / case, expected)
+        run(case + '-report', ['report', str(out / case), '--format', 'json'], expected)
     run('compare-identical', ['compare', str(out / 'pass'), str(out / 'pass'), '--out', str(out / 'comparison.json')], 'pass')
     run('compare-policy-mismatch', ['compare', str(out / 'pass'), str(out / 'fail')], 'infrastructure-error')
     screens = []
@@ -113,6 +130,7 @@ def main():
         validate_receipt(out / 'audit' / screen['id'], 'pass')
     run('duplicate-output', [*base, '--policy', str(pass_policy), '--out', str(out / 'pass')], 'infrastructure-error')
     summary = {'schemaVersion': 1, 'verified': True, 'checks': checks,
+               'analyzerBytes': identities['analyzer']['bytes'], 'modelBytes': identities['model']['bytes'],
                'analyzerSha256': hashlib.sha256(pathlib.Path(args.analyzer).read_bytes()).hexdigest(),
                'modelSha256': hashlib.sha256(pathlib.Path(args.model).read_bytes()).hexdigest()}
     (out / 'cli-verification.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')

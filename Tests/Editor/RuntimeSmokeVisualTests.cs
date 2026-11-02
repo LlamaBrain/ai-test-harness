@@ -106,6 +106,14 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Assert.Throws<TargetInvocationException>(()=>verifyAdjustment("pass",","+adjustment));
             Assert.Throws<TargetInvocationException>(()=>verifyAdjustment("inconclusive",""));
             Assert.Throws<TargetInvocationException>(()=>verifyAdjustment("inconclusive",","+adjustment+","+adjustment));
+            var anonymous=RuntimeSmokeValueJsonParser.Parse("{\"resolution\":{\"width\":100,\"height\":100},\"elements\":[{\"bounds\":{\"x\":1,\"y\":1,\"width\":40,\"height\":40}}]}");
+            Assert.DoesNotThrow(()=>method.Invoke(null,new object[]{RuntimeSmokeValueJsonParser.Parse("{\"findings\":["+all.Replace("menu","expected-0")+"]}"),anonymous,policy}));
+            var boundless=RuntimeSmokeValueJsonParser.Parse("{\"resolution\":{\"width\":100,\"height\":100},\"elements\":[{}]}");
+            var noBounds=all.Replace("menu","expected-0").Replace("{\"x\":1,\"y\":1,\"width\":40,\"height\":40}","null")
+                .Replace("\"outcome\":\"pass\"","\"outcome\":\"inconclusive\"").Replace("\"measuredHeightPx\":25","\"measuredHeightPx\":null")
+                .Replace("\"contrastRatio\":21","\"contrastRatio\":null").Replace("Confidence\":1","Confidence\":0");
+            Assert.DoesNotThrow(()=>method.Invoke(null,new object[]{RuntimeSmokeValueJsonParser.Parse("{\"findings\":["+noBounds+"]}"),boundless,policy}));
+            Assert.Throws<TargetInvocationException>(()=>method.Invoke(null,new object[]{RuntimeSmokeValueJsonParser.Parse("{\"findings\":["+noBounds.Replace("inconclusive","pass")+"]}"),boundless,policy}));
             var heightOnly=finding.Replace("\"contrastRatio\":21","\"contrastRatio\":null");
             Assert.DoesNotThrow(()=>verify(heightOnly+","+heightOnly.Replace("text.height","text.contrast").Replace("\"outcome\":\"pass\"","\"outcome\":\"inconclusive\"")+","+
                 heightOnly.Replace("text.height","text.clipping")));
@@ -155,7 +163,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             // Native generated Arial fixture contains representative ascenders and descenders, with an adjacent manifest.
             var png = File.ReadAllBytes(fixture);
             var originalManifest = File.ReadAllText(Path.ChangeExtension(fixture,".json"));
-            foreach (var expected in new[] { "pass", "fail", "inconclusive", "corrupt", "wrong-correlation", "missing-analyzer", "adjustable", "unresolved-profile" })
+            foreach (var expected in new[] { "pass", "fail", "inconclusive", "corrupt", "wrong-correlation", "missing-analyzer", "adjustable", "unresolved-profile", "missing-source", "optional-id", "boundless" })
             {
                 var directory = Path.Combine(Path.GetTempPath(), "ath-visual-runtime-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(Path.Combine(directory,"captures"));
@@ -163,11 +171,15 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                 {
                     var correlation="visual-native-"+expected+"-"+Guid.NewGuid().ToString("N");
                     var receipt = new RuntimeSmokeCaptureArtifactWriter(directory).WritePng("menu", expected == "corrupt" ? png.Take(24).ToArray() : png);
-                    var policy = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"minHeightPx\":" + (expected == "pass" || expected == "adjustable" || expected == "unresolved-profile" ? "20" : "80") + ",\"minContrastRatio\":4.5}");
+                    var policy = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"source\":\"fixture://runtime-smoke\",\"minHeightPx\":" + (expected == "pass" || expected == "adjustable" || expected == "unresolved-profile" || expected == "missing-source" || expected == "optional-id" || expected == "boundless" ? "20" : "80") + ",\"minContrastRatio\":4.5}");
                     if(expected=="adjustable") policy=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(policy).Replace("\"version\":\"1\"","\"version\":\"1\",\"scope\":\"adjustable-size-capability\""));
                     if(expected=="unresolved-profile") policy=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(policy).Replace("\"version\":\"1\"","\"version\":\"1\",\"referenceHeight\":1080,\"scaling\":\"linear-height\""));
+                    if(expected=="missing-source") policy=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(policy).Replace("\"source\":\"fixture://runtime-smoke\",",""));
+                    var selectedManifest=originalManifest;
+                    if(expected=="optional-id") selectedManifest=System.Text.RegularExpressions.Regex.Replace(selectedManifest,"\"id\"\\s*:\\s*\"[^\"]+\"\\s*,?","");
+                    if(expected=="boundless") selectedManifest=System.Text.RegularExpressions.Regex.Replace(selectedManifest,"\"bounds\"\\s*:\\s*\\{[^}]*\\}\\s*,?","");
                     var manifest = Encoding.UTF8.GetBytes(expected=="inconclusive" ? System.Text.RegularExpressions.Regex.Replace(originalManifest,
-                        "\"representativeGlyphs\"\\s*:\\s*true", "\"representativeGlyphs\":false") : originalManifest);
+                        "\"representativeGlyphs\"\\s*:\\s*true", "\"representativeGlyphs\":false") : selectedManifest);
                     var policyPath = Path.Combine(directory,"source-policy.json"); var manifestPath = Path.Combine(directory,"source-manifest.json");
                     File.WriteAllBytes(policyPath,policy); File.WriteAllBytes(manifestPath,manifest);
                     var document = Document().Replace(new string('a',64), Digest(policy)).Replace(new string('b',64),Digest(manifest));
@@ -181,17 +193,17 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                     Assert.That(suite.Success,Is.True);
                     var suiteResult=await RuntimeSmokeSuiteExecutor.RunAsync(suite,"visual-native-suite",(entry,step,context)=>new SpoofAdapter().ExecuteAsync(step,context),
                         correlationFactory: _=>correlation,visualAnalyzerFactory: (entry,runId)=>analyzer);
-                    Assert.That(suiteResult.TerminalState,Is.EqualTo(expected=="pass"?RuntimeSmokeSuiteTerminalState.Passed:RuntimeSmokeSuiteTerminalState.Failed),
+                    Assert.That(suiteResult.TerminalState,Is.EqualTo((expected=="pass"||expected=="optional-id")?RuntimeSmokeSuiteTerminalState.Passed:RuntimeSmokeSuiteTerminalState.Failed),
                         expected+": "+string.Join(";",suiteResult.Entries.Select(e=>e.Execution.AssertionResult?.Diagnostic??e.Execution.Diagnostic)));
                     var result = suiteResult.Entries.Single().Execution;
-                    Assert.That(result.TerminalState, Is.EqualTo(expected == "pass" ? RuntimeSmokeRunTerminalState.Passed : RuntimeSmokeRunTerminalState.Failed), expected + ": " + result.AssertionResult?.Diagnostic);
+                    Assert.That(result.TerminalState, Is.EqualTo((expected == "pass" || expected=="optional-id") ? RuntimeSmokeRunTerminalState.Passed : RuntimeSmokeRunTerminalState.Failed), expected + ": " + result.AssertionResult?.Diagnostic);
                     Assert.That(result.Transcript.Count(r=>r.type=="run_terminal"),Is.EqualTo(1));
-                    if (expected == "pass" || expected == "fail" || expected == "inconclusive" || expected == "adjustable")
+                    if (expected == "pass" || expected == "fail" || expected == "inconclusive" || expected == "adjustable" || expected=="optional-id" || expected=="boundless")
                     {
                         Assert.That(result.AssertionResult.VisualEvidenceJson, Does.Contain("resultSha256"));
                         Assert.That(RuntimeSmokeJUnitProjection.Serialize(new[]{result}), Does.Contain("visualEvidenceJson"));
                         Assert.That(result.Transcript.Any(r=>!string.IsNullOrEmpty(r.visualEvidenceJson)),Is.True);
-                        Assert.That(result.AssertionResult.ActualDisplay, Does.Contain(expected=="adjustable"?"inconclusive":expected));
+                        Assert.That(result.AssertionResult.ActualDisplay, Does.Contain(expected=="adjustable"||expected=="boundless"?"inconclusive":expected=="optional-id"?"pass":expected));
                     }
                 }
                 finally { Directory.Delete(directory,true); }
@@ -206,7 +218,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             try
             {
                 var policyPath=Path.Combine(directory,"policy.json"); var manifestPath=Path.Combine(directory,"manifest.json");
-                File.WriteAllText(policyPath,"{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"minHeightPx\":20,\"minContrastRatio\":4.5}");
+                File.WriteAllText(policyPath,"{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"source\":\"fixture://runtime-smoke\",\"minHeightPx\":20,\"minContrastRatio\":4.5}");
                 File.Copy(Path.ChangeExtension(fixture,".json"),manifestPath);
                 Func<string,string> quote=s=>RuntimeSmokeValue.From(Path.GetFullPath(s)).ToCanonicalJson();
                 var configPath=Path.Combine(directory,"config.json");

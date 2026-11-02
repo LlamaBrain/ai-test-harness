@@ -38,11 +38,11 @@ $ProjectDirectory = [IO.Path]::GetFullPath($ProjectDirectory)
 if (Test-Path -LiteralPath $ProjectDirectory) { throw 'Select a fresh project directory. This script never replaces or deletes an existing project.' }
 
 $runtimeSources = @(Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'Runtime') -Recurse -Filter '*.cs')
-$testSources = @(Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'Tests/Editor') -Filter 'RuntimeSmoke*Tests.cs' |
-    Where-Object Name -ne 'RuntimeSmokeEditorWindowViewModelTests.cs')
+$testSources = @(Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot 'Tests/Editor') -Filter 'RuntimeSmoke*Tests.cs')
 $testSources += Get-Item -LiteralPath (Join-Path $RepositoryRoot 'Tests/Editor/AthTraceWriterTests.cs')
 $editorSources = @('Editor/AssemblyInfo.cs', 'Editor/McpSkills/AthTraceWriter.cs', 'Editor/McpSkills/AthTraceEmitter.cs',
-    'Editor/McpSkills/AthMediaUtil.cs', 'Editor/McpSkills/Tool_AthTraceEmit.cs') |
+    'Editor/McpSkills/AthMediaUtil.cs', 'Editor/McpSkills/Tool_AthTraceEmit.cs', 'Editor/McpSkills/Tool_AthRuntimeSmoke.cs',
+    'Editor/RuntimeSmokeWindow.cs', 'Editor/RuntimeSmokeEditorWindowViewModel.cs') |
     ForEach-Object { Get-Item -LiteralPath (Join-Path $RepositoryRoot $_) }
 foreach ($selection in @(@{ files = $runtimeSources }, @{ files = $testSources }, @{ files = $editorSources })) {
     if (@($selection.files | Group-Object Name | Where-Object Count -gt 1).Count -gt 0) {
@@ -79,7 +79,7 @@ $inputHashes = @($toolInputs | ForEach-Object { [ordered]@{ path = $_; sha256 = 
 $setup = [ordered]@{ schemaVersion = 1; status = 'prepared'; testedUnityVersion = '6000.3.10f1'; testFrameworkVersion = '1.6.0';
     unityExecutable = $UnityEditor; unityFileVersion = (Get-Item -LiteralPath $UnityEditor).VersionInfo.FileVersion;
     sourceSnapshots = $snapshots; inputHashes = $inputHashes;
-    excludedTestClass = 'RuntimeSmokeEditorWindowViewModelTests';
+    excludedTestClasses = @();
     limitations = @('Isolated source validation, not a consuming game build', 'No live game capture or built-player launch verification') }
 JsonFile (Join-Path $proofDirectory 'setup.json') $setup
 if ($PrepareOnly) { Write-Output "Prepared isolated validation project: $ProjectDirectory"; return }
@@ -123,7 +123,7 @@ $passed = $process.ExitCode -eq 0 -and $results.'test-run'.result -eq 'Passed' -
 $report = [ordered]@{ schemaVersion = 1; passed = $passed; processExitCode = $process.ExitCode; elapsedSeconds = $timer.Elapsed.TotalSeconds;
     reportedResult = $results.'test-run'.result; reportedTotal = $results.'test-run'.total; actualTestcaseCount = $cases.Count;
     nonpassingTestcases = @($failedCases | ForEach-Object { $_.fullname }); changedInputs = $changedInputs; changedSources = $changedSources;
-    nativeSuiteCases = @('pass', 'fail', 'inconclusive', 'corrupt', 'wrong-correlation', 'missing-analyzer', 'adjustable', 'unresolved-profile') }
+    nativeSuiteCases = @('pass', 'fail', 'inconclusive', 'corrupt', 'wrong-correlation', 'missing-analyzer', 'adjustable', 'unresolved-profile', 'missing-source', 'optional-id', 'boundless') }
 JsonFile (Join-Path $proofDirectory 'verification.json') $report
 if (-not $passed) { throw "Unity validation did not pass completely. Inspect retained proof: $proofDirectory" }
 Write-Output "Verified $($cases.Count) tests, including native RuntimeSmoke suite execution. Evidence: $proofDirectory"

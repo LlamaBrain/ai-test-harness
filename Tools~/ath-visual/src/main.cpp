@@ -79,6 +79,10 @@ Json execute(const std::map<std::string,std::string>& args,AnalysisSession& sess
         Policy policy{"custom-default","1",26,4.5};
         if(args.contains("--policy")) {
             auto p=readJson(args.at("--policy")); if(p.at("schemaVersion")!=1) throw std::runtime_error("Unsupported policy schema");
+            for(const auto* key:{"id","version","source"}) {
+                if(!p.contains(key)||!p.at(key).is_string()||p.at(key).get<std::string>().find_first_not_of(" \t\r\n")==std::string::npos)
+                    throw std::runtime_error(std::string("Policy requires nonempty ")+key);
+            }
             if(p.contains("scaling")||p.contains("referenceHeight")||p.contains("analyzedHeight")) {
                 if(p.value("scaling",std::string())!="linear-height"||!p.contains("referenceHeight")||!p.at("referenceHeight").is_number_integer()||p.at("referenceHeight").get<double>()<=0||
                    !p.contains("analyzedHeight")||!p.at("analyzedHeight").is_number_integer()||p.at("analyzedHeight")!=image.rows)
@@ -86,12 +90,13 @@ Json execute(const std::map<std::string,std::string>& args,AnalysisSession& sess
             }
             policy={p.at("id"),p.at("version"),p.at("minHeightPx"),p.at("minContrastRatio")};
             policy.scope=p.value("scope",std::string("default-rendered-size"));
+            policy.source=p.at("source").get<std::string>();
             if(!std::isfinite(policy.minHeightPx)||policy.minHeightPx<=0||!std::isfinite(policy.minContrastRatio)||policy.minContrastRatio<1||policy.minContrastRatio>21) throw std::runtime_error("Invalid policy thresholds");
         }
         auto result=session.analyze(image,args.contains("--manifest")?readJson(args.at("--manifest")):Json(),policy);
         if(args.contains("--annotated")) {
             auto annotation=image.clone();
-            for(const auto& f:result["findings"]) if(f["ruleId"]=="text.height") {
+            for(const auto& f:result["findings"]) if(f["ruleId"]=="text.height"&&f["bounds"].is_object()) {
                 auto b=f["bounds"];cv::Rect r(b["x"],b["y"],b["width"],b["height"]);
                 cv::rectangle(annotation,r,f["outcome"]=="pass"?cv::Scalar(0,200,0):cv::Scalar(0,0,255),2);
             }

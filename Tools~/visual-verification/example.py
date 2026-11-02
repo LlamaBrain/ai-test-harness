@@ -16,7 +16,7 @@ manifest_path = root / 'example-manifest.json'
 manifest_path.write_text(json.dumps(manifest))
 for name, threshold, expected, code in [('unconfirmed', 20, 'inconclusive', 2), ('fail', 21, 'fail', 1)]:
     policy = root / f'example-{name}-policy.json'
-    policy.write_text(json.dumps({'schemaVersion': 1, 'id': 'fixture', 'version': '1',
+    policy.write_text(json.dumps({'schemaVersion': 1, 'id': 'fixture', 'version': '1', 'source': 'fixture://golden-mask',
                                   'minHeightPx': threshold, 'minContrastRatio': 4.5}))
     run = subprocess.run([str(executable), '--input', str(root / 'fixture-1080.png'),
                           '--manifest', str(manifest_path), '--policy', str(policy)],

@@ -2,12 +2,12 @@
     "schemaVersion":  1,
     "unityVersion":  "6000.3.10f1",
     "testFrameworkVersion":  "1.6.0",
-    "tests":  100,
-    "passed":  100,
+    "tests":  110,
+    "passed":  110,
     "failed":  0,
     "skipped":  0,
     "failedTestcaseNodes":  0,
-    "analyzerSha256":  "a454e9565b887f2e2384e563c90b6dda2723b7f90c765a888589bb30e820e76a",
+    "analyzerSha256":  "136e46e617bfd97ff0e204ec53e6408bb04108b71e5b0cd7bde1c0b45301b937",
     "modelSha256":  "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
     "nativeSuiteCases":  [
                              "pass",
@@ -17,14 +17,17 @@
                              "wrong-correlation",
                              "missing-analyzer",
                              "adjustable",
-                             "unresolved-profile"
+                             "unresolved-profile",
+                             "missing-source",
+                             "optional-id",
+                             "boundless"
                          ],
     "stockRegistryCases":  [
                                "no-config fails",
                                "missing-capture fails",
                                "completed capture and checkpoint resume passes"
                            ],
-    "scope":  "Full Runtime sources; RuntimeSmoke Editor tests except EditorWindowViewModel; actual trace MCP tool and writer tests; installed MCP and console dependencies",
+    "scope":  "Full Runtime sources; all RuntimeSmoke Editor tests including EditorWindowViewModel; actual window and RuntimeSmoke/trace MCP tools; trace writer tests; installed MCP and console dependencies",
     "sourceSnapshots":  [
                             {
                                 "path":  "Runtime/AthAsyncOpRecord.cs",
@@ -48,8 +51,8 @@
                             },
                             {
                                 "path":  "Runtime/AthRuntimeFlag.cs",
-                                "sha256":  "7c7f03d38158ee66313c9fc4e68c2c7411d5f14cbcfb7595ded68ca2292943aa",
-                                "testedSha256":  "7c7f03d38158ee66313c9fc4e68c2c7411d5f14cbcfb7595ded68ca2292943aa"
+                                "sha256":  "c6f33d2381b170d5e7155f3b0458fe22fe7d18b9c246b7d919d9426ed6065328",
+                                "testedSha256":  "c6f33d2381b170d5e7155f3b0458fe22fe7d18b9c246b7d919d9426ed6065328"
                             },
                             {
                                 "path":  "Runtime/AthServices.cs",
@@ -193,8 +196,8 @@
                             },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualAnalyzer.cs",
-                                "sha256":  "6ec036d33832373bb5309cee566d691e0ee388a580d09dd6d9ede187e883428d",
-                                "testedSha256":  "6ec036d33832373bb5309cee566d691e0ee388a580d09dd6d9ede187e883428d"
+                                "sha256":  "e24a5cafd7fc4aede9287986256760e2ee23b82882f9ca649d4acd2c7883fb7b",
+                                "testedSha256":  "e24a5cafd7fc4aede9287986256760e2ee23b82882f9ca649d4acd2c7883fb7b"
                             },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualAssertion.cs",
@@ -237,6 +240,11 @@
                                 "testedSha256":  "19b0fc03e940c0a5ffaaf93937fc66189e35a0d41748ba7ed0f59904e9b83cf7"
                             },
                             {
+                                "path":  "Tests/Editor/RuntimeSmokeEditorWindowViewModelTests.cs",
+                                "sha256":  "3cf1c54bf90eab4623e986abdd9c229b57dcd8008016fffacf8b825a0cc4cc37",
+                                "testedSha256":  "3cf1c54bf90eab4623e986abdd9c229b57dcd8008016fffacf8b825a0cc4cc37"
+                            },
+                            {
                                 "path":  "Tests/Editor/RuntimeSmokeJUnitProjectionTests.cs",
                                 "sha256":  "f1b848023b71e8570a52ddb1ddd0bc197cb8883113f1ce623e02697f06c3cc18",
                                 "testedSha256":  "f1b848023b71e8570a52ddb1ddd0bc197cb8883113f1ce623e02697f06c3cc18"
@@ -268,8 +276,8 @@
                             },
                             {
                                 "path":  "Tests/Editor/RuntimeSmokeVisualTests.cs",
-                                "sha256":  "839c86b9865e29ec2ebe7b30d45ffeaeee91a8730307e4b6255251bf4805204f",
-                                "testedSha256":  "839c86b9865e29ec2ebe7b30d45ffeaeee91a8730307e4b6255251bf4805204f"
+                                "sha256":  "d6cca712d843d28e1885d241523cd74714e591c1a74ce239d83b43c25e62ca29",
+                                "testedSha256":  "d6cca712d843d28e1885d241523cd74714e591c1a74ce239d83b43c25e62ca29"
                             },
                             {
                                 "path":  "Tests/Editor/AthTraceWriterTests.cs",
@@ -300,12 +308,27 @@
                                 "path":  "Editor/McpSkills/Tool_AthTraceEmit.cs",
                                 "sha256":  "bba09ec9733f552b4faba8d9a8d432579bd30759708aca7095b58685c56c2b38",
                                 "testedSha256":  "bba09ec9733f552b4faba8d9a8d432579bd30759708aca7095b58685c56c2b38"
+                            },
+                            {
+                                "path":  "Editor/McpSkills/Tool_AthRuntimeSmoke.cs",
+                                "sha256":  "dbc5227a0d1c9ba73916bc9c5cefbc143beca2176f927d5735ad31cea8dc9328",
+                                "testedSha256":  "dbc5227a0d1c9ba73916bc9c5cefbc143beca2176f927d5735ad31cea8dc9328"
+                            },
+                            {
+                                "path":  "Editor/RuntimeSmokeWindow.cs",
+                                "sha256":  "572aa2b98cf5c8bf30a5c6c90df7192eb7b44e399d5724935798a884862975fe",
+                                "testedSha256":  "572aa2b98cf5c8bf30a5c6c90df7192eb7b44e399d5724935798a884862975fe"
+                            },
+                            {
+                                "path":  "Editor/RuntimeSmokeEditorWindowViewModel.cs",
+                                "sha256":  "a473964dced7aa7bb2fe61e3553686dd6114498a18bf98052ef78fef23f4628d",
+                                "testedSha256":  "a473964dced7aa7bb2fe61e3553686dd6114498a18bf98052ef78fef23f4628d"
                             }
                         ],
     "inputIdentities":  [
                             {
                                 "filename":  "ath-visual.exe",
-                                "sha256":  "a454e9565b887f2e2384e563c90b6dda2723b7f90c765a888589bb30e820e76a"
+                                "sha256":  "136e46e617bfd97ff0e204ec53e6408bb04108b71e5b0cd7bde1c0b45301b937"
                             },
                             {
                                 "filename":  "text_detection_en_ppocrv3_2023may.onnx",
@@ -492,12 +515,12 @@
                                 "sha256":  "09901f63ebc4b8f0897b0128fb230c146529aee5c5cc90d7a7872e66a976bb5f"
                             }
                         ],
-    "resultsXmlSha256":  "210c880be4a3d12a926362ffa22f1aedb997e790770868df4b6a0aec5eed2e19",
-    "verificationScriptSha256":  "728e63f1117d4e871247966ae8d4e59b1fcf10c1af223cbe4e5592b564f8bc03",
+    "resultsXmlSha256":  "0ea48a2984306d180a87a5abdc0b68814c9d7c29e10f88476b179f0ce8524a72",
+    "verificationScriptSha256":  "a1d8bc785c72d5119991bdbaf5e8ad87a2ef299ef7fcb50c575030e6a98f44ed",
     "limitations":  [
                         "Isolated project, not a consuming game build",
-                        "No live game capture, MCP server invocation, or built-player launch verified",
-                        "EditorWindowViewModel tests excluded; validated native registry route uses pre-existing PNG"
+                        "No live game capture, active MCP server invocation, or built-player launch verified",
+                        "Window source and reducer/projection tests verified; interactive window rendering not exercised"
                     ],
-    "packageVersion":  "v0.10.1"
+    "packageVersion":  "v0.10.2"
 }

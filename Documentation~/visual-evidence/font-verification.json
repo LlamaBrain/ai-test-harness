@@ -813,10 +813,10 @@
     }
   ],
   "scope": "Labeled font mask corpus only; not accessibility certification or general detector reliability",
-  "elapsedSeconds": 21.018602799998916,
+  "elapsedSeconds": 25.75039250000009,
   "imageChecks": 72,
   "fontSha256": "baa251526d6862712a58e613ef451d8a2b60482142ec6aab1d47fb8e23e21a7c",
   "groundTruthSha256": "8e4b4df8436be6d9437d0d4c739d0c3738a8862f8b0a6d0b9a3f445291ec3614",
-  "analyzerSha256": "a454e9565b887f2e2384e563c90b6dda2723b7f90c765a888589bb30e820e76a",
+  "analyzerSha256": "136e46e617bfd97ff0e204ec53e6408bb04108b71e5b0cd7bde1c0b45301b937",
   "modelSha256": "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587"
 }

@@ -13,7 +13,7 @@
       "type": "object", "required": ["width", "height"],
       "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}}
     },
-    "policy": {"type": "object", "required": ["id", "version", "minHeightPx", "minContrastRatio"]},
+    "policy": {"type": "object", "required": ["id", "version", "source", "minHeightPx", "minContrastRatio"], "properties": {"source": {"type": "string", "minLength": 1, "pattern": "\\S"}}},
     "context": {"type": "object"},
     "coverage": {
       "type": "object", "required": ["mode", "expected", "measured", "limitations"],

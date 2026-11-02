@@ -98,6 +98,9 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 if (outcome == "pass" && _model == null) throw new InvalidDataException("Strict visual pass requires a configured text detection model.");
                 var manifestValue = RuntimeSmokeValueJsonParser.Parse(Encoding.UTF8.GetString(manifest));
                 var policyValue = RuntimeSmokeValueJsonParser.Parse(Encoding.UTF8.GetString(policy));
+                if (!policyValue.Map.TryGetValue("source",out var policySource) || policySource.Kind!=RuntimeSmokeValueKind.String ||
+                    string.IsNullOrWhiteSpace(policySource.String) || result.Map["policy"].Map["source"].String!=policySource.String)
+                    throw new InvalidDataException("Analyzer policy source differs from the authored policy.");
                 if (bytes.Length < 24 || result.Map["image"].Map["width"].Integer != BigEndian(bytes,16) ||
                     result.Map["image"].Map["height"].Integer != BigEndian(bytes,20) ||
                     result.Map["image"].ToCanonicalJson() != manifestValue.Map["resolution"].ToCanonicalJson() ||
@@ -192,7 +195,9 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
 
         internal static void ValidateFindings(RuntimeSmokeValue result, RuntimeSmokeValue manifest, RuntimeSmokeValue policy)
         {
-            var elements = manifest.Map["elements"].Array.ToDictionary(e => e.Map["id"].String, e => e, StringComparer.Ordinal);
+            var elements = manifest.Map["elements"].Array.Select((element,index)=>new {
+                Id=element.Map.TryGetValue("id",out var id)?id.String:"expected-"+index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Value=element }).ToDictionary(e=>e.Id,e=>e.Value,StringComparer.Ordinal);
             var rules = new[] { "text.height", "text.contrast", "text.clipping" };
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var adjustable=policy.Map.TryGetValue("scope",out var scope) && scope.Kind==RuntimeSmokeValueKind.String && scope.String=="adjustable-size-capability";
@@ -210,6 +215,13 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 }
                 if (!elements.TryGetValue(id, out var element) || !rules.Contains(rule) || !seen.Add(id + "\n" + rule))
                     throw new InvalidDataException("Unknown or duplicate visual element/rule.");
+                if(!element.Map.ContainsKey("bounds"))
+                {
+                    if(f["outcome"].String!="inconclusive" || new[]{"bounds","expectedBounds","measuredHeightPx","contrastRatio"}.Any(key=>f[key].Kind!=RuntimeSmokeValueKind.Null) ||
+                        Number(f["detectionConfidence"])!=0 || Number(f["measurementConfidence"])!=0)
+                        throw new InvalidDataException("Boundless expected text has no established correspondence.");
+                    continue;
+                }
                 if (f["expectedBounds"].ToCanonicalJson() != element.Map["bounds"].ToCanonicalJson() ||
                     !Contained(f["bounds"],element.Map["bounds"]))
                     throw new InvalidDataException("Finding bounds are not contained in the declared element.");

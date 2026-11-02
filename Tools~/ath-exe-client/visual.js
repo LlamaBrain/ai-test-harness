@@ -12,9 +12,9 @@ function safePath(file) {
   assertNoSymlinkPath(fs, absolute, root);
   return absolute;
 }
-function readEvidence(file) {
+function readEvidence(file, maximumBytes = 32 * 1024 * 1024) {
   const absolute = safePath(file), stat = fs.statSync(absolute);
-  if (!stat.isFile() || stat.size < 1 || stat.size > 32 * 1024 * 1024) throw new Error('Evidence must be a regular file of 1..32 MiB');
+  if (!stat.isFile() || stat.size < 1 || stat.size > maximumBytes) throw new Error('Evidence must be a regular file of 1..' + maximumBytes / (1024 * 1024) + ' MiB; actualBytes=' + stat.size + '; path=' + absolute);
   const bytes = fs.readFileSync(absolute);
   if (bytes.length !== stat.size) throw new Error('Evidence changed while reading');
   return { path: absolute, bytes, sha256: sha(bytes), byteLength: bytes.length };
@@ -22,6 +22,7 @@ function readEvidence(file) {
 function validateResult(result, code) {
   if (!result || result.schemaVersion !== 1 || !Object.hasOwn(codes, result.outcome) || codes[result.outcome] !== code) throw new Error('Invalid analyzer schema, outcome, or exit code');
   if (result.outcome === 'infrastructure-error') throw new Error('Analyzer infrastructure-error');
+  if (!result.policy || ['id', 'version', 'source'].some(k => typeof result.policy[k] !== 'string' || !result.policy[k].trim())) throw new Error('Policy requires nonempty id, version and source');
   if (!result.image || !['width', 'height'].every(k => Number.isInteger(result.image[k]) && result.image[k] > 0 && result.image[k] <= 32768) || !Array.isArray(result.findings) || !result.coverage || !Array.isArray(result.coverage.limitations)) throw new Error('Incomplete analyzer evidence');
   if (!['manifest', 'manifest-driven', 'best-effort'].includes(result.coverage.mode) || !Number.isInteger(result.coverage.expected) || result.coverage.expected < 0 || !Number.isInteger(result.coverage.measured) || result.coverage.measured < 0 || result.coverage.limitations.some(x => typeof x !== 'string')) throw new Error('Invalid coverage');
   for (const f of result.findings) {
@@ -54,17 +55,26 @@ function validateResult(result, code) {
 function validateBindings(result, input, manifest, policy) {
   const bytes = input.bytes;
   if (bytes.length < 24 || !bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')) || bytes.toString('ascii', 12, 16) !== 'IHDR' || bytes.readUInt32BE(16) !== result.image.width || bytes.readUInt32BE(20) !== result.image.height) throw new Error('Decoded dimensions do not match input PNG');
-  if (policy && (!result.policy || ['id', 'version', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== policy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
+  if (policy && (!result.policy || ['id', 'version', 'source', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== policy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
   if (!manifest) { if (result.coverage.mode !== 'best-effort') throw new Error('Required manifest missing'); return; }
   if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.elements) || !manifest.elements.length || result.coverage.mode === 'best-effort' || result.coverage.expected !== manifest.elements.length) throw new Error('Manifest coverage mismatch');
   for (const key of ['screenId', 'screenshotId', 'locale', 'uiScale']) if (!result.context || result.context[key] !== manifest[key] || manifest[key] == null) throw new Error('Manifest context identity mismatch');
   if (!manifest.resolution || ['width', 'height'].some(k => manifest.resolution[k] !== result.image[k])) throw new Error('Manifest resolution mismatch');
-  const elements = new Map(manifest.elements.map(e => [e.id, e]));
+  const elements = new Map(manifest.elements.map((e, index) => {
+    const id = Object.hasOwn(e, 'id') ? e.id : 'expected-' + index;
+    if (typeof id !== 'string' || !id) throw new Error('Invalid manifest element identity');
+    return [id, e];
+  }));
   if (elements.size !== manifest.elements.length) throw new Error('Duplicate manifest elements');
   const seen = new Set();
   for (const f of result.findings) {
     if (f.ruleId === 'text.adjustability' && f.outcome === 'inconclusive') continue;
     const element = elements.get(f.elementId), b = f.bounds, e = element?.bounds;
+    if (element && !Object.hasOwn(element, 'bounds')) {
+      if (f.outcome !== 'inconclusive' || b !== null || f.expectedBounds !== null || f.measuredHeightPx !== null || f.contrastRatio !== null || f.detectionConfidence !== 0 || f.measurementConfidence !== 0) throw new Error('Unlocated expected text requires inconclusive evidence');
+      seen.add(JSON.stringify([f.elementId, f.ruleId]));
+      continue;
+    }
     if (!e || !b || !f.expectedBounds || ['x', 'y', 'width', 'height'].some(k => !Number.isInteger(e[k]) || !Number.isInteger(b[k]) || e[k] !== f.expectedBounds[k]) || b.width <= 0 || b.height <= 0 || b.x < e.x || b.y < e.y || b.x + b.width > e.x + e.width || b.y + b.height > e.y + e.height) throw new Error('Finding identity or bounds differ from manifest');
     seen.add(JSON.stringify([f.elementId, f.ruleId]));
   }
@@ -112,9 +122,9 @@ function prepareAnalysis(options) {
   const inputSnapshot = path.join(out, 'input.png');
   writeAtomicNew(fs, inputSnapshot, input.bytes);
   const args = ['--input', inputSnapshot, '--annotated', path.join(out, 'annotated.png')], sources = [input];
-  const executable = readEvidence(options.analyzer); executable.kind = 'analyzer'; sources.push(executable);
+  const executable = readEvidence(options.analyzer, 128 * 1024 * 1024); executable.kind = 'analyzer'; sources.push(executable);
   for (const name of ['manifest', 'policy', 'model']) if (options[name]) {
-    const source = readEvidence(options[name]); source.kind = name; sources.push(source);
+    const source = readEvidence(options[name], (name === 'model' ? 128 : 32) * 1024 * 1024); source.kind = name; sources.push(source);
     const staged = name === 'model' ? source.path : path.join(out, 'input-' + name + '.json');
     if (staged !== source.path) writeAtomicNew(fs, staged, source.bytes);
     args.push('--' + name, staged);
@@ -124,7 +134,7 @@ function prepareAnalysis(options) {
 function finishAnalysis(prepared, execution) {
   const { options, input, out, sources } = prepared;
   let { effectivePolicy } = prepared;
-  for (const source of sources) if (readEvidence(source.path).sha256 !== source.sha256) throw new Error('Evidence changed during analysis');
+  for (const source of sources) if (readEvidence(source.path, (['analyzer', 'model'].includes(source.kind) ? 128 : 32) * 1024 * 1024).sha256 !== source.sha256) throw new Error('Evidence changed during analysis');
   const result = validateResult(JSON.parse(execution.stdout), execution.code);
   const policySource = sources.find(s => s.kind === 'policy');
   if (policySource) effectivePolicy = JSON.parse(policySource.bytes);
@@ -134,7 +144,7 @@ function finishAnalysis(prepared, execution) {
     if (readEvidence(staged).sha256 !== source.sha256) throw new Error('Staged evidence changed during analysis');
   }
   validateBindings(result, input, manifestSource ? JSON.parse(manifestSource.bytes) : null, effectivePolicy);
-  if (effectivePolicy && (!result.policy || ['id', 'version', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== effectivePolicy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
+  if (effectivePolicy && (!result.policy || ['id', 'version', 'source', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== effectivePolicy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
   require('./visual-profiles').applyProfileScope(result, effectivePolicy);
   if (input.bytes.length < 24 || input.bytes.toString('ascii', 12, 16) !== 'IHDR' || input.bytes.readUInt32BE(16) !== result.image.width || input.bytes.readUInt32BE(20) !== result.image.height) throw new Error('Decoded dimensions do not match input PNG');
   const resultBytes = Buffer.from(JSON.stringify(result, null, 2) + '\n');

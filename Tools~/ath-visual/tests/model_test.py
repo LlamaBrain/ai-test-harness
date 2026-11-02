@@ -21,7 +21,7 @@ creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 with tempfile.TemporaryDirectory(prefix="ath-visual-model-test-") as directory:
     root = pathlib.Path(directory)
     policy = root / "policy.json"
-    policy.write_text(json.dumps({"schemaVersion": 1, "id": "model-test", "version": "1", "minHeightPx": 1, "minContrastRatio": 4.5}))
+    policy.write_text(json.dumps({"schemaVersion": 1, "id": "model-test", "version": "1", "source": "fixture://model-test", "minHeightPx": 1, "minContrastRatio": 4.5}))
 
     def run(document, outcome):
         path = root / "manifest.json"
@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix="ath-visual-model-test-") as directory:
         assert result.returncode == {"pass": 0, "fail": 1, "inconclusive": 2, "infrastructure-error": 3}[outcome]
         return value
 
-    run(manifest, "pass")
+    assert run(manifest, "pass")["policy"]["source"] == "fixture://model-test"
     capability_policy = json.loads(policy.read_text())
     capability_policy["scope"] = "adjustable-size-capability"
     policy.write_text(json.dumps(capability_policy))
@@ -62,6 +62,33 @@ with tempfile.TemporaryDirectory(prefix="ath-visual-model-test-") as directory:
     invalid = copy.deepcopy(manifest)
     invalid["elements"][0]["bounds"]["x"] = 2**64 - 1
     run(invalid, "infrastructure-error")
+
+    unnamed = copy.deepcopy(manifest)
+    del unnamed["elements"][0]["id"]
+    result = run(unnamed, "pass")
+    assert {finding["elementId"] for finding in result["findings"]} == {"expected-0"}
+    boundless = copy.deepcopy(manifest)
+    del boundless["elements"][0]["bounds"]
+    result = run(boundless, "inconclusive")
+    assert result["coverage"]["expected"] == 1 and result["coverage"]["measured"] == 0
+    assert len(result["findings"]) == 3
+    assert all(finding["bounds"] is None and finding["expectedBounds"] is None and
+               finding["measuredHeightPx"] is None and finding["contrastRatio"] is None and
+               finding["detectionConfidence"] == 0 and finding["measurementConfidence"] == 0 and
+               finding["outcome"] == "inconclusive" for finding in result["findings"])
+    del boundless["elements"][0]["id"]
+    assert {finding["elementId"] for finding in run(boundless, "inconclusive")["findings"]} == {"expected-0"}
+    collision = copy.deepcopy(unnamed)
+    collision["elements"].append({**manifest["elements"][0], "id": "expected-0"})
+    run(collision, "infrastructure-error")
+    documented_policy = json.loads(policy.read_text())
+    undocumented_policy = {key: value for key, value in documented_policy.items() if key != "source"}
+    policy.write_text(json.dumps(undocumented_policy))
+    run(manifest, "infrastructure-error")
+    for invalid_source in ("", " \t\r\n", 7):
+        policy.write_text(json.dumps({**documented_policy, "source": invalid_source}))
+        run(manifest, "infrastructure-error")
+    policy.write_text(json.dumps(documented_policy))
 
     # Prepare distinct identities before starting concurrent readers. No worker
     # calls run(), which intentionally rewrites a shared manifest for earlier tests.
@@ -108,4 +135,4 @@ with tempfile.TemporaryDirectory(prefix="ath-visual-model-test-") as directory:
     assert batch_process.returncode == 0 and batch["schemaVersion"] == 1 and batch["outcome"] == "pass", batch
     assert batch["results"] == [references[index] for index in concurrent_order], "Shared-model batch changed results or item order"
     assert original_digests == {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in immutable_paths}, "Analysis modified immutable inputs"
-print("Model regressions passed: 11 cases (8 acceptance/error cases; sequential, concurrent and shared-model batch determinism)")
+print("Model regressions passed: 16 cases (8 acceptance/error, 5 optional-manifest/provenance, 3 determinism modes)")
