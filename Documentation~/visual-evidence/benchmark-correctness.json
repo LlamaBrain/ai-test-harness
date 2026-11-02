@@ -1,38 +1,40 @@
-﻿{
-  "modelLoadMs": 32.2284,
-  "modelLoaded": true,
-  "runs": [
-    {
-      "firstAnalysisMs": 234.4655,
-      "height": 1080,
-      "imagesPerSecond": 4.4740259083681915,
-      "iterations": 5,
-      "meanAnalysisMs": 223.51234,
-      "outcome": "pass",
-      "peakProcessMemoryBytes": 170872832,
-      "width": 1920
-    },
-    {
-      "firstAnalysisMs": 247.0366,
-      "height": 1440,
-      "imagesPerSecond": 4.002676349514339,
-      "iterations": 5,
-      "meanAnalysisMs": 249.83283999999998,
-      "outcome": "pass",
-      "peakProcessMemoryBytes": 214487040,
-      "width": 2560
-    },
-    {
-      "firstAnalysisMs": 297.2804,
-      "height": 2160,
-      "imagesPerSecond": 3.672227005909935,
-      "iterations": 5,
-      "meanAnalysisMs": 272.31432,
-      "outcome": "pass",
-      "peakProcessMemoryBytes": 338976768,
-      "width": 3840
-    }
-  ],
-  "schemaVersion": 1,
-  "scope": "In-process CPU batch reuses model; excludes PNG decode and OS process startup"
+{
+    "modelLoadMs":  34.6393,
+    "modelLoaded":  true,
+    "runs":  [
+                 {
+                     "firstAnalysisMs":  287.3737,
+                     "height":  1080,
+                     "imagesPerSecond":  4.044710881234912,
+                     "iterations":  5,
+                     "meanAnalysisMs":  247.23646,
+                     "outcome":  "pass",
+                     "peakProcessMemoryBytes":  170520576,
+                     "width":  1920
+                 },
+                 {
+                     "firstAnalysisMs":  266.4261,
+                     "height":  1440,
+                     "imagesPerSecond":  3.7306575664487935,
+                     "iterations":  5,
+                     "meanAnalysisMs":  268.04926,
+                     "outcome":  "pass",
+                     "peakProcessMemoryBytes":  214069248,
+                     "width":  2560
+                 },
+                 {
+                     "firstAnalysisMs":  324.2517,
+                     "height":  2160,
+                     "imagesPerSecond":  3.276284913074919,
+                     "iterations":  5,
+                     "meanAnalysisMs":  305.22375999999997,
+                     "outcome":  "pass",
+                     "peakProcessMemoryBytes":  338509824,
+                     "width":  3840
+                 }
+             ],
+    "schemaVersion":  1,
+    "scope":  "In-process CPU batch reuses model; excludes PNG decode and OS process startup",
+    "analyzerSha256":  "a454e9565b887f2e2384e563c90b6dda2723b7f90c765a888589bb30e820e76a",
+    "benchmarkSha256":  "4f9100e4515cbb913191bd5dfa853646e1795a3ab16d7b6bc5f8ccb0dbc51a7b"
 }

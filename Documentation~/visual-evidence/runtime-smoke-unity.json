@@ -1,5 +1,121 @@
 {
+    "schemaVersion":  1,
+    "unityVersion":  "6000.3.10f1",
+    "testFrameworkVersion":  "1.6.0",
+    "tests":  100,
+    "passed":  100,
+    "failed":  0,
+    "skipped":  0,
+    "failedTestcaseNodes":  0,
+    "analyzerSha256":  "a454e9565b887f2e2384e563c90b6dda2723b7f90c765a888589bb30e820e76a",
+    "modelSha256":  "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
+    "nativeSuiteCases":  [
+                             "pass",
+                             "fail",
+                             "inconclusive",
+                             "corrupt",
+                             "wrong-correlation",
+                             "missing-analyzer",
+                             "adjustable",
+                             "unresolved-profile"
+                         ],
+    "stockRegistryCases":  [
+                               "no-config fails",
+                               "missing-capture fails",
+                               "completed capture and checkpoint resume passes"
+                           ],
+    "scope":  "Full Runtime sources; RuntimeSmoke Editor tests except EditorWindowViewModel; actual trace MCP tool and writer tests; installed MCP and console dependencies",
     "sourceSnapshots":  [
+                            {
+                                "path":  "Runtime/AthAsyncOpRecord.cs",
+                                "sha256":  "45d85183e3feb6a179e5a2ab33a9248bbd065c31f68632adf4d6214a58c87269",
+                                "testedSha256":  "45d85183e3feb6a179e5a2ab33a9248bbd065c31f68632adf4d6214a58c87269"
+                            },
+                            {
+                                "path":  "Runtime/AthBootstrap.cs",
+                                "sha256":  "77cb5bba817731ddc96e8003ca907d9dbb865db8653d82c7d5ba3096897b0987",
+                                "testedSha256":  "77cb5bba817731ddc96e8003ca907d9dbb865db8653d82c7d5ba3096897b0987"
+                            },
+                            {
+                                "path":  "Runtime/AthBridge.cs",
+                                "sha256":  "a513d5e3083e91e18825af82ffa754f970f385266a86e7c71e97b7e460bc6b2d",
+                                "testedSha256":  "a513d5e3083e91e18825af82ffa754f970f385266a86e7c71e97b7e460bc6b2d"
+                            },
+                            {
+                                "path":  "Runtime/AthHostEvents.cs",
+                                "sha256":  "888e81d8fb389f975fb085e5a6c8c6087b1f5e8c2a418692aaa11360cec1ebac",
+                                "testedSha256":  "888e81d8fb389f975fb085e5a6c8c6087b1f5e8c2a418692aaa11360cec1ebac"
+                            },
+                            {
+                                "path":  "Runtime/AthRuntimeFlag.cs",
+                                "sha256":  "5969aed669905036d2584594738009d6f052e729e4ee5e085d578c07762d034e",
+                                "testedSha256":  "5969aed669905036d2584594738009d6f052e729e4ee5e085d578c07762d034e"
+                            },
+                            {
+                                "path":  "Runtime/AthServices.cs",
+                                "sha256":  "a39b44caf150e8863d5afd35dd5824832bbb475a0858ecd87b5d884ef78e6eb6",
+                                "testedSha256":  "a39b44caf150e8863d5afd35dd5824832bbb475a0858ecd87b5d884ef78e6eb6"
+                            },
+                            {
+                                "path":  "Runtime/AthStateDispatcher.cs",
+                                "sha256":  "890b5cefab7eaa49b9cea16ef45a94c7332282cfaf72e596b7ccd942c03a6718",
+                                "testedSha256":  "890b5cefab7eaa49b9cea16ef45a94c7332282cfaf72e596b7ccd942c03a6718"
+                            },
+                            {
+                                "path":  "Runtime/IAthHostAdapter.cs",
+                                "sha256":  "61190d5d1436225955a883aaf1cc444f73dfde0f9cb6ae1ffd26ef38c71329cd",
+                                "testedSha256":  "61190d5d1436225955a883aaf1cc444f73dfde0f9cb6ae1ffd26ef38c71329cd"
+                            },
+                            {
+                                "path":  "Runtime/Commands/AthHarnessCommands.cs",
+                                "sha256":  "1fc136d1bd64f29e7dedfdf354f6212d10709abac5fd953c40e8ec6d1831314c",
+                                "testedSha256":  "1fc136d1bd64f29e7dedfdf354f6212d10709abac5fd953c40e8ec6d1831314c"
+                            },
+                            {
+                                "path":  "Runtime/Commands/AthLifecycleCommands.cs",
+                                "sha256":  "11eb694b0081644fe172574410b2434f3acb1faab98527b82ae506c2274caa43",
+                                "testedSha256":  "11eb694b0081644fe172574410b2434f3acb1faab98527b82ae506c2274caa43"
+                            },
+                            {
+                                "path":  "Runtime/Commands/AthRuntimeSmokeCommands.cs",
+                                "sha256":  "b75f804bfa13966f54b2b816ac976193d9096878e72a57af3c3f17209ea2d5aa",
+                                "testedSha256":  "b75f804bfa13966f54b2b816ac976193d9096878e72a57af3c3f17209ea2d5aa"
+                            },
+                            {
+                                "path":  "Runtime/Commands/AthTestDebugCommands.cs",
+                                "sha256":  "cd53f54451003889cea1fff1bda26c695529dd9f3fece35e448ee8b31840a312",
+                                "testedSha256":  "cd53f54451003889cea1fff1bda26c695529dd9f3fece35e448ee8b31840a312"
+                            },
+                            {
+                                "path":  "Runtime/Logging/AthLog.cs",
+                                "sha256":  "1508f23e75e459b650caf657060eb26e644a57d454a23c43c02daba4099a6cca",
+                                "testedSha256":  "1508f23e75e459b650caf657060eb26e644a57d454a23c43c02daba4099a6cca"
+                            },
+                            {
+                                "path":  "Runtime/RemoteConsole/AthRemoteConsoleBootstrap.cs",
+                                "sha256":  "6f9f0c62cd1739f85f5962a98a081ec0202903a6d581ea56c8f5a3763508cf9e",
+                                "testedSha256":  "6f9f0c62cd1739f85f5962a98a081ec0202903a6d581ea56c8f5a3763508cf9e"
+                            },
+                            {
+                                "path":  "Runtime/RemoteConsole/AthRemoteConsoleServer.cs",
+                                "sha256":  "ae749ac18c0bd12e87d20c5f548613788f641d196ae5493193ba0d10522c659c",
+                                "testedSha256":  "ae749ac18c0bd12e87d20c5f548613788f641d196ae5493193ba0d10522c659c"
+                            },
+                            {
+                                "path":  "Runtime/RemoteConsole/AthRemoteOptions.cs",
+                                "sha256":  "b282ed2c00efb2dd9551437e6ad555932a14137d4d684672be6959f86899c849",
+                                "testedSha256":  "b282ed2c00efb2dd9551437e6ad555932a14137d4d684672be6959f86899c849"
+                            },
+                            {
+                                "path":  "Runtime/RemoteConsole/AthRemoteResponse.cs",
+                                "sha256":  "7305287d3b5b3e30ba1c6bd03b3503d693e821bf3e515f5d924c1cde9f0dc38d",
+                                "testedSha256":  "7305287d3b5b3e30ba1c6bd03b3503d693e821bf3e515f5d924c1cde9f0dc38d"
+                            },
+                            {
+                                "path":  "Runtime/RemoteConsole/AthRemoteSnapCommand.cs",
+                                "sha256":  "fc31cb54fa545a239ad583cf0023af8ad05a2ff1b0ab3f578c62102063386634",
+                                "testedSha256":  "fc31cb54fa545a239ad583cf0023af8ad05a2ff1b0ab3f578c62102063386634"
+                            },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeAssertionEvaluator.cs",
                                 "sha256":  "6263aeb07b5953d48be2e13123502349c8b37a6f3043f3049beb43ea0159d0bd",
@@ -62,8 +178,8 @@
                             },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeRunRegistry.cs",
-                                "sha256":  "0251ebf987639d857986cc0085545e463805fba25a6a9127bd670167580219ca",
-                                "testedSha256":  "0251ebf987639d857986cc0085545e463805fba25a6a9127bd670167580219ca"
+                                "sha256":  "fb2fa834a5e51f9e169210327722f7d4bcfc6e1a14f6512f98f9921922c1e27a",
+                                "testedSha256":  "fb2fa834a5e51f9e169210327722f7d4bcfc6e1a14f6512f98f9921922c1e27a"
                             },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeSuiteExecutor.cs",
@@ -77,8 +193,8 @@
                             },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualAnalyzer.cs",
-                                "sha256":  "b320e60c7fe1eda2b3ad0ca981f65992feaaad866721e4a7e4e7802dd9d263e8",
-                                "testedSha256":  "b320e60c7fe1eda2b3ad0ca981f65992feaaad866721e4a7e4e7802dd9d263e8"
+                                "sha256":  "6ec036d33832373bb5309cee566d691e0ee388a580d09dd6d9ede187e883428d",
+                                "testedSha256":  "6ec036d33832373bb5309cee566d691e0ee388a580d09dd6d9ede187e883428d"
                             },
                             {
                                 "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualAssertion.cs",
@@ -86,33 +202,301 @@
                                 "testedSha256":  "5964506db07025a9ce9116ebf7f200593c0fcf1f466515c5c299e5f223f3de06"
                             },
                             {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualConfiguration.cs",
+                                "sha256":  "b76e8828509c6fe4319fccc1de42c4c2a2443087ab3f9b2225ca768de0ef55d0",
+                                "testedSha256":  "b76e8828509c6fe4319fccc1de42c4c2a2443087ab3f9b2225ca768de0ef55d0"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeAssertionTests.cs",
+                                "sha256":  "c15600ed691de1cb9f4979ad088e4193a3fe191a8e390fbec9294724a4445395",
+                                "testedSha256":  "c15600ed691de1cb9f4979ad088e4193a3fe191a8e390fbec9294724a4445395"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeCaptureArtifactWriterTests.cs",
+                                "sha256":  "0e14004fdb848032ac79ad9434f3b68e7db02636e0eb38caf9a06f0b299275eb",
+                                "testedSha256":  "0e14004fdb848032ac79ad9434f3b68e7db02636e0eb38caf9a06f0b299275eb"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeCaptureTests.cs",
+                                "sha256":  "c53de85b37c4ee9dfad6cf48c41929e30284f6747c6cb7d308c1fe1b6c14374e",
+                                "testedSha256":  "c53de85b37c4ee9dfad6cf48c41929e30284f6747c6cb7d308c1fe1b6c14374e"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeCoordinatorTests.cs",
+                                "sha256":  "e6850f14f19e2a7d81cdd9941a67b447cc8e04226d055845e709468828197a80",
+                                "testedSha256":  "e6850f14f19e2a7d81cdd9941a67b447cc8e04226d055845e709468828197a80"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeDocumentCompilerTests.cs",
+                                "sha256":  "80c924cc5fc412ca0b076277ba35aea0673a35b9add0128a4df47521030a5290",
+                                "testedSha256":  "80c924cc5fc412ca0b076277ba35aea0673a35b9add0128a4df47521030a5290"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeDurableLaunchClaimTests.cs",
+                                "sha256":  "19b0fc03e940c0a5ffaaf93937fc66189e35a0d41748ba7ed0f59904e9b83cf7",
+                                "testedSha256":  "19b0fc03e940c0a5ffaaf93937fc66189e35a0d41748ba7ed0f59904e9b83cf7"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeJUnitProjectionTests.cs",
+                                "sha256":  "f1b848023b71e8570a52ddb1ddd0bc197cb8883113f1ce623e02697f06c3cc18",
+                                "testedSha256":  "f1b848023b71e8570a52ddb1ddd0bc197cb8883113f1ce623e02697f06c3cc18"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeLaunchEnvelopeTests.cs",
+                                "sha256":  "5f0e2258c9445c2824dfa592fb07830927a74dc85a3a0f79fba44c9ba3084289",
+                                "testedSha256":  "5f0e2258c9445c2824dfa592fb07830927a74dc85a3a0f79fba44c9ba3084289"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokePlatformContractTests.cs",
+                                "sha256":  "4446e0e539df10019d5ddc7fe275ed4a73cff59ed41ef29a416b2a22d12495bb",
+                                "testedSha256":  "4446e0e539df10019d5ddc7fe275ed4a73cff59ed41ef29a416b2a22d12495bb"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokePlayerLaunchOptionsTests.cs",
+                                "sha256":  "792aed05d4f92e6622de66a45ec88cee1cce10f62608756c15ee7faf1f360d7e",
+                                "testedSha256":  "792aed05d4f92e6622de66a45ec88cee1cce10f62608756c15ee7faf1f360d7e"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeRunRegistryTests.cs",
+                                "sha256":  "6ae41acb1973e0908d1a2940084f8b46606db01d56ffebf4483224e3d7989785",
+                                "testedSha256":  "6ae41acb1973e0908d1a2940084f8b46606db01d56ffebf4483224e3d7989785"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeSuiteExecutorTests.cs",
+                                "sha256":  "f62b8e826166538a87eef5d849dd39372ba0b4062eb4b126508c3d1afc95a9e3",
+                                "testedSha256":  "f62b8e826166538a87eef5d849dd39372ba0b4062eb4b126508c3d1afc95a9e3"
+                            },
+                            {
                                 "path":  "Tests/Editor/RuntimeSmokeVisualTests.cs",
-                                "sha256":  "31191544b66378636323bb9113ed7944dc923478baaf4f23d1a056d3de07f2e5",
-                                "testedSha256":  "31191544b66378636323bb9113ed7944dc923478baaf4f23d1a056d3de07f2e5"
+                                "sha256":  "839c86b9865e29ec2ebe7b30d45ffeaeee91a8730307e4b6255251bf4805204f",
+                                "testedSha256":  "839c86b9865e29ec2ebe7b30d45ffeaeee91a8730307e4b6255251bf4805204f"
+                            },
+                            {
+                                "path":  "Tests/Editor/AthTraceWriterTests.cs",
+                                "sha256":  "109901cd48c1de29ff986d0bffbe37d18d021724318842c26ce4344d8c849f5c",
+                                "testedSha256":  "109901cd48c1de29ff986d0bffbe37d18d021724318842c26ce4344d8c849f5c"
+                            },
+                            {
+                                "path":  "Editor/AssemblyInfo.cs",
+                                "sha256":  "25345a5b7cbee7edbdf0a6464996f2367ca75fe2eba3076ad1b60d2f4db0bcd5",
+                                "testedSha256":  "25345a5b7cbee7edbdf0a6464996f2367ca75fe2eba3076ad1b60d2f4db0bcd5"
+                            },
+                            {
+                                "path":  "Editor/McpSkills/AthTraceWriter.cs",
+                                "sha256":  "039caedfe2b386dc9c41a73ea393d0a5b0015bc6095420a46dbd754e4a24526d",
+                                "testedSha256":  "039caedfe2b386dc9c41a73ea393d0a5b0015bc6095420a46dbd754e4a24526d"
+                            },
+                            {
+                                "path":  "Editor/McpSkills/AthTraceEmitter.cs",
+                                "sha256":  "c8b0a96c663beb27359c6ef6475135c8270b2038d7a59cf8495f0bcdc5bce2d9",
+                                "testedSha256":  "c8b0a96c663beb27359c6ef6475135c8270b2038d7a59cf8495f0bcdc5bce2d9"
+                            },
+                            {
+                                "path":  "Editor/McpSkills/AthMediaUtil.cs",
+                                "sha256":  "6a8a3cdf248e198105c5efd6451b63b997f4c5eea12e23b8db7001c634014bd7",
+                                "testedSha256":  "6a8a3cdf248e198105c5efd6451b63b997f4c5eea12e23b8db7001c634014bd7"
+                            },
+                            {
+                                "path":  "Editor/McpSkills/Tool_AthTraceEmit.cs",
+                                "sha256":  "bba09ec9733f552b4faba8d9a8d432579bd30759708aca7095b58685c56c2b38",
+                                "testedSha256":  "bba09ec9733f552b4faba8d9a8d432579bd30759708aca7095b58685c56c2b38"
                             }
                         ],
-    "passed":  98,
-    "nativeSuiteCases":  [
-                             "pass",
-                             "fail",
-                             "inconclusive",
-                             "corrupt",
-                             "wrong-correlation",
-                             "missing-analyzer"
-                         ],
-    "modelSha256":  "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
-    "failedTestcaseNodes":  0,
-    "skipped":  0,
-    "testFrameworkVersion":  "1.6.0",
-    "tests":  98,
-    "scope":  "Full Runtime sources plus RuntimeSmoke Editor tests except EditorWindowViewModel; actual trace MCP tool and writer tests; existing installed MCP/console dependencies",
-    "analyzerSha256":  "80aa280839389ad5b52bdb76515af877b32af6ada38f1c1c7d35bccf87a9adb3",
-    "unityVersion":  "6000.3.10f1",
-    "schemaVersion":  1,
+    "inputIdentities":  [
+                            {
+                                "filename":  "ath-visual.exe",
+                                "sha256":  "a454e9565b887f2e2384e563c90b6dda2723b7f90c765a888589bb30e820e76a"
+                            },
+                            {
+                                "filename":  "text_detection_en_ppocrv3_2023may.onnx",
+                                "sha256":  "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587"
+                            },
+                            {
+                                "filename":  "representative-1080-light.png",
+                                "sha256":  "b51b4694b9eb50547b7bbbb87171a37a382344d2d8f690c59ed0af9e190f8bda"
+                            },
+                            {
+                                "filename":  "representative-1080-light.json",
+                                "sha256":  "1860fe85d856987761e2f4e14ecf630785e97d729c13f81da0da1e1e16c7f8f6"
+                            },
+                            {
+                                "filename":  "IngameDebugConsole.Runtime.dll",
+                                "sha256":  "f4d1b6f28d54d6e5ca75b99ed57bcd424a5206d58ad281784df7d301cb2f6c2e"
+                            },
+                            {
+                                "filename":  "McpPlugin.Common.dll",
+                                "sha256":  "5d4d1f0615e9ca54722505854547d17a2bbe00dc086ea8d1f2957cd714216b48"
+                            },
+                            {
+                                "filename":  "McpPlugin.dll",
+                                "sha256":  "7825170a3990ad31cc313534d2d4c95ce6044b5d057271ad59a3fb23602e2fe5"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.Connections.Abstractions.dll",
+                                "sha256":  "b0112096de7f764be03ca966cf3c9a13ca186e77bdfa3cdd9d2df3e5bdbf04c9"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.Http.Connections.Client.dll",
+                                "sha256":  "d4bf0364745c05a9e8c7024ac58725d9d069896f3bce633353a0057baec5794a"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.Http.Connections.Common.dll",
+                                "sha256":  "af3e7b9c8bb9aa352468d9483d7565b22b32b742ed1a393a1a56524e7c02af55"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.SignalR.Client.Core.dll",
+                                "sha256":  "5189c7d994fe8d6e6a2699beaca89fdf3fc226ab59085766e4d209bbcd9bd182"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.SignalR.Client.dll",
+                                "sha256":  "9ad116fd737283c414bb9e4eb03a9791955674850091264b2af3a99ed7a7aa4f"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.SignalR.Common.dll",
+                                "sha256":  "1645e09f54d861a0a966ad600232c4dc55295e6f54a252a425aa2052134186e7"
+                            },
+                            {
+                                "filename":  "Microsoft.AspNetCore.SignalR.Protocols.Json.dll",
+                                "sha256":  "9562c415b61af21d4c92b80190abc2249435437eb4279824524954e0bd419530"
+                            },
+                            {
+                                "filename":  "Microsoft.Bcl.AsyncInterfaces.dll",
+                                "sha256":  "136d5965cf4768e8420b547a8bddea882921f426c371833d558a858a2f0c235a"
+                            },
+                            {
+                                "filename":  "Microsoft.Bcl.Memory.dll",
+                                "sha256":  "3df6ddc66a0b091e8832df1973a652f02cdfda60c2d3b7381028aab55c840c96"
+                            },
+                            {
+                                "filename":  "Microsoft.Bcl.TimeProvider.dll",
+                                "sha256":  "44cf869c35153c510505052ad85364f7591a791342bd5e4f52c8dc6dd181d84f"
+                            },
+                            {
+                                "filename":  "Microsoft.CodeAnalysis.CSharp.dll",
+                                "sha256":  "bc4e4cfe276fb97e70978e1d484e806c5a1c9301d1f9752c6d39840840118723"
+                            },
+                            {
+                                "filename":  "Microsoft.CodeAnalysis.dll",
+                                "sha256":  "aab3674134122f9c04fcb55a2d1af2d19342cf92a1e593159236dfbce05de59c"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Caching.Abstractions.dll",
+                                "sha256":  "c2597940e5ca6d717b378456905fec1945c30d7989d65f6a0e712a747df0c85c"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Configuration.Abstractions.dll",
+                                "sha256":  "01bc4348be66184ee5c453157e078d11be6451d7e684db9d38035149cd2212d9"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+                                "sha256":  "6c479c61bd03ac7cac4421e5a5689359cb83634e06895eb2d93b4b6df2773dc0"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.DependencyInjection.dll",
+                                "sha256":  "e23df94fc2bca057bd88d87c18afc22fb41281f41d3b38430c483ee6fc95d53b"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Diagnostics.Abstractions.dll",
+                                "sha256":  "adb1206b247f42fb5611d8798d9f44b7be1bd6d2a6976d87ff95ef2e6c17b6db"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Features.dll",
+                                "sha256":  "6ae042121467e32c466e07ac360c6fc5395d67d8bd8043dc6137d1b9e7485e06"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.FileProviders.Abstractions.dll",
+                                "sha256":  "e6074cf1392c6d77d379efcb241cc8e0ac984d27ebf16ad17b979bd49ab2b4c3"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Hosting.Abstractions.dll",
+                                "sha256":  "d39cfc54d4b0419a5c05bbc4915553bb6295134c66f904ae546e8fdbcec7c23d"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Logging.Abstractions.dll",
+                                "sha256":  "79f67ff002712d6589370db25f751d3f53fb49ef1a6d750d1c62419ef3a4392c"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Logging.dll",
+                                "sha256":  "64c8cbe07b84a8b319ee37b444386c67308178517c86de366a9a45c668ceec23"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Options.dll",
+                                "sha256":  "4f80160a712ef065a64ec3c23e87746130462377fe39f82b35673d1567281001"
+                            },
+                            {
+                                "filename":  "Microsoft.Extensions.Primitives.dll",
+                                "sha256":  "6d492e7919789c7ab3d4afb5d2e5841cc0e2f28b07bf561bd1fcf8945e2170b3"
+                            },
+                            {
+                                "filename":  "R3.dll",
+                                "sha256":  "48af716f8ace2fd771241de7e3ebd9ee54bffeafeed14a1ddd69df4ac61226db"
+                            },
+                            {
+                                "filename":  "ReflectorNet.dll",
+                                "sha256":  "41f79f16a1330266cccf7244f24bbac9a2a90926bd8e5970b5c3c260282fe829"
+                            },
+                            {
+                                "filename":  "System.Buffers.dll",
+                                "sha256":  "c65fff603b283dc966d1a8b730c11d5e5e750e8021bd24640612f6cc3f2c6fb7"
+                            },
+                            {
+                                "filename":  "System.Collections.Immutable.dll",
+                                "sha256":  "1255194f6ec9c1874085cdab24495fcd1430958018350d7b6630fd04b44bcb81"
+                            },
+                            {
+                                "filename":  "System.ComponentModel.Annotations.dll",
+                                "sha256":  "c46069e29ad23fee7f5d2ced736ffea27b0177f82341296d9af6325acf821c69"
+                            },
+                            {
+                                "filename":  "System.Diagnostics.DiagnosticSource.dll",
+                                "sha256":  "989b1797b5cacdf19e7130eddd8ae51f0d79595d6020cbaf51910c1c3637cec9"
+                            },
+                            {
+                                "filename":  "System.IO.Pipelines.dll",
+                                "sha256":  "3702e2403cf265588d1544a292ea17c01d337cdb91b5bdd64690894331345ad4"
+                            },
+                            {
+                                "filename":  "System.Memory.dll",
+                                "sha256":  "11590d8bb3b12f29f4202b3ef8593229a5cd6debb61e76cba9ac5493a82ee382"
+                            },
+                            {
+                                "filename":  "System.Numerics.Vectors.dll",
+                                "sha256":  "2324ee5a35674269225e2aa20957ce8830dbca0cffb918bd593f7a3222dee480"
+                            },
+                            {
+                                "filename":  "System.Reflection.Metadata.dll",
+                                "sha256":  "c03b73b3ae01363313d151ad9fb77c3dff378814bdeb12b9b435a6d50f40b833"
+                            },
+                            {
+                                "filename":  "System.Runtime.CompilerServices.Unsafe.dll",
+                                "sha256":  "fd67abc4c4af10affbcd42fd68a2a7bc361b26714afe6965d4d0d139459d8297"
+                            },
+                            {
+                                "filename":  "System.Text.Encoding.CodePages.dll",
+                                "sha256":  "eaf68151619943ab2dc46247f2d22a29de0ea3805a56de0c32b75af12f89e74c"
+                            },
+                            {
+                                "filename":  "System.Text.Encodings.Web.dll",
+                                "sha256":  "5ad1f348223f281c34b9b857445a1c3412a430026ef049aeac641c53a92408be"
+                            },
+                            {
+                                "filename":  "System.Text.Json.dll",
+                                "sha256":  "42a3d66464aa3f52202a625fb8d719663ceae07678081253b54d6ed56a95ea0a"
+                            },
+                            {
+                                "filename":  "System.Threading.Channels.dll",
+                                "sha256":  "31c7e3704c0477c53d9306362dc6abe741088efb7a7b4e46cded0169cf7bb0b2"
+                            },
+                            {
+                                "filename":  "System.Threading.Tasks.Extensions.dll",
+                                "sha256":  "09901f63ebc4b8f0897b0128fb230c146529aee5c5cc90d7a7872e66a976bb5f"
+                            }
+                        ],
+    "resultsXmlSha256":  "04334f66806e9ab23e056cedf3c9cbc45d53b3259be8b11d4e793d8f1d112387",
+    "verificationScriptSha256":  "728e63f1117d4e871247966ae8d4e59b1fcf10c1af223cbe4e5592b564f8bc03",
     "limitations":  [
-                        "Isolated validation project, not a consuming game build",
-                        "No live player capture or built-player launch suite executed",
-                        "Unity2022.3 compilation succeeded but test-framework1.4.3 emitted inconsistent teardown result; accepted proof uses Unity6000.3 and supported1.6.0"
-                    ],
-    "failed":  0
+                        "Isolated project, not a consuming game build",
+                        "No live game capture, MCP server invocation, or built-player launch verified",
+                        "EditorWindowViewModel tests excluded; validated native registry route uses pre-existing PNG"
+                    ]
 }

@@ -195,9 +195,19 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             var elements = manifest.Map["elements"].Array.ToDictionary(e => e.Map["id"].String, e => e, StringComparer.Ordinal);
             var rules = new[] { "text.height", "text.contrast", "text.clipping" };
             var seen = new HashSet<string>(StringComparer.Ordinal);
+            var adjustable=policy.Map.TryGetValue("scope",out var scope) && scope.Kind==RuntimeSmokeValueKind.String && scope.String=="adjustable-size-capability";
+            var adjustmentSeen=false;
             foreach (var finding in result.Map["findings"].Array)
             {
                 var f = finding.Map; var id = f["elementId"].String; var rule = f["ruleId"].String;
+                if(rule=="text.adjustability")
+                {
+                    if(!adjustable || adjustmentSeen || id!="" || f["outcome"].String!="inconclusive" ||
+                        new[]{"bounds","measuredHeightPx","contrastRatio","detectionConfidence","measurementConfidence"}.Any(key=>f[key].Kind!=RuntimeSmokeValueKind.Null))
+                        throw new InvalidDataException("Invalid adjustable-size capability evidence.");
+                    adjustmentSeen=true;
+                    continue;
+                }
                 if (!elements.TryGetValue(id, out var element) || !rules.Contains(rule) || !seen.Add(id + "\n" + rule))
                     throw new InvalidDataException("Unknown or duplicate visual element/rule.");
                 if (f["expectedBounds"].ToCanonicalJson() != element.Map["bounds"].ToCanonicalJson() ||
@@ -231,6 +241,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 }
             }
             if (seen.Count != elements.Count * rules.Length) throw new InvalidDataException("Analyzer omitted required element rules.");
+            if(adjustable && (!adjustmentSeen || result.Map["outcome"].String=="pass"))
+                throw new InvalidDataException("A screenshot cannot establish adjustable text availability.");
         }
 
         private static decimal Number(RuntimeSmokeValue value) => value.Kind == RuntimeSmokeValueKind.Integer ? value.Integer :

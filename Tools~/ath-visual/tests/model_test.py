@@ -29,6 +29,20 @@ with tempfile.TemporaryDirectory(prefix="ath-visual-model-test-") as directory:
         return value
 
     run(manifest, "pass")
+    capability_policy = json.loads(policy.read_text())
+    capability_policy["scope"] = "adjustable-size-capability"
+    policy.write_text(json.dumps(capability_policy))
+    result = run(manifest, "inconclusive")
+    assert len([finding for finding in result["findings"] if finding["ruleId"] == "text.adjustability" and finding["outcome"] == "inconclusive"]) == 1
+    capability_policy["minHeightPx"] = 10000
+    policy.write_text(json.dumps(capability_policy))
+    run(manifest, "fail")
+    capability_policy["minHeightPx"] = 1
+    capability_policy["scope"] = "unknown-capability"
+    policy.write_text(json.dumps(capability_policy))
+    run(manifest, "infrastructure-error")
+    del capability_policy["scope"]
+    policy.write_text(json.dumps(capability_policy))
     duplicated = copy.deepcopy(manifest)
     duplicate = copy.deepcopy(duplicated["elements"][0])
     duplicate["id"] += "-second"
@@ -44,4 +58,4 @@ with tempfile.TemporaryDirectory(prefix="ath-visual-model-test-") as directory:
     invalid = copy.deepcopy(manifest)
     invalid["elements"][0]["bounds"]["x"] = 2**64 - 1
     run(invalid, "infrastructure-error")
-print("Verified model positive, duplicate-detection, missing-region, unrecognized-text and malformed-manifest checks passed")
+print("Verified model positive, adjustability scope, duplicate-detection, missing-region, unrecognized-text and malformed-manifest checks passed")

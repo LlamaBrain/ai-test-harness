@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Configure trusted visual analysis through the existing RuntimeSmoke registry for stock MCP checkpoint/capture/resume workflows, preserving custom factory precedence and legacy behavior. Enforce adjustable-capability uncertainty and resolved policy scaling across native/CLI/RuntimeSmoke; 100 Unity tests, 96 Node tests and 216 labeled threshold cases passed (v0.10.0).
+
 - Bind visual reports to retained input, policy, manifest and measured identities; reject incomplete coverage and uncorroborated PASS. Audit schema 2 retains the original screen list; legacy audits require rerun. Node 94/94 and real CLI 9/9 passed (v0.9.3).
 
 - Add engine-free Windows/Linux CI, pinned model setup, independent font fixtures, real CLI verification, dependency notice validation and reproducible benchmark scripts (v0.9.2).

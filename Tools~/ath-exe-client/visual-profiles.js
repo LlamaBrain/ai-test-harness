@@ -10,8 +10,9 @@ function resolveProfile(name, height) {
 function applyProfileScope(result, policy) {
   if (!policy || policy.scope !== 'adjustable-size-capability') return result;
   const message = 'A screenshot cannot establish that users can adjust text size; separate runtime capability evidence is required';
+  result.findings = result.findings.filter(finding => finding.ruleId !== 'text.adjustability');
   result.findings.push({ ruleId: 'text.adjustability', elementId: '', outcome: 'inconclusive', bounds: null, measuredHeightPx: null, contrastRatio: null, detectionConfidence: null, measurementConfidence: null, message });
-  result.coverage.limitations.push(message);
+  if (!result.coverage.limitations.includes(message)) result.coverage.limitations.push(message);
   if (result.outcome === 'pass') result.outcome = 'inconclusive';
   return result;
 }

@@ -21,6 +21,20 @@ with tempfile.TemporaryDirectory(prefix="ath-visual-test-") as temp:
     root = pathlib.Path(temp)
     assert invoke(expected=3)["outcome"] == "infrastructure-error"
     assert invoke("--input", fixture, expected=2)["outcome"] == "inconclusive"
+    scaled_policy = root / "scaled-policy.json"
+    policy = {"schemaVersion": 1, "id": "resolution-profile", "version": "1", "minHeightPx": 26,
+              "minContrastRatio": 4.5, "referenceHeight": 1080, "scaling": "linear-height"}
+    scaled_policy.write_text(json.dumps(policy))
+    fixture_4k = fixture.parent / "fixture-2160.png"
+    assert invoke("--input", fixture_4k, "--policy", scaled_policy, expected=3)["outcome"] == "infrastructure-error"
+    policy["analyzedHeight"] = 1080
+    scaled_policy.write_text(json.dumps(policy))
+    invoke("--input", fixture, "--policy", scaled_policy, expected=2)
+    invoke("--input", fixture_4k, "--policy", scaled_policy, expected=3)
+    policy["analyzedHeight"] = 2160
+    policy["minHeightPx"] = 52
+    scaled_policy.write_text(json.dumps(policy))
+    invoke("--input", fixture_4k, "--policy", scaled_policy, expected=2)
     corrupt = root / "corrupt.png"
     data = bytearray(fixture.read_bytes())
     data[29] ^= 1  # IHDR checksum, independently tampered.

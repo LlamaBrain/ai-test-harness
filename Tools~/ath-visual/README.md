@@ -36,6 +36,17 @@ one session is sequential and must not be called concurrently.
 
 Policy: `{"schemaVersion":1,"id":"project","version":"1","minHeightPx":26,"minContrastRatio":4.5}`.
 The default is an explicitly custom threshold, not a certification profile.
+Policy `scope` defaults to `default-rendered-size`. The other supported scope,
+`adjustable-size-capability`, adds the stable `text.adjustability` inconclusive
+finding: a single screenshot cannot prove the user can change text size. Pixel
+failures retain fail precedence; otherwise this capability scope is inconclusive.
+Unknown scopes are infrastructure errors rather than silently reduced audits.
+Profiles with `scaling` / `referenceHeight` must first be materialized by AITH
+for the target resolution. The native tool requires `scaling: "linear-height"`
+and an integer `analyzedHeight` matching the decoded PNG, then uses the supplied
+resolved `minHeightPx` without scaling it again. Raw bundled profile files and
+profiles resolved for another resolution are rejected. RuntimeSmoke hosts must
+register the resulting per-resolution policy file and its SHA-256 digest.
 
 Manifest:
 ```json

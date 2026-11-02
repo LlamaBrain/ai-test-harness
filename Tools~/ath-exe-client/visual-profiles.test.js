@@ -19,3 +19,13 @@ test('one large screenshot cannot establish adjustable text capability', () => {
   applyProfileScope(failed, resolveProfile('steam-adjustable', 1080));
   assert.equal(failed.outcome, 'fail');
 });
+
+test('native adjustability finding is retained once and cannot certify capability', () => {
+  const policy = resolveProfile('steam-adjustable', 1080);
+  const result = { outcome: 'pass', findings: [{ ruleId: 'text.adjustability', elementId: '', outcome: 'pass' }], coverage: { limitations: [] } };
+  applyProfileScope(result, policy); applyProfileScope(result, policy);
+  assert.equal(result.outcome, 'inconclusive');
+  assert.equal(result.findings.length, 1);
+  assert.equal(result.findings[0].outcome, 'inconclusive');
+  assert.equal(result.coverage.limitations.length, 1);
+});

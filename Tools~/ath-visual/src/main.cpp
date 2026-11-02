@@ -79,7 +79,13 @@ Json execute(const std::map<std::string,std::string>& args,AnalysisSession& sess
         Policy policy{"custom-default","1",26,4.5};
         if(args.contains("--policy")) {
             auto p=readJson(args.at("--policy")); if(p.at("schemaVersion")!=1) throw std::runtime_error("Unsupported policy schema");
+            if(p.contains("scaling")||p.contains("referenceHeight")||p.contains("analyzedHeight")) {
+                if(p.value("scaling",std::string())!="linear-height"||!p.contains("referenceHeight")||!p.at("referenceHeight").is_number_integer()||p.at("referenceHeight").get<double>()<=0||
+                   !p.contains("analyzedHeight")||!p.at("analyzedHeight").is_number_integer()||p.at("analyzedHeight")!=image.rows)
+                    throw std::runtime_error("Resolve this scaling profile for the screenshot height with ath-exe before native analysis; analyzedHeight must match the PNG");
+            }
             policy={p.at("id"),p.at("version"),p.at("minHeightPx"),p.at("minContrastRatio")};
+            policy.scope=p.value("scope",std::string("default-rendered-size"));
             if(!std::isfinite(policy.minHeightPx)||policy.minHeightPx<=0||!std::isfinite(policy.minContrastRatio)||policy.minContrastRatio<1||policy.minContrastRatio>21) throw std::runtime_error("Invalid policy thresholds");
         }
         auto result=session.analyze(image,args.contains("--manifest")?readJson(args.at("--manifest")):Json(),policy);

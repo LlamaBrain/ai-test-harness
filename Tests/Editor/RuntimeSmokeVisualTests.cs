@@ -13,6 +13,40 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
 {
     public sealed class RuntimeSmokeVisualTests
     {
+        [Test]
+        public void TrustedVisualConfigurationRejectsAuthoredPathsAndUnsupportedSchemas()
+        {
+            Assert.Throws<ArgumentException>(() => RuntimeSmokeVisualConfiguration.Parse("{\"schemaVersion\":2}"));
+            Assert.Throws<ArgumentException>(() => RuntimeSmokeVisualConfiguration.Parse("{\"schemaVersion\":1,\"executable\":\"relative.exe\",\"model\":null,\"policies\":{},\"manifests\":{}}"));
+            Assert.That(RuntimeSmokeVisualConfiguration.FromEnvironment(_ => null), Is.Null);
+        }
+
+        [Test]
+        public async Task NonvisualRunsIgnoreConfigurationAndExplicitFactoryTakesPrecedence()
+        {
+            var previous=Environment.GetEnvironmentVariable("ATH_VISUAL_CONFIG");
+            try
+            {
+                Environment.SetEnvironmentVariable("ATH_VISUAL_CONFIG","invalid-relative-config.json");
+                var plain=System.Text.RegularExpressions.Regex.Replace(Document(),",\\{\"id\":\"visual\".*?(?=,\\{\"id\":\"end\")","");
+                var workflow=Compile(plain).Workflow;
+                Assert.That(workflow,Is.Not.Null);
+                var legacy=new RuntimeSmokeRunRegistry(new VisualCatalog(workflow),(_,__)=>new SpoofAdapter(),(_,__)=>new Sink());
+                var correlation="visual-legacy-"+Guid.NewGuid().ToString("N");
+                Assert.That(legacy.Start(workflow.Id,correlation,RuntimeSmokeTarget.Editor,RuntimeSmokeMode.Fsd).Accepted,Is.True);
+                Assert.That((await legacy.WaitForCompletionAsync(correlation)).State,Is.EqualTo(RuntimeSmokeRegistryRunState.Passed));
+                workflow=Compile(Document()).Workflow;
+                var called=false;
+                var custom=new RuntimeSmokeRunRegistry(new VisualCatalog(workflow),(_,__)=>new SpoofAdapter(),(_,__)=>new Sink(),
+                    visualAnalyzerFactory:(_,__,___)=>{called=true;return null;});
+                correlation="visual-custom-"+Guid.NewGuid().ToString("N");
+                Assert.That(custom.Start(workflow.Id,correlation,RuntimeSmokeTarget.Editor,RuntimeSmokeMode.Fsd).Accepted,Is.True);
+                Assert.That(called,Is.True);
+                Assert.That((await custom.WaitForCompletionAsync(correlation)).State,Is.EqualTo(RuntimeSmokeRegistryRunState.Failed));
+            }
+            finally { Environment.SetEnvironmentVariable("ATH_VISUAL_CONFIG",previous); }
+        }
+
         private static string Document(string requires = "visual.analysis.v1", string label = "menu") =>
             "{\"schemaVersion\":1,\"id\":\"workflows/visual\",\"kind\":\"workflow\",\"testClass\":\"RuntimeSmoke\",\"mode\":\"fsd\",\"proposition\":\"menu is legible\",\"excludedBehavior\":\"other screens\",\"targets\":[\"editor\"],\"requires\":[\"" + requires + "\"],\"timeoutSeconds\":30,\"steps\":[{\"id\":\"start\",\"type\":\"start\"},{\"id\":\"visual\",\"type\":\"assert\",\"assertion\":{\"assertionSchemaVersion\":1,\"id\":\"menu\",\"name\":\"menu\",\"predicate\":\"visual.analysis.v1\",\"comparison\":\"equals\",\"expected\":\"pass\",\"visual\":{\"schemaVersion\":1,\"captureLabel\":\"" + label + "\",\"policyId\":\"project\",\"policySha256\":\"" + new string('a',64) + "\",\"manifestId\":\"menu\",\"manifestSha256\":\"" + new string('b',64) + "\",\"mode\":\"manifest\"}}},{\"id\":\"end\",\"type\":\"terminal\"}]}";
 
@@ -64,6 +98,14 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             Assert.Throws<TargetInvocationException>(() => verify(all.Replace("\"measuredHeightPx\":25","\"measuredHeightPx\":null")));
             Assert.Throws<TargetInvocationException>(() => verify(all.Replace("\"contrastRatio\":21","\"contrastRatio\":2")));
             Assert.Throws<TargetInvocationException>(() => verify("{\"outcome\":\"pass\"}"));
+            var adjustablePolicy=RuntimeSmokeValueJsonParser.Parse("{\"minHeightPx\":20,\"minContrastRatio\":4.5,\"scope\":\"adjustable-size-capability\"}");
+            var adjustment="{\"ruleId\":\"text.adjustability\",\"elementId\":\"\",\"outcome\":\"inconclusive\",\"bounds\":null,\"measuredHeightPx\":null,\"contrastRatio\":null,\"detectionConfidence\":null,\"measurementConfidence\":null}";
+            Action<string,string> verifyAdjustment=(outcome,extra)=>method.Invoke(null,new object[]{RuntimeSmokeValueJsonParser.Parse("{\"outcome\":\""+outcome+"\",\"findings\":["+all+extra+"]}"),manifest,adjustablePolicy});
+            Assert.Throws<TargetInvocationException>(()=>verify(all+","+adjustment));
+            Assert.DoesNotThrow(()=>verifyAdjustment("inconclusive",","+adjustment));
+            Assert.Throws<TargetInvocationException>(()=>verifyAdjustment("pass",","+adjustment));
+            Assert.Throws<TargetInvocationException>(()=>verifyAdjustment("inconclusive",""));
+            Assert.Throws<TargetInvocationException>(()=>verifyAdjustment("inconclusive",","+adjustment+","+adjustment));
             var heightOnly=finding.Replace("\"contrastRatio\":21","\"contrastRatio\":null");
             Assert.DoesNotThrow(()=>verify(heightOnly+","+heightOnly.Replace("text.height","text.contrast").Replace("\"outcome\":\"pass\"","\"outcome\":\"inconclusive\"")+","+
                 heightOnly.Replace("text.height","text.clipping")));
@@ -105,7 +147,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             var model = Environment.GetEnvironmentVariable("ATH_VISUAL_MODEL");
             if (string.IsNullOrEmpty(fixture) || string.IsNullOrEmpty(model)) Assert.Ignore("Set ATH_VISUAL_FIXTURE to representative-1080-light.png (with adjacent .json manifest) and ATH_VISUAL_MODEL to the verified PP-OCR model.");
             // Keep optional skip synchronous: Unity Test Framework 1.4.3's Task wrapper dereferences null on IgnoreException.
-            Task.Run(() => RunNativeOutcomes(executable, fixture, model)).GetAwaiter().GetResult();
+            Task.Run(async () => { await RunNativeOutcomes(executable, fixture, model); await RunConfiguredRegistry(executable, fixture, model); }).GetAwaiter().GetResult();
         }
 
         private static async Task RunNativeOutcomes(string executable, string fixture, string model)
@@ -113,7 +155,7 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
             // Native generated Arial fixture contains representative ascenders and descenders, with an adjacent manifest.
             var png = File.ReadAllBytes(fixture);
             var originalManifest = File.ReadAllText(Path.ChangeExtension(fixture,".json"));
-            foreach (var expected in new[] { "pass", "fail", "inconclusive", "corrupt", "wrong-correlation", "missing-analyzer" })
+            foreach (var expected in new[] { "pass", "fail", "inconclusive", "corrupt", "wrong-correlation", "missing-analyzer", "adjustable", "unresolved-profile" })
             {
                 var directory = Path.Combine(Path.GetTempPath(), "ath-visual-runtime-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(Path.Combine(directory,"captures"));
@@ -121,7 +163,9 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                 {
                     var correlation="visual-native-"+expected+"-"+Guid.NewGuid().ToString("N");
                     var receipt = new RuntimeSmokeCaptureArtifactWriter(directory).WritePng("menu", expected == "corrupt" ? png.Take(24).ToArray() : png);
-                    var policy = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"minHeightPx\":" + (expected == "pass" ? "20" : "80") + ",\"minContrastRatio\":4.5}");
+                    var policy = Encoding.UTF8.GetBytes("{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"minHeightPx\":" + (expected == "pass" || expected == "adjustable" || expected == "unresolved-profile" ? "20" : "80") + ",\"minContrastRatio\":4.5}");
+                    if(expected=="adjustable") policy=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(policy).Replace("\"version\":\"1\"","\"version\":\"1\",\"scope\":\"adjustable-size-capability\""));
+                    if(expected=="unresolved-profile") policy=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(policy).Replace("\"version\":\"1\"","\"version\":\"1\",\"referenceHeight\":1080,\"scaling\":\"linear-height\""));
                     var manifest = Encoding.UTF8.GetBytes(expected=="inconclusive" ? System.Text.RegularExpressions.Regex.Replace(originalManifest,
                         "\"representativeGlyphs\"\\s*:\\s*true", "\"representativeGlyphs\":false") : originalManifest);
                     var policyPath = Path.Combine(directory,"source-policy.json"); var manifestPath = Path.Combine(directory,"source-manifest.json");
@@ -142,16 +186,75 @@ namespace LlamaBrainLabs.Ath.Editor.Tests
                     var result = suiteResult.Entries.Single().Execution;
                     Assert.That(result.TerminalState, Is.EqualTo(expected == "pass" ? RuntimeSmokeRunTerminalState.Passed : RuntimeSmokeRunTerminalState.Failed), expected + ": " + result.AssertionResult?.Diagnostic);
                     Assert.That(result.Transcript.Count(r=>r.type=="run_terminal"),Is.EqualTo(1));
-                    if (expected == "pass" || expected == "fail" || expected == "inconclusive")
+                    if (expected == "pass" || expected == "fail" || expected == "inconclusive" || expected == "adjustable")
                     {
                         Assert.That(result.AssertionResult.VisualEvidenceJson, Does.Contain("resultSha256"));
                         Assert.That(RuntimeSmokeJUnitProjection.Serialize(new[]{result}), Does.Contain("visualEvidenceJson"));
                         Assert.That(result.Transcript.Any(r=>!string.IsNullOrEmpty(r.visualEvidenceJson)),Is.True);
-                        Assert.That(result.AssertionResult.ActualDisplay, Does.Contain(expected));
+                        Assert.That(result.AssertionResult.ActualDisplay, Does.Contain(expected=="adjustable"?"inconclusive":expected));
                     }
                 }
                 finally { Directory.Delete(directory,true); }
             }
+        }
+
+        private static async Task RunConfiguredRegistry(string executable, string fixture, string model)
+        {
+            var directory=Path.Combine(Path.GetTempPath(),"ath-visual-configured-"+Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(directory,"captures"));
+            var previous=Environment.GetEnvironmentVariable("ATH_VISUAL_CONFIG");
+            try
+            {
+                var policyPath=Path.Combine(directory,"policy.json"); var manifestPath=Path.Combine(directory,"manifest.json");
+                File.WriteAllText(policyPath,"{\"schemaVersion\":1,\"id\":\"project\",\"version\":\"1\",\"minHeightPx\":20,\"minContrastRatio\":4.5}");
+                File.Copy(Path.ChangeExtension(fixture,".json"),manifestPath);
+                Func<string,string> quote=s=>RuntimeSmokeValue.From(Path.GetFullPath(s)).ToCanonicalJson();
+                var configPath=Path.Combine(directory,"config.json");
+                File.WriteAllText(configPath,"{\"schemaVersion\":1,\"executable\":"+quote(executable)+",\"model\":"+quote(model)+",\"policies\":{\"project\":"+quote(policyPath)+"},\"manifests\":{\"menu\":"+quote(manifestPath)+"}}");
+                Environment.SetEnvironmentVariable("ATH_VISUAL_CONFIG",configPath);
+                const string investigation="\"scenario\":\"menu\",\"seed\":\"fixed\",\"investigation\":{\"summary\":\"menu capture\",\"invariant\":\"legible menu\",\"fixtureSemantics\":\"fixed PNG\",\"setupRationale\":\"registry integration\",\"expectedProgress\":\"capture then assert\",\"expectedEvidence\":[\"result.json\"],\"benignShutdownNoise\":\"none\",\"failureDisposition\":\"diagnosis_only\",\"excludedSystems\":[\"save_load\"],\"classifications\":[{\"failureCode\":\"assertion_mismatch\",\"likelyOwner\":\"ui\",\"rationale\":\"text differs\"}],\"actions\":[{\"id\":\"capture\",\"kind\":\"named_capture\",\"capability\":\"investigation.capture\",\"captureLabel\":\"menu\"}]},";
+                var document=Document().Replace(new string('a',64),Digest(File.ReadAllBytes(policyPath))).Replace(new string('b',64),Digest(File.ReadAllBytes(manifestPath)))
+                    .Replace("\"mode\":\"fsd\"","\"mode\":\"hitl\"").Replace("\"requires\":[\"visual.analysis.v1\"]","\"requires\":[\"visual.analysis.v1\",\"investigation.capture\"]")
+                    .Replace("\"steps\":[",investigation+"\"steps\":[").Replace("{\"id\":\"visual\"","{\"id\":\"review\",\"type\":\"checkpoint\"},{\"id\":\"visual\"");
+                var compiled=RuntimeSmokeDocumentCompiler.Compile(document,new RuntimeSmokeMemoryDocumentSource(),RuntimeSmokeTarget.Editor,RuntimeSmokeMode.Hitl,
+                    new RuntimeSmokeCompileOptions{AvailableCapabilities=new[]{"visual.analysis.v1","investigation.capture"}});
+                Assert.That(compiled.Success,Is.True,string.Join(";",compiled.Issues.Select(i=>i.Message)));
+                foreach(var mode in new[]{"no-config","missing-capture","pass"})
+                {
+                    var capture=mode=="pass";
+                    Environment.SetEnvironmentVariable("ATH_VISUAL_CONFIG",mode=="no-config"?null:configPath);
+                    var host=new RegistryVisualHost(directory,File.ReadAllBytes(fixture));
+                    var registry=new RuntimeSmokeRunRegistry(new VisualCatalog(compiled.Workflow),(_,__)=>host,(_,__)=>host,investigationAdapterFactory:(_,__)=>host);
+                    var correlation="visual-stock-"+Guid.NewGuid().ToString("N");
+                    Assert.That(registry.Start(compiled.Workflow.Id,correlation,RuntimeSmokeTarget.Editor,RuntimeSmokeMode.Hitl,"menu","fixed").Accepted,Is.True);
+                    for(var i=0;i<100 && registry.GetStatus(correlation).State!=RuntimeSmokeRegistryRunState.ReviewReady;i++) await Task.Delay(10);
+                    Assert.That(registry.GetStatus(correlation).State,Is.EqualTo(RuntimeSmokeRegistryRunState.ReviewReady));
+                    if(capture) Assert.That((await registry.CaptureAsync(correlation,"capture")).Accepted,Is.True);
+                    Assert.That(registry.Resume(correlation,"review").Accepted,Is.True);
+                    var completed=await registry.WaitForCompletionAsync(correlation);
+                    Assert.That(completed.State,Is.EqualTo(capture?RuntimeSmokeRegistryRunState.Passed:RuntimeSmokeRegistryRunState.Failed),completed.Execution?.AssertionResult?.Diagnostic);
+                }
+            }
+            finally {Environment.SetEnvironmentVariable("ATH_VISUAL_CONFIG",previous);Directory.Delete(directory,true);}
+        }
+        private sealed class VisualCatalog : IRuntimeSmokeWorkflowCatalog
+        {
+            private readonly RuntimeSmokeCompiledWorkflow _workflow;
+            public VisualCatalog(RuntimeSmokeCompiledWorkflow workflow){_workflow=workflow;}
+            public IReadOnlyList<RuntimeSmokeCompiledWorkflow> List(RuntimeSmokeTarget target,RuntimeSmokeMode mode)=>new[]{_workflow};
+            public bool TryGet(string id,RuntimeSmokeTarget target,RuntimeSmokeMode mode,out RuntimeSmokeCompiledWorkflow workflow){workflow=_workflow;return id==_workflow.Id;}
+        }
+        private sealed class RegistryVisualHost : IRuntimeSmokeStepAdapter,IRuntimeSmokeReviewCheckpointAdapter,IRuntimeSmokeInvestigationAdapter,IRuntimeSmokeTranscriptSink,IRuntimeSmokeArtifactLocation
+        {
+            private readonly byte[] _png;
+            public string RunDirectory{get;}
+            public RegistryVisualHost(string directory,byte[] png){RunDirectory=directory;_png=png;}
+            public void Append(RuntimeSmokeTranscriptRecord record) { File.AppendAllText(Path.Combine(RunDirectory,"registry.jsonl"),UnityEngine.JsonUtility.ToJson(record)+"\n"); }
+            public void PauseForReview(RuntimeSmokeCompiledStep step,RuntimeSmokeStepContext context){}
+            public void ResumeFromReview(RuntimeSmokeCompiledStep step,RuntimeSmokeStepContext context){}
+            public Task<RuntimeSmokeStepResponse> ExecuteAsync(RuntimeSmokeCompiledStep step,RuntimeSmokeStepContext context)=>new SpoofAdapter().ExecuteAsync(step,context);
+            public Task<RuntimeSmokeInvestigationResponse> ExecuteAsync(RuntimeSmokeInvestigationAction action,RuntimeSmokeInvestigationContext context)=>Task.FromResult(new RuntimeSmokeInvestigationResponse{
+                Succeeded=true,Value=context.CreateCaptureWriter().WritePng(action.captureLabel,_png).ToRuntimeSmokeValue()});
         }
 
         private static string Digest(byte[] bytes) { using(var hash=SHA256.Create()) return string.Concat(hash.ComputeHash(bytes).Select(b=>b.ToString("x2"))); }

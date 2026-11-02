@@ -134,7 +134,10 @@ Json measure(const cv::Mat& image,const Region& region,const Policy& policy) {
     // height split sharing only one baseline is unresolved mixed-size evidence.
     // The classification never depends on the selected policy threshold.
     int upperBand=maxGlyphTop-minGlyphTop,lowerBand=maxGlyphBottom-minGlyphBottom;
-    bool sizeAmbiguous=tallest-shortest>1&&(upperBand<=1||lowerBand<=1||std::max(upperBand,lowerBand)>2*std::min(upperBand,lowerBand));
+    // Round glyphs may overshoot flat glyphs by one raster pixel at each edge;
+    // compare the bands independently rather than allowing only one total pixel.
+    bool rasterOvershoot=upperBand<=1&&lowerBand<=1;
+    bool sizeAmbiguous=!rasterOvershoot&&tallest-shortest>1&&(upperBand<=1||lowerBand<=1||std::max(upperBand,lowerBand)>2*std::min(upperBand,lowerBand));
     const int height=bottom-top+1;
     const bool boundary=top==0||bottom==r.height-1||cv::countNonZero(mask.col(0))||cv::countNonZero(mask.col(r.width-1));
     result["measuredHeightPx"]=height;
@@ -160,6 +163,7 @@ Json analyze(const cv::Mat& image,const Json& manifest,const Policy& policy,cons
 Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Policy& policy) {
     if(image.empty()||image.type()!=CV_8UC3) throw std::runtime_error("Expected decoded 8-bit RGB screenshot");
     if(policy.id.empty()||policy.id.size()>256||policy.version.empty()||policy.version.size()>128||!std::isfinite(policy.minHeightPx)||policy.minHeightPx<=0||!std::isfinite(policy.minContrastRatio)||policy.minContrastRatio<1||policy.minContrastRatio>21) throw std::runtime_error("Invalid policy identity or thresholds");
+    if(policy.scope!="default-rendered-size"&&policy.scope!="adjustable-size-capability") throw std::runtime_error("Unsupported visual policy scope");
     std::vector<Region> regions;
     bool strict=!manifest.is_null();
     if(strict) {
@@ -252,9 +256,15 @@ Json AnalysisSession::analyze(const cv::Mat& image,const Json& manifest,const Po
     }
     Json context=Json::object();
     if(strict) for(const auto* key:{"screenId","screenshotId","locale","uiScale"}) if(manifest.contains(key)) context[key]=manifest[key];
+    Json limitations=Json::array({"Screenshot analysis is not accessibility certification","Uniform local backgrounds and isolated single-line regions required","Expected text content is not recognized or verified","Best-effort detection does not establish complete UI coverage"});
+    if(policy.scope=="adjustable-size-capability") {
+        const std::string message="A screenshot cannot establish that users can adjust text size; separate runtime capability evidence is required";
+        findings.push_back({{"ruleId","text.adjustability"},{"elementId",""},{"outcome","inconclusive"},{"bounds",nullptr},{"measuredHeightPx",nullptr},{"contrastRatio",nullptr},{"detectionConfidence",nullptr},{"measurementConfidence",nullptr},{"message",message}});
+        limitations.push_back(message);uncertain=true;
+    }
     return {{"schemaVersion",1},{"outcome",failed?"fail":uncertain?"inconclusive":"pass"},{"context",context},
-        {"image",{{"width",image.cols},{"height",image.rows}}},{"policy",{{"id",policy.id},{"version",policy.version},{"minHeightPx",policy.minHeightPx},{"minContrastRatio",policy.minContrastRatio}}},
+        {"image",{{"width",image.cols},{"height",image.rows}}},{"policy",{{"id",policy.id},{"version",policy.version},{"minHeightPx",policy.minHeightPx},{"minContrastRatio",policy.minContrastRatio},{"scope",policy.scope}}},
         {"findings",findings},{"coverage",{{"mode",strict?"manifest":"best-effort"},{"expected",strict?regions.size():0},{"measured",measured},
-        {"limitations",Json::array({"Screenshot analysis is not accessibility certification","Uniform local backgrounds and isolated single-line regions required","Expected text content is not recognized or verified","Best-effort detection does not establish complete UI coverage"})}}}};
+        {"limitations",limitations}}}};
 }
 }

@@ -103,6 +103,14 @@ int main() {
             auto p=measure(punctuation,{"punctuation",{5,5,140,110},false,1.0},Policy{"test","1",double(threshold),4.5});
             require(p["measuredHeightPx"]==57&&p["heightOutcome"]=="pass","detached punctuation counts as complete glyph with monotonic threshold results");
         }
+        cv::Mat overshoot(90,160,CV_8UC3,cv::Scalar(0,0,0));
+        cv::rectangle(overshoot,{20,20,6,39},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(overshoot,{40,21,6,37},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(overshoot,{60,20,6,38},cv::Scalar(255,255,255),cv::FILLED);
+        for(int threshold:{38,39}) {
+            auto p=measure(overshoot,{"round-flat-caps",{5,5,140,80},false,1.0},Policy{"test","1",double(threshold),4.5});
+            require(p["measuredHeightPx"]==39&&p["heightOutcome"]=="pass","onepixel overshoot at each edge must preserve valid cap-height measurement");
+        }
         cv::Mat contrastMix(100,200,CV_8UC3,cv::Scalar(0,0,0));
         for(int x:{20,40,60})cv::rectangle(contrastMix,{x,20,6,30},cv::Scalar(255,255,255),cv::FILLED);
         cv::rectangle(contrastMix,{80,20,6,30},cv::Scalar(90,90,90),cv::FILLED);

@@ -35,6 +35,7 @@ function validateResult(result, code) {
   if (result.outcome === 'pass' && result.coverage.mode !== 'best-effort' && (result.coverage.expected < 1 || result.coverage.expected !== result.coverage.measured)) throw new Error('Strict pass requires exact nonempty coverage');
   for (const f of result.findings) {
     if (!['text.height', 'text.contrast', 'text.clipping', 'text.adjustability'].includes(f.ruleId)) throw new Error('Unknown visual rule');
+    if (f.ruleId === 'text.adjustability' && (f.outcome !== 'inconclusive' || f.elementId !== '')) throw new Error('Adjustability requires an inconclusive policy finding');
     const key = JSON.stringify([f.elementId, f.ruleId]);
     if (keys.has(key)) throw new Error('Duplicate finding identity'); keys.add(key);
     if (f.outcome === 'pass') {

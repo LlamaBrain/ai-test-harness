@@ -165,6 +165,25 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             _visualAnalyzerFactory = visualAnalyzerFactory;
         }
 
+        private RuntimeSmokeVisualAnalyzer CreateVisualAnalyzer(Session session)
+        {
+            if (!session.Workflow.Steps.Any(step => step.Assertion?.Visual != null)) return null;
+            if (_visualAnalyzerFactory != null) return _visualAnalyzerFactory(session.Workflow, session.CorrelationId, session.ArtifactDirectory);
+            var configuration = RuntimeSmokeVisualConfiguration.FromEnvironment();
+            return configuration?.CreateAnalyzer(session.ArtifactDirectory, label =>
+            {
+                lock (session.Gate)
+                {
+                    var records = session.Records.Where(record => record.correlationId == session.CorrelationId &&
+                        record.workflowId == session.Workflow.Id && record.scriptHash == session.Workflow.CanonicalHash).ToArray();
+                    var receipt = RuntimeSmokeFailureContextWriter.ReadCaptureArtifacts(session.Workflow, records)
+                        .SingleOrDefault(item => item.path == "captures/" + label + ".png");
+                    return receipt == null ? null : new RuntimeSmokeVisualCapture(session.CorrelationId, session.Workflow.Id,
+                        new RuntimeSmokeCaptureArtifactReceipt(receipt.path,receipt.bytes,receipt.sha256));
+                }
+            });
+        }
+
         public IReadOnlyList<RuntimeSmokeWorkflowListItem> List(RuntimeSmokeTarget target, RuntimeSmokeMode mode)
         {
             if (!Enum.IsDefined(typeof(RuntimeSmokeTarget), target) || !Enum.IsDefined(typeof(RuntimeSmokeMode), mode))
@@ -224,7 +243,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                     session.Sink, cleanup, () => session.CancelRequested,
                     waitForCheckpointResumeAsync: session.WaitForCheckpointResumeAsync, scenario: scenario, seed: seed,
                     playerLaunchOptions: RuntimeSmokePlayerLaunchOptions.FromEnvironment(),
-                    visualAnalyzer: _visualAnalyzerFactory?.Invoke(workflow, correlationId, session.ArtifactDirectory));
+                    visualAnalyzer: CreateVisualAnalyzer(session));
                 lock (session.Gate) session.Task = executionTask;
                 return new RuntimeSmokeRegistryCommandResult { Accepted = true, Status = "running", CorrelationId = correlationId };
             }

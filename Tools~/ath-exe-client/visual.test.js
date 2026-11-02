@@ -23,6 +23,13 @@ test('strict pass requires positive detection and exact nonempty coverage', () =
   const result = valid(); result.coverage.expected = 0; assert.throws(() => validateResult(result, 0));
 });
 
+test('adjustability is an inconclusive policy finding rather than a measured element', () => {
+  const result = valid(); result.outcome = 'inconclusive';
+  const finding = { ruleId: 'text.adjustability', elementId: '', outcome: 'inconclusive', bounds: null, measuredHeightPx: null, contrastRatio: null, measurementConfidence: null, detectionConfidence: null, message: 'User adjustment requires independent evidence' };
+  result.findings.push(finding); validateResult(result, 2);
+  finding.elementId = 'title'; assert.throws(() => validateResult(result, 2));
+});
+
 test('strict results cannot substitute manifest identity or omit required elements', () => {
   const { validateBindings } = require('./visual');
   const result = valid(); result.context = { screenId: 'menu', screenshotId: 'menu.png', locale: 'en', uiScale: 1 };
