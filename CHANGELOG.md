@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Record visual accessibility integration points, cross-engine compatibility, and verification baseline; implementation and runtime acceptance remain pending (v0.6.2).
+
 - Retain the historical migration-audit appendix and source-cleanup disposition while collecting all reviewed branch histories on dev (v0.6.1).
 - Re-audited current AITH RuntimeSmoke docs, API references, CLI/MCP examples, minimal-host guidance, and local links at reviewed commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2); consumer integration and runtime proofs remain host-owned. (v0.5.2)
 
