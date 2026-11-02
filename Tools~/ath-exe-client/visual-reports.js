@@ -1,6 +1,8 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
+const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const { isWithin, writeAtomicNew } = require('./runtime-smoke-runner');
 const codes = { pass: 0, fail: 1, inconclusive: 2, 'infrastructure-error': 3 };
 const order = (a, b) => a < b ? -1 : a > b ? 1 : 0;
@@ -20,22 +22,34 @@ function readRun(directory) {
   const root = visual().safePath(directory);
   const receipt = JSON.parse(visual().readEvidence(path.join(root, 'receipt.json')).bytes);
   if (!receipt || receipt.schemaVersion !== 1 || !Array.isArray(receipt.artifacts) || !receipt.input || !/^[a-f0-9]{64}$/.test(receipt.input.sha256 || '')) throw new Error('Invalid analysis receipt');
-  const seen = new Set(); let result;
+  const seen = new Set(), verified = new Map(); let result;
   for (const artifact of receipt.artifacts) {
     if (!relativeFile(artifact.path) || seen.has(artifact.path)) throw new Error('Invalid artifact path or duplicate');
     seen.add(artifact.path);
     const file = path.resolve(root, artifact.path);
     if (!isWithin(file, root)) throw new Error('Artifact escapes run');
     const evidence = visual().readEvidence(file);
+    verified.set(artifact.path, evidence);
     if (evidence.sha256 !== artifact.sha256 || evidence.byteLength !== artifact.byteLength) throw new Error('Analysis artifact digest mismatch');
     if (artifact.path === 'result.json') result = JSON.parse(evidence.bytes);
   }
   if (!result || result.outcome !== receipt.outcome) throw new Error('Receipt result missing or outcome mismatch');
   visual().validateResult(result, codes[result.outcome]);
+  const input = verified.get('input.png'), manifest = verified.get('input-manifest.json'), policy = verified.get('input-policy.json');
+  if (!input) throw new Error('Required input artifact missing');
+  if (input.sha256 !== receipt.input.sha256 || input.byteLength !== receipt.input.byteLength || ['width', 'height'].some(k => receipt.input[k] !== result.image[k])) throw new Error('Input receipt identity mismatch');
+  for (const source of receipt.sources || []) if (['manifest', 'policy'].includes(source.kind)) {
+    const snapshot = verified.get('input-' + source.kind + '.json');
+    if (!snapshot || snapshot.sha256 !== source.sha256 || snapshot.byteLength !== source.byteLength) throw new Error('Required source artifact missing or changed');
+  }
+  visual().validateBindings(result, input, manifest ? JSON.parse(manifest.bytes) : null, policy ? JSON.parse(policy.bytes) : null);
+  if (receipt.policySha256 !== (policy ? policy.sha256 : sha(Buffer.from(JSON.stringify(result.policy))))) throw new Error('Policy receipt identity mismatch');
+  for (const key of ['screenId', 'screenshotId', 'locale', 'uiScale']) if (receipt.context?.[key] !== result.context?.[key]) throw new Error('Context receipt identity mismatch');
   return { result, receipt };
 }
 function comparisonIdentity(run) {
-  const context = run.receipt.context || run.result.context;
+  const context = run.result.context;
+  for (const key of ['screenId', 'screenshotId', 'locale', 'uiScale']) if (context?.[key] !== run.receipt.context?.[key]) throw new Error('Comparison receipt identity mismatch');
   if (!context || !context.screenId || !context.locale || !Number.isFinite(context.uiScale) || context.uiScale <= 0 || !/^[a-f0-9]{64}$/.test(run.receipt.policySha256 || '')) throw new Error('Comparison identity requires screen, locale, UI scale and policy digest');
   return JSON.stringify([context.screenId, context.locale, context.uiScale, run.result.image.width, run.result.image.height, run.receipt.policySha256]);
 }
@@ -52,7 +66,10 @@ function compareResults(baseline, current) {
     const before = old.get(key), after = now.get(key);
     let outcome = 'pass', reason = 'No measured regression';
     if (!before || !after || before.outcome === 'inconclusive' || after.outcome === 'inconclusive') { outcome = 'inconclusive'; reason = 'Missing or inconclusive comparable evidence'; }
-    else if (after.outcome === 'fail' || ['measuredHeightPx', 'contrastRatio'].some(field => Number.isFinite(before[field]) && Number.isFinite(after[field]) && after[field] < before[field])) { outcome = 'fail'; reason = 'Current finding fails policy or measured legibility decreased'; }
+    else {
+      const field = after.ruleId === 'text.height' ? 'measuredHeightPx' : after.ruleId === 'text.contrast' ? 'contrastRatio' : null;
+      if (after.outcome === 'fail' || (field && Number.isFinite(before[field]) && Number.isFinite(after[field]) && after[field] < before[field])) { outcome = 'fail'; reason = 'Current finding fails policy or measured legibility decreased'; }
+    }
     findings.push({ ruleId: 'visual.regression', elementId: (after || before).elementId, comparedRuleId: (after || before).ruleId, outcome, reason, baseline: before || null, current: after || null });
   }
   return { schemaVersion: 1, outcome: aggregate([baseline.result.outcome === 'inconclusive' ? 'inconclusive' : 'pass', current.result.outcome, ...findings.map(f => f.outcome)]), baseline: baseline.receipt.input.sha256, current: current.receipt.input.sha256, findings };
@@ -62,6 +79,7 @@ async function audit(options) {
   const source = visual().readEvidence(options.manifest), screens = validateAuditManifest(JSON.parse(source.bytes));
   const root = visual().safePath(options.input), manifestRoot = path.dirname(source.path), out = visual().safePath(options.out);
   fs.mkdirSync(out);
+  writeAtomicNew(fs, path.join(out, 'input-audit-manifest.json'), source.bytes);
   const entries = [], pending = [];
   for (const screen of screens) {
     try {
@@ -86,7 +104,7 @@ async function audit(options) {
   }
   entries.sort((a, b) => order(a.id, b.id));
   if (visual().readEvidence(source.path).sha256 !== source.sha256) throw new Error('Audit manifest changed');
-  const result = { schemaVersion: 1, outcome: aggregate(entries.map(e => e.outcome)), manifestSha256: source.sha256, entries };
+  const result = { schemaVersion: 2, outcome: aggregate(entries.map(e => e.outcome)), manifestSha256: source.sha256, entries };
   writeAtomicNew(fs, path.join(out, 'audit.json'), JSON.stringify(result, null, 2) + '\n');
   return result;
 }
@@ -94,13 +112,20 @@ function report(directory) {
   const root = visual().safePath(directory);
   if (fs.existsSync(path.join(root, 'receipt.json'))) return { schemaVersion: 1, ...readRun(root) };
   const auditResult = JSON.parse(visual().readEvidence(path.join(root, 'audit.json')).bytes);
-  if (auditResult.schemaVersion !== 1 || !Array.isArray(auditResult.entries) || !auditResult.entries.length) throw new Error('Invalid audit report');
+  if (auditResult.schemaVersion !== 2) throw new Error('Audit result schema 2 required; rerun legacy audits to retain their authoritative manifest');
+  if (!Array.isArray(auditResult.entries) || !auditResult.entries.length) throw new Error('Invalid audit report');
+  const manifest = visual().readEvidence(path.join(root, 'input-audit-manifest.json'));
+  if (manifest.sha256 !== auditResult.manifestSha256) throw new Error('Audit manifest digest mismatch');
+  const screens = validateAuditManifest(JSON.parse(manifest.bytes));
+  if (screens.length !== auditResult.entries.length || screens.some(s => !auditResult.entries.some(e => e.id === s.id))) throw new Error('Required audit screen missing');
   const ids = new Set();
   const entries = auditResult.entries.map(entry => {
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(entry.id || '') || ids.has(entry.id) || !Object.hasOwn(codes, entry.outcome)) throw new Error('Invalid report entry');
     ids.add(entry.id);
     if (entry.outcome === 'infrastructure-error') return entry;
     const run = readRun(path.join(root, entry.id));
+    const screen = screens.find(s => s.id === entry.id);
+    if (run.result.context?.screenId !== screen.id || run.result.context?.screenshotId !== screen.screenshot) throw new Error('Audit screen identity mismatch');
     if (run.result.outcome !== entry.outcome) throw new Error('Audit entry outcome mismatch');
     return { id: entry.id, ...run };
   });

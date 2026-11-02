@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Bind visual reports to retained input, policy, manifest and measured identities; reject incomplete coverage and uncorroborated PASS. Audit schema 2 retains the original screen list; legacy audits require rerun. Node 94/94 and real CLI 9/9 passed (v0.9.3).
+
 - Add engine-free Windows/Linux CI, pinned model setup, independent font fixtures, real CLI verification, dependency notice validation and reproducible benchmark scripts (v0.9.2).
 
 - Harden glyph grouping, detector association and ambiguous mixed-size measurements; verify 72 real-font threshold cases and five model adversarial cases, and retain CPU measurements (v0.9.1).

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "verified": true,
+  "checks": [
+    {
+      "operation": "analyze-pass",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "analyze-fail",
+      "expected": "fail",
+      "exitCode": 1
+    },
+    {
+      "operation": "adjustability-unproven",
+      "expected": "inconclusive",
+      "exitCode": 2
+    },
+    {
+      "operation": "report",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "compare-identical",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "compare-policy-mismatch",
+      "expected": "infrastructure-error",
+      "exitCode": 3
+    },
+    {
+      "operation": "audit",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "audit-report",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "duplicate-output",
+      "expected": "infrastructure-error",
+      "exitCode": 3
+    }
+  ],
+  "analyzerSha256": "338d8e478164809255a9179809c7c7f0cc238ca66be78a1bf5319aa04b68329b",
+  "modelSha256": "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587"
+}

@@ -18,6 +18,23 @@ test('unknown schemas, empty evidence and uncertain findings cannot pass', () =>
   const duplicated = valid(); duplicated.findings.push(duplicated.findings[0]);
   assert.throws(() => validateResult(duplicated, 0), /Duplicate/);
 });
+test('strict pass requires positive detection and exact nonempty coverage', () => {
+  for (const confidence of [0, null]) { const result = valid(); result.findings[0].detectionConfidence = confidence; assert.throws(() => validateResult(result, 0)); }
+  const result = valid(); result.coverage.expected = 0; assert.throws(() => validateResult(result, 0));
+});
+
+test('strict results cannot substitute manifest identity or omit required elements', () => {
+  const { validateBindings } = require('./visual');
+  const result = valid(); result.context = { screenId: 'menu', screenshotId: 'menu.png', locale: 'en', uiScale: 1 };
+  result.findings.forEach(f => { f.expectedBounds = { ...f.bounds }; });
+  const manifest = { schemaVersion: 1, ...result.context, resolution: result.image, elements: [{ id: 'title', bounds: result.findings[0].bounds }] };
+  const bytes = Buffer.alloc(24); Buffer.from('89504e470d0a1a0a', 'hex').copy(bytes); bytes.write('IHDR', 12); bytes.writeUInt32BE(100, 16); bytes.writeUInt32BE(100, 20);
+  validateBindings(result, { bytes }, manifest, result.policy);
+  for (const mutate of [r => { r.context.locale = 'fr'; }, r => { r.findings[0].elementId = 'other'; }, r => { r.findings.pop(); }, r => { r.coverage.expected = 0; }, r => { r.findings[0].bounds.x = 99; }]) {
+    const altered = structuredClone(result); mutate(altered); assert.throws(() => validateBindings(altered, { bytes }, manifest, result.policy));
+  }
+});
+
 test('missing analyzer fails closed and duplicate output is refused', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ath-visual-test-'));
   try {

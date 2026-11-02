@@ -32,11 +32,13 @@ function validateResult(result, code) {
   }
   if (result.outcome === 'pass' && (!result.findings.length || result.findings.some(f => f.outcome !== 'pass') || !Number.isInteger(result.coverage.measured) || result.coverage.measured < 1 || !Number.isInteger(result.coverage.expected) || result.coverage.expected > result.coverage.measured)) throw new Error('Insufficient evidence for pass');
   const keys = new Set();
+  if (result.outcome === 'pass' && result.coverage.mode !== 'best-effort' && (result.coverage.expected < 1 || result.coverage.expected !== result.coverage.measured)) throw new Error('Strict pass requires exact nonempty coverage');
   for (const f of result.findings) {
     if (!['text.height', 'text.contrast', 'text.clipping', 'text.adjustability'].includes(f.ruleId)) throw new Error('Unknown visual rule');
     const key = JSON.stringify([f.elementId, f.ruleId]);
     if (keys.has(key)) throw new Error('Duplicate finding identity'); keys.add(key);
     if (f.outcome === 'pass') {
+      if (!(f.detectionConfidence > 0)) throw new Error('Pass lacks detected evidence');
       if (!f.bounds || !['x', 'y', 'width', 'height'].every(k => Number.isInteger(f.bounds[k])) || f.bounds.x < 0 || f.bounds.y < 0 || f.bounds.width < 1 || f.bounds.height < 1 || f.bounds.x + f.bounds.width > result.image.width || f.bounds.y + f.bounds.height > result.image.height || !(f.measurementConfidence > 0)) throw new Error('Pass lacks measured in-viewport evidence');
       if (f.ruleId === 'text.height' && (!result.policy || !Number.isFinite(result.policy.minHeightPx) || result.policy.minHeightPx <= 0 || !Number.isFinite(f.measuredHeightPx) || f.measuredHeightPx < result.policy.minHeightPx || f.measuredHeightPx > f.bounds.height)) throw new Error('Height pass contradicts measured policy evidence');
       if (f.ruleId === 'text.contrast' && (!result.policy || !Number.isFinite(result.policy.minContrastRatio) || result.policy.minContrastRatio < 1 || !Number.isFinite(f.contrastRatio) || f.contrastRatio < result.policy.minContrastRatio || f.contrastRatio > 21)) throw new Error('Contrast pass contradicts measured policy evidence');
@@ -47,6 +49,25 @@ function validateResult(result, code) {
     if (elements.size !== result.coverage.measured || [...elements].some(id => !id || ['text.height', 'text.contrast', 'text.clipping'].some(rule => !keys.has(JSON.stringify([id, rule]))))) throw new Error('Pass lacks required rule coverage');
   }
   return result;
+}
+function validateBindings(result, input, manifest, policy) {
+  const bytes = input.bytes;
+  if (bytes.length < 24 || !bytes.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')) || bytes.toString('ascii', 12, 16) !== 'IHDR' || bytes.readUInt32BE(16) !== result.image.width || bytes.readUInt32BE(20) !== result.image.height) throw new Error('Decoded dimensions do not match input PNG');
+  if (policy && (!result.policy || ['id', 'version', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== policy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
+  if (!manifest) { if (result.coverage.mode !== 'best-effort') throw new Error('Required manifest missing'); return; }
+  if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.elements) || !manifest.elements.length || result.coverage.mode === 'best-effort' || result.coverage.expected !== manifest.elements.length) throw new Error('Manifest coverage mismatch');
+  for (const key of ['screenId', 'screenshotId', 'locale', 'uiScale']) if (!result.context || result.context[key] !== manifest[key] || manifest[key] == null) throw new Error('Manifest context identity mismatch');
+  if (!manifest.resolution || ['width', 'height'].some(k => manifest.resolution[k] !== result.image[k])) throw new Error('Manifest resolution mismatch');
+  const elements = new Map(manifest.elements.map(e => [e.id, e]));
+  if (elements.size !== manifest.elements.length) throw new Error('Duplicate manifest elements');
+  const seen = new Set();
+  for (const f of result.findings) {
+    if (f.ruleId === 'text.adjustability' && f.outcome === 'inconclusive') continue;
+    const element = elements.get(f.elementId), b = f.bounds, e = element?.bounds;
+    if (!e || !b || !f.expectedBounds || ['x', 'y', 'width', 'height'].some(k => !Number.isInteger(e[k]) || !Number.isInteger(b[k]) || e[k] !== f.expectedBounds[k]) || b.width <= 0 || b.height <= 0 || b.x < e.x || b.y < e.y || b.x + b.width > e.x + e.width || b.y + b.height > e.y + e.height) throw new Error('Finding identity or bounds differ from manifest');
+    seen.add(JSON.stringify([f.elementId, f.ruleId]));
+  }
+  for (const id of elements.keys()) for (const rule of ['text.height', 'text.contrast', 'text.clipping']) if (!seen.has(JSON.stringify([id, rule]))) throw new Error('Required manifest finding missing');
 }
 function invoke(executable, args, timeoutMs) {
   return new Promise((resolve, reject) => {
@@ -106,6 +127,12 @@ function finishAnalysis(prepared, execution) {
   const result = validateResult(JSON.parse(execution.stdout), execution.code);
   const policySource = sources.find(s => s.kind === 'policy');
   if (policySource) effectivePolicy = JSON.parse(policySource.bytes);
+  const manifestSource = sources.find(s => s.kind === 'manifest');
+  for (const source of [input, ...sources.filter(s => ['manifest', 'policy'].includes(s.kind))]) {
+    const staged = path.join(out, source === input ? 'input.png' : 'input-' + source.kind + '.json');
+    if (readEvidence(staged).sha256 !== source.sha256) throw new Error('Staged evidence changed during analysis');
+  }
+  validateBindings(result, input, manifestSource ? JSON.parse(manifestSource.bytes) : null, effectivePolicy);
   if (effectivePolicy && (!result.policy || ['id', 'version', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== effectivePolicy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
   require('./visual-profiles').applyProfileScope(result, effectivePolicy);
   if (input.bytes.length < 24 || input.bytes.toString('ascii', 12, 16) !== 'IHDR' || input.bytes.readUInt32BE(16) !== result.image.width || input.bytes.readUInt32BE(20) !== result.image.height) throw new Error('Decoded dimensions do not match input PNG');
@@ -179,4 +206,4 @@ async function command(positionals, flags, print = value => process.stdout.write
     print(output); return output.exitCode;
   } catch (error) { print({ schemaVersion: 1, outcome: 'infrastructure-error', message: String(error.message).slice(0, 1024) }); return 3; }
 }
-module.exports = { analyze, analyzeBatch, validateBatchResult, validateResult, command, invoke, readEvidence, safePath };
+module.exports = { analyze, analyzeBatch, validateBatchResult, validateResult, validateBindings, command, invoke, readEvidence, safePath };
