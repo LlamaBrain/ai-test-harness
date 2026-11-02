@@ -48,8 +48,8 @@
                             },
                             {
                                 "path":  "Runtime/AthRuntimeFlag.cs",
-                                "sha256":  "5969aed669905036d2584594738009d6f052e729e4ee5e085d578c07762d034e",
-                                "testedSha256":  "5969aed669905036d2584594738009d6f052e729e4ee5e085d578c07762d034e"
+                                "sha256":  "7c7f03d38158ee66313c9fc4e68c2c7411d5f14cbcfb7595ded68ca2292943aa",
+                                "testedSha256":  "7c7f03d38158ee66313c9fc4e68c2c7411d5f14cbcfb7595ded68ca2292943aa"
                             },
                             {
                                 "path":  "Runtime/AthServices.cs",
@@ -492,11 +492,12 @@
                                 "sha256":  "09901f63ebc4b8f0897b0128fb230c146529aee5c5cc90d7a7872e66a976bb5f"
                             }
                         ],
-    "resultsXmlSha256":  "04334f66806e9ab23e056cedf3c9cbc45d53b3259be8b11d4e793d8f1d112387",
+    "resultsXmlSha256":  "210c880be4a3d12a926362ffa22f1aedb997e790770868df4b6a0aec5eed2e19",
     "verificationScriptSha256":  "728e63f1117d4e871247966ae8d4e59b1fcf10c1af223cbe4e5592b564f8bc03",
     "limitations":  [
                         "Isolated project, not a consuming game build",
                         "No live game capture, MCP server invocation, or built-player launch verified",
                         "EditorWindowViewModel tests excluded; validated native registry route uses pre-existing PNG"
-                    ]
+                    ],
+    "packageVersion":  "v0.10.1"
 }
