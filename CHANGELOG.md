@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Integrate typed visual assertions and verified native evidence into RuntimeSmoke coordination, suites, JSONL/JUnit/failure reporting, and existing Captain trace/MCP surfaces; isolated Unity validation passed 98 tests including six real native suite scenarios (v0.9.0).
+
 - Add standalone CPU C++20 PNG analysis, PP-OCR detection, pixel-height and independent contrast measurements, strict manifests, batch model reuse, annotations, and native tests; real-font corpus coverage remains under validation (v0.8.0).
 
 - Add offline visual analyze/audit/compare/report CLI operations, policy profiles, bounded native execution, immutable evidence receipts, and batch validation; native end-to-end verification remains pending (v0.7.0).

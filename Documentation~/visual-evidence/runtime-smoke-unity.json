@@ -1,0 +1,118 @@
+{
+    "sourceSnapshots":  [
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeAssertionEvaluator.cs",
+                                "sha256":  "6263aeb07b5953d48be2e13123502349c8b37a6f3043f3049beb43ea0159d0bd",
+                                "testedSha256":  "6263aeb07b5953d48be2e13123502349c8b37a6f3043f3049beb43ea0159d0bd"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeCaptureArtifactWriter.cs",
+                                "sha256":  "d1de7cbcebc6e03bae0df0b6715fb58797a8ef68336dc6fb6f22c165f2bd557f",
+                                "testedSha256":  "d1de7cbcebc6e03bae0df0b6715fb58797a8ef68336dc6fb6f22c165f2bd557f"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeCoordinator.cs",
+                                "sha256":  "f32144d311dd90d7a86de41d55993e5ef55836c74d2070e56f7c8ab1c468ec59",
+                                "testedSha256":  "f32144d311dd90d7a86de41d55993e5ef55836c74d2070e56f7c8ab1c468ec59"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeDocumentCompiler.cs",
+                                "sha256":  "4c3b7fdc472b13e0a8bb5144e9250badcfda942d42396a795a5fdc51569745b4",
+                                "testedSha256":  "4c3b7fdc472b13e0a8bb5144e9250badcfda942d42396a795a5fdc51569745b4"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeDurableLaunchClaim.cs",
+                                "sha256":  "90cf8afc5f03c16edc0d0aa94f2e127bbcbfbb6658298bdf47084fc548205f6b",
+                                "testedSha256":  "90cf8afc5f03c16edc0d0aa94f2e127bbcbfbb6658298bdf47084fc548205f6b"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeFailureContext.cs",
+                                "sha256":  "9fc9100093d9460e499f6c4ab0434350a5956247cac8857fa5ec9032cb18fcba",
+                                "testedSha256":  "9fc9100093d9460e499f6c4ab0434350a5956247cac8857fa5ec9032cb18fcba"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeJUnitProjection.cs",
+                                "sha256":  "05f165c61fb09bdd9153d63ab37b84210c4fb9c3a8abce5c4112e1509fb17455",
+                                "testedSha256":  "05f165c61fb09bdd9153d63ab37b84210c4fb9c3a8abce5c4112e1509fb17455"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeLaunchEnvelope.cs",
+                                "sha256":  "540700da19d28c3c65735d8031cdd3f23fd86ec0656763bb3bab0ee20cfbe349",
+                                "testedSha256":  "540700da19d28c3c65735d8031cdd3f23fd86ec0656763bb3bab0ee20cfbe349"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeModels.cs",
+                                "sha256":  "c33b8d0333f574828a8684cf14451e45bdb4b935401528e98d40b7284525d332",
+                                "testedSha256":  "c33b8d0333f574828a8684cf14451e45bdb4b935401528e98d40b7284525d332"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokePlayerBootstrap.cs",
+                                "sha256":  "3caebd76851cffe475b0c07f17e94ec9125be1b66aff9f76c3b4834d403117e4",
+                                "testedSha256":  "3caebd76851cffe475b0c07f17e94ec9125be1b66aff9f76c3b4834d403117e4"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokePlayerLaunchOptions.cs",
+                                "sha256":  "81c54f529445ae20ff70e52dbe0ce3756b70e0ba76388f8b8e3f2586f0d36e0c",
+                                "testedSha256":  "81c54f529445ae20ff70e52dbe0ce3756b70e0ba76388f8b8e3f2586f0d36e0c"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeRegistryService.cs",
+                                "sha256":  "48771fb73aacb01bd9a3c742b4114f688d51cec20cb85dc154fd0b9f35adb5a2",
+                                "testedSha256":  "48771fb73aacb01bd9a3c742b4114f688d51cec20cb85dc154fd0b9f35adb5a2"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeRunRegistry.cs",
+                                "sha256":  "0251ebf987639d857986cc0085545e463805fba25a6a9127bd670167580219ca",
+                                "testedSha256":  "0251ebf987639d857986cc0085545e463805fba25a6a9127bd670167580219ca"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeSuiteExecutor.cs",
+                                "sha256":  "c410d35367f3b081ceaa6b53ffd14381d5ff64f6a41aa728ec58aa831f71ea50",
+                                "testedSha256":  "c410d35367f3b081ceaa6b53ffd14381d5ff64f6a41aa728ec58aa831f71ea50"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeValueJsonParser.cs",
+                                "sha256":  "2c06dc994a56a13e14b2a6eea7268a1b958f0eff488c1f1da75667f098c06f24",
+                                "testedSha256":  "2c06dc994a56a13e14b2a6eea7268a1b958f0eff488c1f1da75667f098c06f24"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualAnalyzer.cs",
+                                "sha256":  "b320e60c7fe1eda2b3ad0ca981f65992feaaad866721e4a7e4e7802dd9d263e8",
+                                "testedSha256":  "b320e60c7fe1eda2b3ad0ca981f65992feaaad866721e4a7e4e7802dd9d263e8"
+                            },
+                            {
+                                "path":  "Runtime/RuntimeSmokes/RuntimeSmokeVisualAssertion.cs",
+                                "sha256":  "5964506db07025a9ce9116ebf7f200593c0fcf1f466515c5c299e5f223f3de06",
+                                "testedSha256":  "5964506db07025a9ce9116ebf7f200593c0fcf1f466515c5c299e5f223f3de06"
+                            },
+                            {
+                                "path":  "Tests/Editor/RuntimeSmokeVisualTests.cs",
+                                "sha256":  "31191544b66378636323bb9113ed7944dc923478baaf4f23d1a056d3de07f2e5",
+                                "testedSha256":  "31191544b66378636323bb9113ed7944dc923478baaf4f23d1a056d3de07f2e5"
+                            }
+                        ],
+    "passed":  98,
+    "nativeSuiteCases":  [
+                             "pass",
+                             "fail",
+                             "inconclusive",
+                             "corrupt",
+                             "wrong-correlation",
+                             "missing-analyzer"
+                         ],
+    "modelSha256":  "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
+    "failedTestcaseNodes":  0,
+    "skipped":  0,
+    "testFrameworkVersion":  "1.6.0",
+    "tests":  98,
+    "scope":  "Full Runtime sources plus RuntimeSmoke Editor tests except EditorWindowViewModel; actual trace MCP tool and writer tests; existing installed MCP/console dependencies",
+    "analyzerSha256":  "80aa280839389ad5b52bdb76515af877b32af6ada38f1c1c7d35bccf87a9adb3",
+    "unityVersion":  "6000.3.10f1",
+    "schemaVersion":  1,
+    "limitations":  [
+                        "Isolated validation project, not a consuming game build",
+                        "No live player capture or built-player launch suite executed",
+                        "Unity2022.3 compilation succeeded but test-framework1.4.3 emitted inconsistent teardown result; accepted proof uses Unity6000.3 and supported1.6.0"
+                    ],
+    "failed":  0
+}

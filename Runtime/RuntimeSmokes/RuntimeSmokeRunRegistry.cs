@@ -148,18 +148,21 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         private readonly Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeTranscriptSink> _transcriptFactory;
         private readonly Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeCleanup> _cleanupFactory;
         private readonly Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeInvestigationAdapter> _investigationAdapterFactory;
+        private readonly Func<RuntimeSmokeCompiledWorkflow, string, string, RuntimeSmokeVisualAnalyzer> _visualAnalyzerFactory;
 
         public RuntimeSmokeRunRegistry(IRuntimeSmokeWorkflowCatalog catalog,
             Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeStepAdapter> adapterFactory,
             Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeTranscriptSink> transcriptFactory,
             Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeCleanup> cleanupFactory = null,
-            Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeInvestigationAdapter> investigationAdapterFactory = null)
+            Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeInvestigationAdapter> investigationAdapterFactory = null,
+            Func<RuntimeSmokeCompiledWorkflow, string, string, RuntimeSmokeVisualAnalyzer> visualAnalyzerFactory = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _adapterFactory = adapterFactory ?? throw new ArgumentNullException(nameof(adapterFactory));
             _transcriptFactory = transcriptFactory ?? throw new ArgumentNullException(nameof(transcriptFactory));
             _cleanupFactory = cleanupFactory;
             _investigationAdapterFactory = investigationAdapterFactory;
+            _visualAnalyzerFactory = visualAnalyzerFactory;
         }
 
         public IReadOnlyList<RuntimeSmokeWorkflowListItem> List(RuntimeSmokeTarget target, RuntimeSmokeMode mode)
@@ -220,7 +223,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 var executionTask = RuntimeSmokeCoordinator.RunAsync(workflow, correlationId, adapter,
                     session.Sink, cleanup, () => session.CancelRequested,
                     waitForCheckpointResumeAsync: session.WaitForCheckpointResumeAsync, scenario: scenario, seed: seed,
-                    playerLaunchOptions: RuntimeSmokePlayerLaunchOptions.FromEnvironment());
+                    playerLaunchOptions: RuntimeSmokePlayerLaunchOptions.FromEnvironment(),
+                    visualAnalyzer: _visualAnalyzerFactory?.Invoke(workflow, correlationId, session.ArtifactDirectory));
                 lock (session.Gate) session.Task = executionTask;
                 return new RuntimeSmokeRegistryCommandResult { Accepted = true, Status = "running", CorrelationId = correlationId };
             }

@@ -226,6 +226,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
 
     public sealed class RuntimeSmokeAssertionDefinition
     {
+        public RuntimeSmokeVisualAssertion Visual { get; internal set; }
         public int AssertionSchemaVersion { get; set; } = RuntimeSmokeAssertionSchema.Version;
         public string Id { get; set; }
         public string Name { get; set; }
@@ -238,6 +239,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
 
     public sealed class RuntimeSmokeAssertionResult
     {
+        public string VisualEvidenceJson { get; internal set; }
         public bool Passed { get; internal set; }
         public int AssertionSchemaVersion { get; internal set; } = RuntimeSmokeAssertionSchema.Version;
         public string AssertionId { get; internal set; }
@@ -312,6 +314,11 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             { error = "Assertion classification must be a bounded identifier."; return false; }
             if (!Enum.IsDefined(typeof(RuntimeSmokeComparison), assertion.Comparison)) { error = "Comparison is not supported."; return false; }
             if (assertion.Expected == null || assertion.Expected.Kind == RuntimeSmokeValueKind.Missing) { error = "Expected value cannot be missing."; return false; }
+            if (assertion.Visual != null && (assertion.Predicate != RuntimeSmokeVisualAssertion.Capability ||
+                assertion.Comparison != RuntimeSmokeComparison.Equals || assertion.Expected.Kind != RuntimeSmokeValueKind.String || assertion.Expected.String != "pass"))
+            { error = "Visual assertions must compare visual.analysis.v1 equals pass."; return false; }
+            if (assertion.Predicate == RuntimeSmokeVisualAssertion.Capability && assertion.Visual == null)
+            { error = "Visual predicate requires a typed visual operand."; return false; }
 
             var numeric = assertion.Expected.IsNumeric;
             switch (assertion.Comparison)

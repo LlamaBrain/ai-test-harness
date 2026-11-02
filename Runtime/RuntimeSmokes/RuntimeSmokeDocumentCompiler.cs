@@ -377,6 +377,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             { AddIssue(issues, "command_invalid", document.id, expandedId, "Command steps require a declared command."); return; }
             if (step.type == "assert" && (step.assertion == null || !RuntimeSmokeAssertionEvaluator.Validate(step.assertion, out _)))
             { AddIssue(issues, "assertion_schema_invalid", document.id, expandedId, "Assert steps require a valid versioned typed assertion."); return; }
+            if (step.assertion?.Visual != null && !(document.requires ?? Array.Empty<string>()).Contains(RuntimeSmokeVisualAssertion.Capability, StringComparer.Ordinal))
+            { AddIssue(issues, "capability_unavailable", document.id, expandedId, "Visual assertion requires declared visual.analysis.v1 capability."); return; }
             if (step.type == "wait" && string.IsNullOrWhiteSpace(step.predicate))
             { AddIssue(issues, "predicate_invalid", document.id, expandedId, "Wait steps require a typed predicate capability."); return; }
             if (!TrySubstitute(step.command, variables, out var command) || !TrySubstitute(step.predicate, variables, out var predicate) ||
@@ -574,8 +576,15 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 if (fields.TryGetValue("assertionSchemaVersion", out var rawVersion) && rawVersion.Kind == RuntimeSmokeValueKind.Integer && rawVersion.Integer >= int.MinValue && rawVersion.Integer <= int.MaxValue)
                     schemaVersion = (int)rawVersion.Integer;
                 TryString(fields, "classification", out var classification);
+                RuntimeSmokeVisualAssertion visual = null;
+                if (fields.TryGetValue("visual", out var rawVisual))
+                {
+                    try { visual = RuntimeSmokeVisualAssertion.Parse(rawVisual); }
+                    catch (ArgumentException) { continue; }
+                }
                 step.assertion = new RuntimeSmokeAssertionDefinition
                 {
+                    Visual = visual,
                     AssertionSchemaVersion = schemaVersion,
                     Id = id,
                     Name = name,

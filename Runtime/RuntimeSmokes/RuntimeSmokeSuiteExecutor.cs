@@ -37,10 +37,11 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             Func<RuntimeSmokeCompiledSuiteEntry, IRuntimeSmokeCleanup> cleanupFactory = null,
             Func<bool> isCancellationRequested = null,
             int maximumSuiteSeconds = DefaultMaximumSuiteSeconds,
-            Func<DateTime> utcNow = null)
+            Func<DateTime> utcNow = null,
+            Func<RuntimeSmokeCompiledSuiteEntry, string, RuntimeSmokeVisualAnalyzer> visualAnalyzerFactory = null)
         {
             return RunCoreAsync(suite, suiteId, executeStep, correlationFactory, transcriptFactory, cleanupFactory,
-                isCancellationRequested, maximumSuiteSeconds, utcNow ?? (() => DateTime.UtcNow));
+                isCancellationRequested, maximumSuiteSeconds, utcNow ?? (() => DateTime.UtcNow), visualAnalyzerFactory);
         }
 
         private static async Task<RuntimeSmokeSuiteExecutionResult> RunCoreAsync(
@@ -52,7 +53,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             Func<RuntimeSmokeCompiledSuiteEntry, IRuntimeSmokeCleanup> cleanupFactory,
             Func<bool> isCancellationRequested,
             int maximumSuiteSeconds,
-            Func<DateTime> utcNow)
+            Func<DateTime> utcNow,
+            Func<RuntimeSmokeCompiledSuiteEntry, string, RuntimeSmokeVisualAnalyzer> visualAnalyzerFactory)
         {
             var outputs = new List<RuntimeSmokeSuiteEntryExecution>();
             var state = RuntimeSmokeSuiteTerminalState.Failed;
@@ -80,7 +82,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 var adapter = new EntryAdapter(entry, executeStep);
                 var transcript = transcriptFactory == null ? (IRuntimeSmokeTranscriptSink)new NullTranscriptSink() : transcriptFactory(entry);
                 var cleanup = cleanupFactory == null ? null : cleanupFactory(entry);
-                var execution = await RuntimeSmokeCoordinator.RunAsync(workflow, correlation, adapter, transcript, cleanup, isCancellationRequested, utcNow);
+                var execution = await RuntimeSmokeCoordinator.RunAsync(workflow, correlation, adapter, transcript, cleanup, isCancellationRequested, utcNow,
+                    visualAnalyzer: visualAnalyzerFactory?.Invoke(entry, correlation));
                 outputs.Add(new RuntimeSmokeSuiteEntryExecution { EntryId = entry.Id, Required = entry.Required, CorrelationId = correlation, Execution = execution });
                 if (execution.TerminalState == RuntimeSmokeRunTerminalState.Cancelled)
                 {
