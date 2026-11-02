@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add standalone CPU C++20 PNG analysis, PP-OCR detection, pixel-height and independent contrast measurements, strict manifests, batch model reuse, annotations, and native tests; real-font corpus coverage remains under validation (v0.8.0).
+
 - Add offline visual analyze/audit/compare/report CLI operations, policy profiles, bounded native execution, immutable evidence receipts, and batch validation; native end-to-end verification remains pending (v0.7.0).
 
 - Record visual accessibility integration points, cross-engine compatibility, and verification baseline; implementation and runtime acceptance remain pending (v0.6.2).
