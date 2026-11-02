@@ -1,0 +1,40 @@
+{
+    "modelLoadMs":  31.0974,
+    "modelLoaded":  true,
+    "runs":  [
+                 {
+                     "firstAnalysisMs":  232.0582,
+                     "height":  1080,
+                     "imagesPerSecond":  4.563922665973437,
+                     "iterations":  5,
+                     "meanAnalysisMs":  219.10976,
+                     "outcome":  "pass",
+                     "peakProcessMemoryBytes":  170459136,
+                     "width":  1920
+                 },
+                 {
+                     "firstAnalysisMs":  243.1369,
+                     "height":  1440,
+                     "imagesPerSecond":  4.23036145646607,
+                     "iterations":  5,
+                     "meanAnalysisMs":  236.38642,
+                     "outcome":  "pass",
+                     "peakProcessMemoryBytes":  214454272,
+                     "width":  2560
+                 },
+                 {
+                     "firstAnalysisMs":  254.1148,
+                     "height":  2160,
+                     "imagesPerSecond":  3.891939520816622,
+                     "iterations":  5,
+                     "meanAnalysisMs":  256.9413,
+                     "outcome":  "pass",
+                     "peakProcessMemoryBytes":  338526208,
+                     "width":  3840
+                 }
+             ],
+    "schemaVersion":  1,
+    "scope":  "In-process CPU batch reuses model; excludes PNG decode and OS process startup",
+    "analyzerSha256":  "136e46e617bfd97ff0e204ec53e6408bb04108b71e5b0cd7bde1c0b45301b937",
+    "benchmarkSha256":  "3b201a62b2646854e901936367de8965c0448a6baab089dd0c4c4dd2a556fa5e"
+}

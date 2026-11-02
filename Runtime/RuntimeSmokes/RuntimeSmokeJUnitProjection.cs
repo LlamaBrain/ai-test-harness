@@ -39,6 +39,11 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             writer.WriteAttributeString("time", Math.Max(0, (result.EndedUtc - result.StartedUtc).TotalSeconds).ToString("0.000", CultureInfo.InvariantCulture));
             writer.WriteStartElement("properties");
             Property(writer, "correlationId", result.CorrelationId);
+            var visualEvidence = (result.Transcript ?? Array.Empty<RuntimeSmokeTranscriptRecord>())
+                .Where(record => record != null && !string.IsNullOrEmpty(record.visualEvidenceJson))
+                .Select(record => record.visualEvidenceJson).Distinct(StringComparer.Ordinal).ToArray();
+            for (var index = 0; index < visualEvidence.Length; index++)
+                Property(writer, "visualEvidenceJson." + index.ToString(CultureInfo.InvariantCulture), visualEvidence[index]);
             if (!string.IsNullOrEmpty(result.Scenario)) Property(writer, "scenario", result.Scenario);
             if (!string.IsNullOrEmpty(result.Seed)) Property(writer, "seed", result.Seed);
             if (result.AssertionResult != null && !result.AssertionResult.Passed)

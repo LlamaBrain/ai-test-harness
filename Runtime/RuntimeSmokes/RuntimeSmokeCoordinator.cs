@@ -34,6 +34,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
 
     public sealed class RuntimeSmokeStepResponse
     {
+        public string VisualEvidenceJson { get; internal set; }
         public string CorrelationId { get; set; }
         public RuntimeSmokeStepResponseStatus Status { get; set; }
         public RuntimeSmokeValue Actual { get; set; }
@@ -99,6 +100,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public string assertionTolerance;
         public bool hasAssertionTolerance;
         public long assertionElapsedMilliseconds;
+        public string visualEvidenceJson;
         public string expectedDigest;
         public string actualDigest;
         public string expectedDisplay;
@@ -157,6 +159,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public string assertionTolerance;
         public bool hasAssertionTolerance;
         public long assertionElapsedMilliseconds;
+        public string visualEvidenceJson;
         public string assertionFailureCode;
         public string expectedDigest;
         public string actualDigest;
@@ -178,7 +181,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
             IRuntimeSmokeStepAdapter adapter, IRuntimeSmokeTranscriptSink sink, IRuntimeSmokeCleanup cleanup = null,
             Func<bool> isCancellationRequested = null, Func<DateTime> utcNow = null,
             Func<string, Task<bool>> waitForCheckpointResumeAsync = null, string scenario = null, string seed = null,
-            RuntimeSmokePlayerLaunchOptions playerLaunchOptions = null)
+            RuntimeSmokePlayerLaunchOptions playerLaunchOptions = null, RuntimeSmokeVisualAnalyzer visualAnalyzer = null)
         {
             playerLaunchOptions = playerLaunchOptions ?? RuntimeSmokePlayerLaunchOptions.FromEnvironment();
             var now = utcNow ?? (() => DateTime.UtcNow);
@@ -246,6 +249,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                     assertionSchemaVersion = assertion == null ? 0 : assertion.AssertionSchemaVersion,
                     assertionId = assertion == null ? null : assertion.AssertionId,
                     assertionName = assertion == null ? null : assertion.AssertionName,
+                    visualEvidenceJson = assertion?.VisualEvidenceJson,
                     assertionComparison = assertion == null ? null : RuntimeSmokeAssertionSchema.ComparisonLabel(assertion.Comparison),
                     assertionPredicate = assertion == null ? null : assertion.Predicate,
                     assertionClassification = assertion == null ? null : assertion.Classification,
@@ -428,9 +432,12 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                         };
                         do
                         {
-                            var awaited = await AwaitAdapterAsync(adapter, step, context, deadline, isCancellationRequested, now);
+                            if (step.Assertion?.Visual != null && visualAnalyzer == null)
+                                throw new InvalidOperationException("No trusted visual analyzer is configured for this run.");
+                            var awaited = await AwaitAdapterAsync(step.Assertion?.Visual != null ? visualAnalyzer : adapter, step, context, deadline, isCancellationRequested, now);
                             if (awaited.Cancelled)
                             {
+                                if (step.Assertion?.Visual != null) visualAnalyzer.Cancel();
                                 state = RuntimeSmokeRunTerminalState.Cancelled;
                                 failure = RuntimeSmokeRunFailureCode.RunCancelled;
                                 diagnostic = "Run cancellation was requested while an adapter operation was in flight.";
@@ -438,6 +445,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                             }
                             if (awaited.TimedOut)
                             {
+                                if (step.Assertion?.Visual != null) visualAnalyzer.Cancel();
                                 failure = RuntimeSmokeRunFailureCode.RunTimeout;
                                 if (step.Type == "assert")
                                 {
@@ -533,6 +541,11 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                     if (step.Type == "assert")
                     {
                         assertionResult = RuntimeSmokeAssertionEvaluator.Evaluate(step.Assertion, response.Actual);
+                        if (step.Assertion.Visual != null)
+                        {
+                            assertionResult.VisualEvidenceJson = response.VisualEvidenceJson;
+                            assertionResult.Diagnostic = response.Diagnostic;
+                        }
                         if (!assertionResult.Passed)
                         {
                             failure = RuntimeSmokeRunFailureCode.None;
@@ -872,6 +885,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                     assertionSchemaVersion = record.assertionSchemaVersion,
                     assertionId = record.assertionId,
                     assertionName = record.assertionName,
+                    visualEvidenceJson = record.visualEvidenceJson,
                     assertionComparison = record.assertionComparison,
                     assertionPredicate = record.assertionPredicate,
                     assertionClassification = record.assertionClassification,
@@ -924,6 +938,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 assertionSchemaVersion = assertion == null ? 0 : assertion.AssertionSchemaVersion,
                 assertionId = assertion == null ? null : assertion.AssertionId,
                 assertionName = assertion == null ? null : assertion.AssertionName,
+                    visualEvidenceJson = assertion?.VisualEvidenceJson,
                 assertionComparison = assertion == null ? null : RuntimeSmokeAssertionSchema.ComparisonLabel(assertion.Comparison),
                 assertionPredicate = assertion == null ? null : assertion.Predicate,
                 assertionClassification = assertion == null ? null : assertion.Classification,

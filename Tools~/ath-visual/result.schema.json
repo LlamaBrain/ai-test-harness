@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LlamaBrain/ai-test-harness/ath-visual/result-v1",
+  "title": "AITH native visual result v1",
+  "type": "object",
+  "required": ["schemaVersion", "outcome"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "outcome": {"enum": ["pass", "fail", "inconclusive", "infrastructure-error"]},
+    "error": {"type": "string"},
+    "results": {"type": "array", "minItems": 1, "items": {"$ref": "#"}},
+    "image": {
+      "type": "object", "required": ["width", "height"],
+      "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}}
+    },
+    "policy": {"type": "object", "required": ["id", "version", "source", "minHeightPx", "minContrastRatio"], "properties": {"source": {"type": "string", "minLength": 1, "pattern": "\\S"}}},
+    "context": {"type": "object"},
+    "coverage": {
+      "type": "object", "required": ["mode", "expected", "measured", "limitations"],
+      "properties": {
+        "mode": {"enum": ["manifest", "best-effort"]},
+        "expected": {"type": "integer", "minimum": 0},
+        "measured": {"type": "integer", "minimum": 0},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "findings": {
+      "type": "array", "items": {
+        "type": "object", "required": ["ruleId", "elementId", "outcome", "bounds", "measuredHeightPx", "contrastRatio", "detectionConfidence", "measurementConfidence", "message"],
+        "properties": {
+          "ruleId": {"enum": ["text.height", "text.contrast", "text.clipping", "text.adjustability"]},
+          "elementId": {"type": "string"}, "message": {"type": "string"},
+          "outcome": {"enum": ["pass", "fail", "inconclusive"]},
+          "bounds": {
+            "type": ["object", "null"], "required": ["x", "y", "width", "height"],
+            "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}, "width": {"type": "integer"}, "height": {"type": "integer"}}
+          },
+          "measuredHeightPx": {"type": ["integer", "null"], "minimum": 1},
+          "contrastRatio": {"type": ["number", "null"], "minimum": 1, "maximum": 21},
+          "detectionConfidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "measurementConfidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  },
+  "allOf": [{
+    "if": {"required": ["results"]},
+    "then": {},
+    "else": {
+      "if": {"properties": {"outcome": {"const": "infrastructure-error"}}},
+      "then": {"required": ["error"]},
+      "else": {"required": ["image", "policy", "context", "coverage", "findings"]}
+    }
+  }]
+}

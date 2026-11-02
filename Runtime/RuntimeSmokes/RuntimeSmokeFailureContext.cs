@@ -39,6 +39,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         public int assertionSchemaVersion;
         public string assertionId;
         public string assertionName;
+        public string visualEvidenceJson;
         public string assertionComparison;
         public string assertionPredicate;
         public string assertionClassification;
@@ -163,6 +164,7 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 assertionSchemaVersion = assertion == null ? 0 : assertion.AssertionSchemaVersion,
                 assertionId = assertion == null ? null : assertion.AssertionId,
                 assertionName = assertion == null ? null : assertion.AssertionName,
+                visualEvidenceJson = assertion?.VisualEvidenceJson,
                 assertionComparison = assertion == null ? null : RuntimeSmokeAssertionSchema.ComparisonLabel(assertion.Comparison),
                 assertionPredicate = assertion == null ? null : assertion.Predicate,
                 assertionClassification = assertion == null ? null : assertion.Classification,

@@ -115,6 +115,39 @@ event it tested (per the schema's linking conventions). Tracked as a follow-up.
 {"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["fullloop_FAIL_gameview.png","fullloop_FAIL_sceneview.png"]}}
 ```
 
+## Visual verification context
+
+The existing `ath.smoke.completed` envelope remains schema version 1. An optional
+`payload.visual_verification` array contains projections of completed RuntimeSmoke
+visual assertions. Each entry records `correlation_id`, `workflow_id`, `step_id`,
+`policy_id`, `policy_version`, `outcome` (`pass`, `fail`, or `inconclusive`),
+`findings_summary`, optional `build_identity` and `baseline_identity`, and
+`artifacts` containing `{path, sha256}` references. `artifact_base` is
+`runtime_smoke_run`: these paths resolve under the existing run directory for the
+correlation, not under the trace media directory. Screenshots are never copied into
+a second capture system. Project and commit remain in the unchanged envelope refs.
+
+To include this context, supply the completed run's `correlationId` to the existing
+`ath-trace-emit` tool. The tool reads the registered transcript, verifies matching
+correlation/workflow/step identities, and rechecks screenshot, result and annotation
+hashes before emitting. Missing evidence, unsafe paths, reparse points, changed
+artifacts, or a caller classification that disagrees with the terminal RuntimeSmoke
+state returns `bad_visual_evidence` without writing an event. Caller-supplied JSON
+cannot create visual acceptance. Baseline identity is reserved for verified
+comparison projections; the current runtime assertion has no baseline and emits null.
+
+The trace remains ancillary evidence: it cannot override the authoritative
+RuntimeSmoke terminal result. Storage continues through `AthTraceEmitter` under
+`.captain-sdlc/trace/`, preserving the existing ignored trace/side-store rules.
+
+AI clients use `ath-runtime-smoke-list`, `ath-runtime-smoke-run`, and
+`ath-runtime-smoke-status`. Status transcript records and failure context expose
+`visualEvidenceJson` with correlated receipts and artifact references. Agents can
+open the result and annotated image, modify the consuming UI, capture again and
+rerun the same typed workflow. No additional AI tool or subscription is needed.
+For offline files, `ath-exe visual analyze`, `audit`, `compare`, and `report` expose
+structured deterministic results independently of Unity or Captain.
+
 ## Deferred (not in the first cut)
 
 - **Perf "envelope summary"** in the payload — the schema mentions it, but the

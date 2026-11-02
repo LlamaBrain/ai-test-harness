@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "verified": true,
+  "checks": [
+    {
+      "operation": "analyze-pass",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "analyze-fail",
+      "expected": "fail",
+      "exitCode": 1
+    },
+    {
+      "operation": "adjustability-unproven",
+      "expected": "inconclusive",
+      "exitCode": 2
+    },
+    {
+      "operation": "report",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "optional-id",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "optional-id-report",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "unlocated",
+      "expected": "inconclusive",
+      "exitCode": 2
+    },
+    {
+      "operation": "unlocated-report",
+      "expected": "inconclusive",
+      "exitCode": 2
+    },
+    {
+      "operation": "compare-identical",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "compare-policy-mismatch",
+      "expected": "infrastructure-error",
+      "exitCode": 3
+    },
+    {
+      "operation": "audit",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "audit-report",
+      "expected": "pass",
+      "exitCode": 0
+    },
+    {
+      "operation": "duplicate-output",
+      "expected": "infrastructure-error",
+      "exitCode": 3
+    }
+  ],
+  "analyzerBytes": 228864,
+  "modelBytes": 2423490,
+  "analyzerSha256": "136e46e617bfd97ff0e204ec53e6408bb04108b71e5b0cd7bde1c0b45301b937",
+  "modelSha256": "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587"
+}

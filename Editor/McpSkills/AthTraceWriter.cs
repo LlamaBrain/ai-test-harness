@@ -20,6 +20,7 @@
 
 using System.Globalization;
 using System.Text;
+using System;
 
 namespace LlamaBrainLabs.Ath.Editor.McpSkills
 {
@@ -48,6 +49,22 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
         public string?  FailedStep;    // null/empty when Passed
         public string?  Summary;
         public string[]? Artifacts;
+        public AthVisualVerificationTrace[]? VisualVerifications;
+    }
+
+    internal sealed class AthVisualTraceArtifact
+    {
+        public string Path = "";
+        public string Sha256 = "";
+    }
+
+    /// <summary>Ancillary projection of verified RuntimeSmoke evidence, never an acceptance authority.</summary>
+    internal sealed class AthVisualVerificationTrace
+    {
+        public string CorrelationId = "", WorkflowId = "", StepId = "";
+        public string PolicyId = "", PolicyVersion = "", Outcome = "", FindingsSummary = "";
+        public string? BuildIdentity, BaselineIdentity;
+        public AthVisualTraceArtifact[] Artifacts = Array.Empty<AthVisualTraceArtifact>();
     }
 
     internal static class AthTraceWriter
@@ -91,6 +108,16 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
             sb.Append(",\"failed_step\":").Append(ev.Passed ? "null" : NullableStr(ev.FailedStep));
             sb.Append(",\"summary\":").Append(NullableStr(ev.Summary));
             sb.Append(",\"artifacts\":").Append(Arr(ev.Artifacts));
+            if (ev.VisualVerifications != null && ev.VisualVerifications.Length > 0)
+            {
+                sb.Append(",\"visual_verification\":[");
+                for (int i = 0; i < ev.VisualVerifications.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    AppendVisual(sb, ev.VisualVerifications[i]);
+                }
+                sb.Append(']');
+            }
             sb.Append('}');
 
             sb.Append('}');
@@ -98,6 +125,42 @@ namespace LlamaBrainLabs.Ath.Editor.McpSkills
         }
 
         // --- JSON helpers (RFC 8259) ---
+
+        static void AppendVisual(StringBuilder sb, AthVisualVerificationTrace visual)
+        {
+            if (visual == null || string.IsNullOrWhiteSpace(visual.CorrelationId) || string.IsNullOrWhiteSpace(visual.WorkflowId) ||
+                string.IsNullOrWhiteSpace(visual.StepId) || string.IsNullOrWhiteSpace(visual.PolicyId) || string.IsNullOrWhiteSpace(visual.PolicyVersion) ||
+                (visual.Outcome != "pass" && visual.Outcome != "fail" && visual.Outcome != "inconclusive") || visual.Artifacts == null || visual.Artifacts.Length == 0)
+                throw new ArgumentException("Visual trace requires verified identity, policy, outcome and artifact references.");
+            sb.Append("{\"correlation_id\":").Append(Str(visual.CorrelationId));
+            sb.Append(",\"workflow_id\":").Append(Str(visual.WorkflowId));
+            sb.Append(",\"step_id\":").Append(Str(visual.StepId));
+            sb.Append(",\"policy_id\":").Append(Str(visual.PolicyId));
+            sb.Append(",\"policy_version\":").Append(Str(visual.PolicyVersion));
+            sb.Append(",\"outcome\":").Append(Str(visual.Outcome));
+            sb.Append(",\"findings_summary\":").Append(Str(visual.FindingsSummary));
+            sb.Append(",\"build_identity\":").Append(NullableStr(visual.BuildIdentity));
+            sb.Append(",\"baseline_identity\":").Append(NullableStr(visual.BaselineIdentity));
+            sb.Append(",\"artifact_base\":\"runtime_smoke_run\",\"artifacts\":[");
+            for (int i = 0; i < visual.Artifacts.Length; i++)
+            {
+                var artifact = visual.Artifacts[i];
+                if (artifact == null || !SafeArtifact(artifact.Path) || artifact.Sha256 == null || artifact.Sha256.Length != 64)
+                    throw new ArgumentException("Invalid visual artifact reference.");
+                foreach (char c in artifact.Sha256) if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) throw new ArgumentException("Invalid visual artifact digest.");
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"path\":").Append(Str(artifact.Path)).Append(",\"sha256\":").Append(Str(artifact.Sha256)).Append('}');
+            }
+            sb.Append("]}");
+        }
+
+        internal static bool SafeArtifact(string value)
+        {
+            if (string.IsNullOrEmpty(value) || value.StartsWith("/", StringComparison.Ordinal) || value.Contains("\\") || value.Contains(":")) return false;
+            foreach (var part in value.Split('/')) if (part.Length == 0 || part == "." || part == "..") return false;
+            foreach (var c in value) if (char.IsControl(c)) return false;
+            return true;
+        }
 
         /// <summary>A required string → quoted+escaped (never the bare null literal).</summary>
         static string Str(string? s) => Quote(s ?? "");

@@ -148,18 +148,40 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
         private readonly Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeTranscriptSink> _transcriptFactory;
         private readonly Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeCleanup> _cleanupFactory;
         private readonly Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeInvestigationAdapter> _investigationAdapterFactory;
+        private readonly Func<RuntimeSmokeCompiledWorkflow, string, string, RuntimeSmokeVisualAnalyzer> _visualAnalyzerFactory;
 
         public RuntimeSmokeRunRegistry(IRuntimeSmokeWorkflowCatalog catalog,
             Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeStepAdapter> adapterFactory,
             Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeTranscriptSink> transcriptFactory,
             Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeCleanup> cleanupFactory = null,
-            Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeInvestigationAdapter> investigationAdapterFactory = null)
+            Func<RuntimeSmokeCompiledWorkflow, string, IRuntimeSmokeInvestigationAdapter> investigationAdapterFactory = null,
+            Func<RuntimeSmokeCompiledWorkflow, string, string, RuntimeSmokeVisualAnalyzer> visualAnalyzerFactory = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _adapterFactory = adapterFactory ?? throw new ArgumentNullException(nameof(adapterFactory));
             _transcriptFactory = transcriptFactory ?? throw new ArgumentNullException(nameof(transcriptFactory));
             _cleanupFactory = cleanupFactory;
             _investigationAdapterFactory = investigationAdapterFactory;
+            _visualAnalyzerFactory = visualAnalyzerFactory;
+        }
+
+        private RuntimeSmokeVisualAnalyzer CreateVisualAnalyzer(Session session)
+        {
+            if (!session.Workflow.Steps.Any(step => step.Assertion?.Visual != null)) return null;
+            if (_visualAnalyzerFactory != null) return _visualAnalyzerFactory(session.Workflow, session.CorrelationId, session.ArtifactDirectory);
+            var configuration = RuntimeSmokeVisualConfiguration.FromEnvironment();
+            return configuration?.CreateAnalyzer(session.ArtifactDirectory, label =>
+            {
+                lock (session.Gate)
+                {
+                    var records = session.Records.Where(record => record.correlationId == session.CorrelationId &&
+                        record.workflowId == session.Workflow.Id && record.scriptHash == session.Workflow.CanonicalHash).ToArray();
+                    var receipt = RuntimeSmokeFailureContextWriter.ReadCaptureArtifacts(session.Workflow, records)
+                        .SingleOrDefault(item => item.path == "captures/" + label + ".png");
+                    return receipt == null ? null : new RuntimeSmokeVisualCapture(session.CorrelationId, session.Workflow.Id,
+                        new RuntimeSmokeCaptureArtifactReceipt(receipt.path,receipt.bytes,receipt.sha256));
+                }
+            });
         }
 
         public IReadOnlyList<RuntimeSmokeWorkflowListItem> List(RuntimeSmokeTarget target, RuntimeSmokeMode mode)
@@ -220,7 +242,8 @@ namespace LlamaBrainLabs.Ath.RuntimeSmokes
                 var executionTask = RuntimeSmokeCoordinator.RunAsync(workflow, correlationId, adapter,
                     session.Sink, cleanup, () => session.CancelRequested,
                     waitForCheckpointResumeAsync: session.WaitForCheckpointResumeAsync, scenario: scenario, seed: seed,
-                    playerLaunchOptions: RuntimeSmokePlayerLaunchOptions.FromEnvironment());
+                    playerLaunchOptions: RuntimeSmokePlayerLaunchOptions.FromEnvironment(),
+                    visualAnalyzer: CreateVisualAnalyzer(session));
                 lock (session.Gate) session.Task = executionTask;
                 return new RuntimeSmokeRegistryCommandResult { Accepted = true, Status = "running", CorrelationId = correlationId };
             }

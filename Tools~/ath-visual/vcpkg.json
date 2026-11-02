@@ -1,0 +1,9 @@
+{
+  "name": "ath-visual",
+  "version-string": "0.1.0",
+  "builtin-baseline": "af839a44c17a927468f35c7a65e200aeba337da4",
+  "dependencies": [
+    { "name": "opencv4", "default-features": false, "features": ["dnn", "png"] },
+    "nlohmann-json"
+  ]
+}

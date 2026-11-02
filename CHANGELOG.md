@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Accept optional manifest identifiers and unlocated required regions with explicit uncertainty, require policy provenance metadata, and separate native executable limits from screenshot limits for Linux static builds (v0.10.2).
+
+- Maintain native result determinism checks across sequential processes, concurrent processes and shared-model batch entries (v0.10.1).
+
+- Configure trusted visual analysis through the existing RuntimeSmoke registry for stock MCP checkpoint/capture/resume workflows, preserving custom factory precedence and legacy behavior. Enforce adjustable-capability uncertainty and resolved policy scaling across native/CLI/RuntimeSmoke; 100 Unity tests, 96 Node tests and 216 labeled threshold cases passed (v0.10.0).
+
+- Bind visual reports to retained input, policy, manifest and measured identities; reject incomplete coverage and uncorroborated PASS. Audit schema 2 retains the original screen list; legacy audits require rerun. Node 94/94 and real CLI 9/9 passed (v0.9.3).
+
+- Add engine-free Windows/Linux CI, pinned model setup, independent font fixtures, real CLI verification, dependency notice validation and reproducible benchmark scripts (v0.9.2).
+
+- Harden glyph grouping, detector association and ambiguous mixed-size measurements; verify 72 real-font threshold cases and five model adversarial cases, and retain CPU measurements (v0.9.1).
+
+- Integrate typed visual assertions and verified native evidence into RuntimeSmoke coordination, suites, JSONL/JUnit/failure reporting, and existing Captain trace/MCP surfaces; isolated Unity validation passed 98 tests including six real native suite scenarios (v0.9.0).
+
+- Add standalone CPU C++20 PNG analysis, PP-OCR detection, pixel-height and independent contrast measurements, strict manifests, batch model reuse, annotations, and native tests; real-font corpus coverage remains under validation (v0.8.0).
+
+- Add offline visual analyze/audit/compare/report CLI operations, policy profiles, bounded native execution, immutable evidence receipts, and batch validation; native end-to-end verification remains pending (v0.7.0).
+
+- Record visual accessibility integration points, cross-engine compatibility, and verification baseline; implementation and runtime acceptance remain pending (v0.6.2).
+
 - Retain the historical migration-audit appendix and source-cleanup disposition while collecting all reviewed branch histories on dev (v0.6.1).
 - Re-audited current AITH RuntimeSmoke docs, API references, CLI/MCP examples, minimal-host guidance, and local links at reviewed commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2); consumer integration and runtime proofs remain host-owned. (v0.5.2)
 
