@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add engine-free Windows/Linux CI, pinned model setup, independent font fixtures, real CLI verification, dependency notice validation and reproducible benchmark scripts (v0.9.2).
+
 - Harden glyph grouping, detector association and ambiguous mixed-size measurements; verify 72 real-font threshold cases and five model adversarial cases, and retain CPU measurements (v0.9.1).
 
 - Integrate typed visual assertions and verified native evidence into RuntimeSmoke coordination, suites, JSONL/JUnit/failure reporting, and existing Captain trace/MCP surfaces; isolated Unity validation passed 98 tests including six real native suite scenarios (v0.9.0).

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "name": "PP-OCRv3 English detection",
+  "file": "text_detection_en_ppocrv3_2023may.onnx",
+  "revision": "48b10fa505aeb51fbd127fc60a5c660040e823b7",
+  "sha256": "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587",
+  "bytes": 2423490,
+  "license": "Apache-2.0",
+  "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx",
+  "licenseUrl": "https://raw.githubusercontent.com/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/LICENSE",
+  "upstream": "https://paddleocr.bj.bcebos.com/PP-OCRv3/english/en_PP-OCRv3_det_infer.tar",
+  "bundled": false
+}

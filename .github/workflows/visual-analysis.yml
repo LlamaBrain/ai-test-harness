@@ -1,0 +1,105 @@
+name: Visual analysis
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU analysis dependencies
+        run: |
+          python -m pip install jsonschema==4.23.0 Pillow==12.0.0
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update && sudo apt-get install -y cmake ninja-build fonts-dejavu-core
+          fi
+          git clone https://github.com/microsoft/vcpkg.git build/vcpkg
+          git -C build/vcpkg checkout af839a44c17a927468f35c7a65e200aeba337da4
+          if [ "$RUNNER_OS" = Windows ]; then
+            cmd //c build\\vcpkg\\bootstrap-vcpkg.bat -disableMetrics
+          else
+            build/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          fi
+      - name: Configure
+        run: cmake -S Tools~/ath-visual -B build/visual -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      - name: Build
+        run: cmake --build build/visual --config Release --parallel 2
+      - name: Validate dependency notices
+        run: |
+          python3 Tools~/visual-verification/test_licenses.py
+          python3 Tools~/visual-verification/licenses.py build/visual/vcpkg_installed build/visual/dependency-notices
+      - name: Unit and golden masks
+        run: ctest --test-dir build/visual -C Release --output-on-failure
+      - name: Real executable examples and schema validation
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            python Tools~/visual-verification/example.py build/visual/Release/ath-visual.exe build/visual
+          else
+            python3 Tools~/visual-verification/example.py build/visual/ath-visual build/visual
+          fi
+      - name: CLI regression
+        working-directory: Tools~/ath-exe-client
+        run: node --test
+      - name: Verify model and generate labeled real-font fixtures
+        run: |
+          python Tools~/visual-verification/fetch-model.py build/models
+          if [ "$RUNNER_OS" = Windows ]; then
+            python Tools~/visual-verification/font-fixtures.py --font C:/Windows/Fonts/arial.ttf --out build/font-fixtures
+          else
+            python Tools~/visual-verification/font-fixtures.py --font /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf --out build/font-fixtures
+          fi
+      - name: Real-font model inference and ground truth
+        run: |
+          python Tools~/visual-verification/check-font-fixtures.py --self-test
+          if [ "$RUNNER_OS" = Windows ]; then
+            analyzer=build/visual/Release/ath-visual.exe
+          else
+            analyzer=build/visual/ath-visual
+          fi
+          python Tools~/visual-verification/check-font-fixtures.py --analyzer "$analyzer" --model build/models/text_detection_en_ppocrv3_2023may.onnx --fixtures build/font-fixtures --out build/font-results
+          python Tools~/ath-visual/tests/model_test.py "$analyzer" build/models/text_detection_en_ppocrv3_2023may.onnx build/font-fixtures/representative-1080-light.png build/font-fixtures/representative-1080-light.json
+      - name: Existing ath-exe end-to-end verification
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            analyzer=build/visual/Release/ath-visual.exe
+          else
+            analyzer=build/visual/ath-visual
+          fi
+          python Tools~/visual-verification/check-cli-fixtures.py --self-test
+          python Tools~/visual-verification/check-cli-fixtures.py --analyzer "$analyzer" --model build/models/text_detection_en_ppocrv3_2023may.onnx --fixtures build/font-fixtures --out build/cli-results
+      - name: CPU measurements
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            build/visual/Release/ath_visual_benchmark.exe build/models/text_detection_en_ppocrv3_2023may.onnx > build/visual/benchmark.json
+          else
+            build/visual/ath_visual_benchmark build/models/text_detection_en_ppocrv3_2023may.onnx > build/visual/benchmark.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-verification-${{ matrix.os }}
+          path: |
+            build/visual/Testing
+            build/visual/example-*
+            build/visual/fixture-*.png
+            build/visual/dependency-notices
+            build/visual/benchmark.json
+            build/font-fixtures
+            build/font-results
+            build/cli-results
