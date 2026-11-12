@@ -1,53 +1,16 @@
-# AI Test Harness skills
+# AITH skill references
 
-These generic workflows exercise ATH through the shared CLI/MCP or existing Unity
-Editor tools. They do not require a particular game's player, items or replay
-mechanics.
+RuntimeSmoke is the supported smoke orchestration and acceptance practice. A host authors checked-in RuntimeSmoke workflow JSON and runs it through the host bridge using the Editor window, typed MCP tools, or the structured `ath-exe runtime-smoke` runner. See [RuntimeSmoke usage and authoring](../Documentation~/runtime-smoke-usage.md) and the [RuntimeSmoke contract](../Documentation~/runtime-smokes.md).
 
-| Skill | Scope |
-|---|---|
-| `ath-unreal-smoke` | Runnable ATH fixture/world/evidence workflow in any instrumented Unreal project. |
-| `ath-exe-smoke` | Built Unity player template; fill in the host's scenario. |
-| `ath-feature-demo` | Unity Editor/Recorder capture template; fill in feature commands. |
+The retired Unity procedural smoke documents predate RuntimeSmoke and are retained only as historical implementation context. They are not active acceptance instructions, must not be copied into a host as acceptance workflows, and cannot establish PASS through command output, state polling, screenshot presence, or trace emission. Host repositories should remove or replace copied versions as part of their own documented migration; that consumer work is not performed by this package.
 
-BeforeTheShade's original `ath-smoke-fullloop` is preserved under
-[`HostWorkflows~/BeforeTheShade/`](../HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md).
-Its old generic skill directory contains a relocation pointer. Existing installed
-copies keep working; new generic installations should not copy this gameplay
-workflow. Project-specific smokes belong in the consuming project or a host bridge
-plugin.
+Low-level command usage may still be useful for a narrowly scoped diagnostic. Label such a procedure diagnostic-only, link the relevant host RuntimeSmoke workflow, and keep its outcome distinct from the workflow's structured result. Do not add new procedural smoke skills or templates.
 
-## Install
+## Retired package documents
 
-Skills are not auto-discovered by UPM. Copy or link only the selected directory
-into `<project>/.claude/skills/<name>/` (or the agent client's skill directory).
+- [`HostWorkflows~/BeforeTheShade/ath-smoke-fullloop`](../HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md): retired BTS-specific command-driven reference. It does not establish current BTS workflow coverage or acceptance; consult BTS-owned workflow docs and run evidence for that status.
+- `ath-exe-smoke/SKILL.md`: historical manual EXE command/wait template, retained only as investigation context. Built-player acceptance uses the canonical `ath-exe runtime-smoke` or `runtime-smoke-suite` runner with a declared host workflow and exact-artifact evidence; the retired file is not its authoring guide.
 
-```sh
-cp -r <ath>/Skills/ath-unreal-smoke <project>/.claude/skills/
-# Linux/macOS alternative:
-ln -s <ath>/Skills/ath-unreal-smoke <project>/.claude/skills/ath-unreal-smoke
-```
+Optional capture reference: [ath-feature-demo](ath-feature-demo/SKILL.md) describes media collection alongside a host-owned checkpoint; it defines no independent smoke verdict.
 
-```powershell
-# Windows development link:
-New-Item -ItemType Junction -Path '<project>/.claude/skills/ath-unreal-smoke' -Target '<ath>/Skills/ath-unreal-smoke'
-```
-
-Inspect an existing destination before changing a link. Skills carry a `version`
-frontmatter value; compare the live `package_version` state or runtime
-`ath version --port <port>` with `0.3.1` before running. Recopy stale skills after
-upgrading the package.
-
-## Author
-
-Declare the host capability requirements and expected values. Use registered
-commands for mutations and cheap state queries for observations. Reset sticky
-flags before the triggering action; never reset between that action and its
-wait. Track asynchronous operations by the returned correlation ID and inspect
-their success separately from completion.
-
-Define explicit pass criteria, timeouts and first-failure diagnostics. Emit
-`ath.smoke.completed` on both pass and fail and keep evidence beneath the
-consuming project's `.captain-sdlc/trace/`. Shared trace emission requires neither
-engine nor Unity Editor. See [shared tooling](../Documentation~/shared-tooling.md)
-and [trace events](../Documentation~/trace-events.md).
+The [Unreal fixture workflow](ath-unreal-smoke/SKILL.md) exercises the instrumented Unreal host through the shared CLI. Its engine-specific fixture result is separate from Unity RuntimeSmoke and consumer acceptance.

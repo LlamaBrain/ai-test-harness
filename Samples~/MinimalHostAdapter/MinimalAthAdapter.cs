@@ -1,11 +1,12 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-// MinimalAthAdapter — no-op IAthHostAdapter for fresh-project smoke testing.
+// MinimalAthAdapter — no-op IAthHostAdapter for a fresh-project boundary check.
 //
 // This sample exists to prove that the LlamaBrainLabs.Ath.Runtime asmdef is
 // genuinely independent: it compiles against ONLY the Runtime asmdef
-// (no Commands, no Editor, no IngameDebugConsole, no MCP). The Phase 4b
-// fresh-project dry-run imports this sample, registers it from a one-line
-// bootstrap, and verifies `ath-state host_name` returns "MinimalHostAdapter".
+// (no Commands, no Editor, no IngameDebugConsole, no MCP). The planned Phase 8
+// clean-project check imports this sample and confirms its adapter compiles
+// against Runtime alone. That Unity check has not yet been recorded as passed;
+// host_name and sample_marker are diagnostic state, not smoke acceptance.
 //
 // Every method here is the simplest legal implementation. Real hosts
 // (BtsAthAdapter, future-host adapters) should crib structure from this
@@ -44,8 +45,8 @@ namespace LlamaBrainLabs.Ath.Samples
 
         public bool TryGetCustomState(string key, out string value)
         {
-            // The minimal adapter recognizes one custom key as a smoke
-            // signal: "sample_marker" → "minimal-ok".
+            // The minimal adapter recognizes one custom key for adapter-wiring
+            // diagnostics: "sample_marker" → "minimal-ok".
             if (key == "sample_marker") { value = "minimal-ok"; return true; }
             value = "";
             return false;

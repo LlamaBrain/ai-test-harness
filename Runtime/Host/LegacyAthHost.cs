@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE || SMOKE_HARNESS
 namespace LlamaBrainLabs.Ath
 {
     /// <summary>Compatibility view; AthServices retains ownership of the original adapter.</summary>

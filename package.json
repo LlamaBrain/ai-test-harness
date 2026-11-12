@@ -1,8 +1,8 @@
 {
   "name": "com.llamabrainlabs.ai-test-harness",
-  "version": "0.3.2",
+  "version": "0.6.2",
   "displayName": "AI Test Harness",
-  "description": "AI Test Harness Unity integration, portable Node CLI/MCP tooling, and independently installable native Unreal Engine plugin. Commands, states, waits, events, screenshots and Captain SDLC evidence share the existing CMD/OK/ERR protocol.",
+  "description": "Unity host-owned RuntimeSmoke workflows, portable Node CLI/MCP tooling, and an independently installable Unreal plugin. Shared command, state, wait, event and screenshot diagnostics preserve protocol v1; legacy skill files do not establish RuntimeSmoke acceptance.",
   "unity": "2022.3",
   "author": {
     "name": "Michael Tiller",
@@ -24,7 +24,7 @@
   "samples": [
     {
       "displayName": "Minimal Host Adapter",
-      "description": "No-op IAthHostAdapter that proves the Runtime asmdef is independent of Commands/Editor/IngameDebugConsole/MCP. Used for the fresh-project dry-run.",
+      "description": "No-op IAthHostAdapter sample for the planned Phase 8 clean-project boundary check. Runtime-only asmdef reference; clean-project Unity compilation and diagnostic registration are not yet verified.",
       "path": "Samples~/MinimalHostAdapter"
     }
   ],

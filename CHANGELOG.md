@@ -7,98 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Captain SDLC policy for engine-independent build, protocol, smoke and host
-  contract checks, with generated build output restricted to its core slot.
-- Blueprint host nodes for session-guarded event observation and asynchronous
-  completion, preventing delayed callbacks from entering a replacement session.
-- Shared engine-independent Node client, `ath` CLI alias, capability/version
-  discovery, registered JSON command execution, bounded/cancellable predicate
-  waits, fixture smoke orchestration and standalone MCP tools. The existing
-  `ath-exe` entrypoint and newline/sentinel protocol remain supported.
-- Native `Unreal~/Ath` plugin with opt-in loopback transport, Game Thread
-  dispatch, deterministic runtime-world targeting, registered native/Blueprint
-  hosts, named states/events, bounded asynchronous completion and screenshots.
-  Normal Shipping/Test targets exclude its runtime module.
-- Portable ATH counter fixture, generic Unreal smoke skill and separate
-  KinecadeSandbox acceptance runner. The reusable plugin has no Lyra or
-  Kinecade gameplay dependency.
-- Engine-free Captain `ath.smoke.completed` emission and consuming-project
-  report/media artifacts. Existing schema-v1 fields remain intact; smoke ID,
-  engine/version, build mode, elapsed time and diagnostics are additive payload
-  context.
-- Architecture audit, protocol contract, shared-tooling guide, Unreal
-  installation/acceptance procedure and explicit verification matrix.
-- **Un-tagged dispatch (`!raw`)** — the remote console appends its own correlation
-  id to every command, but `IngameDebugConsole` matches commands on *exact* arity,
-  so any console method that defines only the bare overload could not be driven
-  from a built player at all: the appended id made dispatch fail. A request may now
-  be prefixed `!raw ` (client: `ath-exe cmd --raw "<command>"`), which dispatches
-  verbatim, appends no id, and captures no log lines — the wire equivalent of the
-  editor tool's `tagId:false`. The response is `success` when the command dispatched
-  without throwing; assert through `state` instead of sentinels. Found while driving
-  a host's building smoke, where the world-geometry and dev-spawn commands
-  (`room.block`, `wo.seed.chest`, `creative.on`, …) are all bare-overload.
-- Footage capture for HITL-validation evidence (ADR-0014), two tiers that feed
-  the trace `artifacts` field:
-  - **Tier 1 — `ath-snap`** (editor MCP tool, no new dependency): captures a
-    Game-view PNG under `<project>/.captain-sdlc/trace/media/` and returns a
-    trace-relative `media/<file>` path for `ath-trace-emit`. Non-blocking —
-    `action:"capture"` returns `pending` + a `CaptureId` (Unity writes the file
-    at end-of-frame); `action:"query"` reports `ok` with width/height/size once
-    the PNG lands (by `CaptureId`, or by trace-relative `path` after a domain
-    reload). Never spins the main thread.
-  - **Tier 2 — `ath-record`** (opt-in soft dependency on `com.unity.recorder`
-    >= 4.0.0): records the Game view to mp4 via Unity Recorder; `start`/`stop`/
-    `query` with session state persisted across calls. The real implementation
-    lives in a separate `defineConstraints`-gated assembly
-    (`LlamaBrainLabs.Ath.Editor.Recorder`, define `ATH_RECORDER`); a base-assembly
-    stub returns `recorder_unavailable` when Recorder isn't installed, so the
-    tool always exists and degrades cleanly. Recordings flush on PlayMode exit
-    and before domain reload; `query` reports `Finalized` only once the mp4 size
-    is stable across >=2 polls.
-- `AthMediaUtil` — pure, unit-tested helpers (media dir, label sanitization,
-  trace-relative path safety + resolution, PNG-header dimension read), mirroring
-  the `AthTraceWriter`/`AthTraceEmitter` split.
-- First EditMode test assembly (`LlamaBrainLabs.Ath.Editor.Tests`) with unit
-  tests for the pure helpers.
-- `ath-feature-demo` — a host-agnostic SKILL **template** that brackets a feature
-  demonstration with `ath-record`/`ath-snap` and emits the trace with the footage
-  attached. Host-specific smokes stay in the consuming project.
+- Integrate the cross-engine Unity/Unreal host and shared tooling with dev's RuntimeSmoke, capture, and raw dispatch changes; preserve their separate verification and acceptance boundaries (v0.6.2).
+- Add the native Unreal plugin, generic host contracts, shared Node client and MCP server, capability discovery, session-guarded observations, and portable fixture tooling. See `Documentation~/verification.md` for the original revision-bound evidence.
+- Preserve the Unity `ath-snap` and optional Recorder capture tools, raw remote-console dispatch, and engine-free trace emission as diagnostic or review evidence. RuntimeSmoke retains its structured acceptance contract.
+- Keep the BeforeTheShade full-loop procedure as a retired host-specific reference and retain the generic Unreal fixture workflow separately.
 
-### Changed
-- Synchronize the Unity package, shared CLI, Unreal plugin and active skills at
-  version `0.3.1` for the Captain policy and merge record.
-- Added a generic host contract alongside the unchanged Unity legacy adapter
-  contract; new hosts do not require player/item/ghost properties. Existing
-  Unity package/assembly identity and Editor MCP integration remain available.
-- BeforeTheShade's full-loop skill is preserved under
-  `HostWorkflows~/BeforeTheShade/ath-smoke-fullloop`; its former generic skill
-  directory now points to the host-specific procedure. Existing installed
-  copies retain the original name and version.
-- `ath-trace-emit` now validates each `artifacts` entry: only safe trace-relative
-  paths are accepted (normally `media/<file>`); absolute/rooted, `..`, and
-  backslash paths are rejected with `Status=bad_artifact` and no event is written.
-- `AthTraceEmitter.EnsureGitignore` is now idempotent-append — it preserves an
-  existing `.captain-sdlc/.gitignore` and adds only the missing `trace/` /
-  `side-store/` lines (fixing a pre-existing-file gap), so captured media under
-  `trace/media/` is reliably ignored.
+- Retain the historical migration-audit appendix and source-cleanup disposition while collecting all reviewed branch histories on dev (v0.6.1).
+- Re-audited current AITH RuntimeSmoke docs, API references, CLI/MCP examples, minimal-host guidance, and local links at reviewed commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2); consumer integration and runtime proofs remain host-owned. (v0.5.2)
+
+- Combine retained Game-view/Recorder capture and raw EXE dispatch with the modern RuntimeSmoke platform, legacy-trace boundary and compiler repairs; preserve test discovery and existing Unity GUIDs (v0.6.0).
+
+- Reconcile the retained runtime-smoke documentation with guarded-nullable compiler repairs; preserve both branch histories and public DTOs (v0.5.4).
+- Make existing RuntimeSmoke failure-code and trace CSV null checks explicit for Unity's compiler; preserve fallback values and trace/status DTO shapes (retained v0.5.2 repair).
+
+- Rebound the migration audit to 0.5.2 and reconciled the documented console and MCP operation lists with the implemented investigate and capture APIs. (v0.5.3)
+
+- Documented the player-lane workflow listing required to generate exact-artifact suite hashes. (v0.5.2)
+
+## [0.5.1] - 2026-09-26
 
 ### Fixed
-- Fence asynchronous Unity observations across host/session replacement, keep
-  duplicate bridge destruction from clearing live observations, and release
-  registered hosts when the active bridge or PlayMode session ends.
-- Reject missing/mismatched command terminals and malformed JSON arguments;
-  preserve host-owned capability metadata during read-only discovery.
+- Normalize Unity-serialized empty RuntimeSmoke continuation metadata to the absent launch value before exact armed-record provenance comparison.
 
-### Note
-- Cross-engine implementation and verified acceptance are tracked separately in
-  `Documentation~/verification.md`. Source tests do not substitute for actual
-  Unity regression, Unreal compilation, PIE/lifecycle or packaged execution.
-- The Recorder integration (`ath-record`) and `ath-snap`'s in-editor capture
-  behavior are **pending live-verify** in a real Unity Editor; the pure helpers
-  are verified by unit tests. Footage capture is not yet released — it ships in a
-  later version once the Recorder/OBS pieces are proven.
+## [0.5.0] - 2026-09-26
+
+### Added
+- Ordered multi-process RuntimeSmoke suite continuations for fresh-process persistence checks, with run-scoped profile handoff bound to each launch and per-stage evidence.
+- Typed continuation stage/profile metadata on player launch options and adapter step context.
+
+## [0.4.1] - 2026-09-25
+
+### Fixed
+- Synchronized the package release, runtime package-version diagnostic, and README install version after the RuntimeSmoke platform release.
+
+## [0.4.0] - 2026-09-25
+
+### Added
+- Initial spec-driven `ath-exe runtime-smoke` launch/watch command with fresh artifact isolation, exact build provenance, bounded process watch, and transcript/result validation; consumer compile and end-to-end player proof remain in progress.
+- Guarded built-player launch argument parsing, full launch/build-evidence digest validation, durable single-use process claims, armed transcript bootstrap, and automatic FSD workflow execution.
+- Contained RuntimeSmoke failure-context JSON and typed registry/MCP export for failed runs.
+- Launch-envelope provenance and single-use claim validation primitives with watchdog result evaluation.
+- Host-controlled HITL review checkpoints with correlated one-time resume, cancellation/deadline unwind, and coordinator-owned bounded sleep pacing.
+- Initial host-neutral RuntimeSmoke document compilation, suite validation,
+  typed assertion schema v1, single-run coordinator, and append-only JSONL
+  transcript sink. Core types are guarded to Editor, development, and the
+  optional `SMOKE_HARNESS` lane; this does not enable `ATH_REMOTE`.
+- Focused compiler/assertion/coordinator EditMode tests and a BTS-owned
+  gameplay-readiness workflow contract test.
+- Host-owned workflow catalog/run registry with list/start/status/cancel MCP
+  and development-console surfaces, plus JUnit projection, bounded in-flight
+  adapter cancellation/deadlines, and host/authored-input artifact containment.
+- Authored scenario/seed fixture identity now flows through compiler hashes,
+  registry discovery and defaults, MCP/window state, transcripts, results,
+  JUnit properties, failure context, and outer-player evidence validation.
+- Direct coordinator calls now reject overrides of authored scenario/seed
+  identity. Assertion failure evidence consistently carries comparison,
+  tolerance, predicate, step, proposition, correlation, and elapsed time through
+  JSONL, result/failure-context JSON, and JUnit properties.
+- Added a host-enforceable investigation-contract schema with content hashes,
+  repository-relative source identity, bounded typed action declarations, and
+  failure-packet/UI workflow discovery projection. The registry now accepts a
+  single declared diagnostic action only for terminal failed runs, bounds and
+  digests its typed result, appends it to the same JSONL transcript, and exposes
+  it through `ath-runtime-smoke-investigate`; host-specific diagnostic bridges
+  and runtime proof remain pending.
+- Failure contexts now bind matching player launch/armed identity, player PID and
+  start time, executable digest, lane/suite/build provenance, and an in-run
+  relative player-log link; mismatched identities and out-of-run log paths are
+  omitted.
+- Named capture receipts are now validated against their declared action,
+  bounded byte count, safe run-local path, and SHA-256 before appearing in
+  failure context and matching Editor/MCP artifact lists. Investigation updates
+  atomically refresh the run-owned failure-context file; end-to-end consumer
+  capture proof remains pending.
+- Failure-state providers can now contribute a typed host snapshot before
+  cleanup, rendered with a deterministic digest and bounded display. Failure
+  context also carries the workflow target/mode and an executable reproduction
+  invocation with a fresh correlation; mismatched launch target/mode no longer
+  enrich the packet with player provenance.
+- Assertion tolerance parsing now preserves the schema-v1 integer/decimal
+  distinction, and authored failure classifications flow through JSONL,
+  result/failure-context JSON, JUnit, MCP snapshots, and the Editor failure view.
+- MCP RuntimeSmoke status now includes the Editor window's run state, progress,
+  checkpoint, artifact directory/names, and declared failed-run investigation actions.
 
 ## [0.3.2] - 2026-11-11
 

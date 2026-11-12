@@ -12,16 +12,10 @@ Agents use shared commands, named state, predicate waits, events, correlated
 asynchronous operations, screenshots and smoke reports through one CLI/MCP
 surface. Native engine integrations remain independently installable.
 
-The package version is `0.3.1`; cross-engine work is currently unreleased.
-The real KinecadeSandbox integration compiled and passed nine native Unreal
-tests, a 26-step nonvisual PIE smoke, and 27-step rendered PIE, standalone and
-packaged Development smokes with screenshot and Captain evidence.
-Shared Node (58), installer/acceptance (15), engine-free C# (9) and final Unity
-regression (34) tests passed. Normal Shipping compiled with zero ATH link inputs;
-its staged listener-absence check and remote CI remain open. Full delivery is
-not yet CI green. See the [verification matrix](Documentation~/verification.md)
-for exact counts, report paths and limits. Historical v0.3 Unity remote-console
-verification remains in [CHANGELOG.md](CHANGELOG.md).
+The integration candidate is version `0.6.2`. Existing cross-engine verification
+is tied to the revisions recorded in the [verification matrix](Documentation~/verification.md);
+consumer integration, current CI and exact-artifact acceptance must be assessed
+against the actual revision and host evidence.
 
 ```text
 Claude / Codex -> shared ATH MCP / CLI -> protocol, predicates, smoke, evidence
@@ -30,6 +24,13 @@ Claude / Codex -> shared ATH MCP / CLI -> protocol, predicates, smoke, evidence
                                        |                   |
                                   Unity project       Unreal project
 ```
+
+Unity's host-neutral RuntimeSmoke compiler, coordinator, Editor window, typed MCP
+operations and built-player runners execute checked-in host workflows. Start with
+the [RuntimeSmoke usage guide](Documentation~/runtime-smoke-usage.md) and
+[contract](Documentation~/runtime-smokes.md). Direct commands, procedural smoke
+skills and caller-supplied trace results are diagnostics, not a substitute for
+the structured Unity RuntimeSmoke result and host build-gate evidence.
 
 The shared Node tooling builds and tests without either engine installed. The
 Unreal plugin uses native C++ and does not consume .NET assemblies or depend on
@@ -57,7 +58,8 @@ ath smoke fixture-smoke.json --port 8787 --project-root <consuming-project> --tr
 Use Node 18 or newer. `ath-exe` remains an alias, and direct
 `node Tools~/ath-exe-client/ath-exe.js ...` invocation remains supported. Runtime
 operations require a launched, explicitly instrumented host with the fixture
-capability. Omit `--rendered` only for an explicitly identified nonvisual smoke.
+capability. This fixture workflow is separate from Unity RuntimeSmoke acceptance.
+Omit `--rendered` only for an explicitly identified nonvisual fixture run.
 
 Read [shared CLI/MCP usage](Documentation~/shared-tooling.md), the
 [wire protocol](Documentation~/protocol.md), and
@@ -97,6 +99,10 @@ mandatory members.
        => LlamaBrainLabs.Ath.AthServices.Register(new MyAthAdapter());
    ```
 
+5. Register the host's checked-in RuntimeSmoke workflows and run them through the
+   [authoring and usage guide](Documentation~/runtime-smoke-usage.md). Built-player
+   acceptance binds the declared workflow and suite results to the exact artifact.
+
 See [adapter contract](Documentation~/adapter-contract.md), the Package Manager
 **Minimal Host Adapter** sample, [Unity operator guide](Documentation~/using-ath.md),
 and [Unity player remote console](Documentation~/exe-harness.md).
@@ -106,6 +112,10 @@ Unity runtime instrumentation stays behind
 remote-console opt-in. Normal uninstrumented releases do not bind a listener.
 The existing Unity Editor tools remain available, including optional Recorder
 video; the shared MCP server does not replace Editor controls.
+`ath-snap` and `ath-record` supply optional review artifacts; Recorder reports
+`recorder_unavailable` when absent. Direct `ath-exe cmd --raw` supports bare
+overload diagnostics. Capture and raw dispatch do not themselves establish a
+RuntimeSmoke verdict.
 
 ## Unreal installation
 
@@ -122,23 +132,23 @@ as verified.
 
 ## Evidence and skills
 
-Shared smoke/trace emission needs no Unity Editor. It writes canonical Captain
-`ath.smoke.completed` schema-v1 events and safe artifact references into the
-**consuming project's** `.captain-sdlc/trace/`. See
-[trace events](Documentation~/trace-events.md).
+Shared smoke/trace emission needs no Unity Editor. It writes Captain
+`ath.smoke.completed` schema-v1 context and safe artifact references into the
+**consuming project's** `.captain-sdlc/trace/`. Its caller-supplied result does
+not replace RuntimeSmoke evidence. See [trace events](Documentation~/trace-events.md).
 
-Generic workflows live under [Skills/](Skills/README.md). The original
-BeforeTheShade full-loop procedure is preserved under
+Guidance and the Unreal fixture workflow live under [Skills/](Skills/README.md).
+The retired BeforeTheShade full-loop reference is preserved under
 [HostWorkflows~/BeforeTheShade/](HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md),
-outside generic distribution. Existing copied BTS skills keep their name and
-version. New gameplay-specific procedures belong in the consuming project.
+outside generic distribution. Host gameplay acceptance belongs in the consuming
+project's checked-in workflows.
 
 ## Repository layout
 
 | Path | Responsibility |
 |---|---|
-| `Runtime/`, `Editor/`, `Tests/`, `Samples~/` | Preserved Unity UPM integration and regression tests. |
-| `Tools~/ath-exe-client/` | Engine-independent protocol, client, CLI, MCP, smoke and trace reporting. |
+| `Runtime/`, `Editor/`, `Tests/`, `Samples~/` | Unity UPM integration, RuntimeSmoke and regression tests. |
+| `Tools~/ath-exe-client/` | Shared protocol, client, CLI, MCP, RuntimeSmoke runners and trace reporting. |
 | `Unreal~/Ath/` | Reusable native plugin and ATH fixture. |
 | `Tools~/unreal-acceptance/` | KinecadeSandbox consumer acceptance workflow. |
 | `Documentation~/` | Architecture, contracts, protocol, installation and evidence. |

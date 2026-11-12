@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE || SMOKE_HARNESS
 // AthStateDispatcher — the switch that maps state keys to adapter + bridge
 // accessors. Relocated from the Editor assembly into Runtime so BOTH the
 // editor ath-state tool AND the in-player harness.state command resolve keys

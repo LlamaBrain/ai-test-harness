@@ -1,4 +1,4 @@
-#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE || SMOKE_HARNESS
 // AthBootstrap — instantiates the AthBridge GameObject before any scene
 // loads. No prefab, no host wiring, no manual scene drop — package self-boots
 // via RuntimeInitializeOnLoadMethod.

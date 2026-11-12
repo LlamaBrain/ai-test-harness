@@ -37,11 +37,6 @@ the Unity project under test (e.g. BeforeTheShade), resolved as the parent of
 writes `.captain-sdlc/.gitignore` (`trace/`, `side-store/`) the first time it
 runs, so traces are never committed by accident.
 
-Capture artifacts (screenshots; later, video) land under `.../trace/media/` and
-are referenced from `artifacts` as trace-relative paths like `media/<file>`.
-Because they live under `trace/`, the same `.gitignore` keeps them out of
-version control.
-
 ## Emitter
 
 The original Unity Editor emitter is preserved below. For engine-independent
@@ -54,11 +49,16 @@ The `ath-trace-emit` editor MCP tool — invoked through the Unity-MCP bridge,
 unity-mcp-cli run-tool ath-trace-emit --input '{"result":"pass","summary":"loop green"}'
 ```
 
-Because an ATH smoke is
-agent-orchestrated — a SKILL drives the editor and the agent computes the
-verdict — there is no single host process to hook. The skill passes the verdict
-and context; the **tool** owns record correctness: it mints the `event_id`,
-stamps the UTC `timestamp`, and pins `schema_version` / `tool` / `tool_version`
+This is a general trace-emission utility. It does not run a RuntimeSmoke,
+validate its result, or establish an acceptance verdict. RuntimeSmoke's
+structured `result.json` and JSONL transcript are the smoke authority; a trace
+event is ancillary context only and must not override a failed, missing, or
+unverified RuntimeSmoke result. For current smoke operations, see the
+[RuntimeSmoke usage guide](runtime-smoke-usage.md).
+
+When a caller is authorized to emit an event, it supplies the payload and
+context; the **tool** owns record correctness: it mints the `event_id`, stamps
+the UTC `timestamp`, and pins `schema_version` / `tool` / `tool_version`
 (`tool_version` = `AthRuntimeFlag.PackageVersion`). Callers never hand-assemble
 the envelope.
 
@@ -85,23 +85,27 @@ and no event is written.
 > Tier-2 motion capture (`ath-record`, Unity Recorder mp4) is an opt-in soft
 > dependency; its payload notes will be added here when it ships.
 
-## Kind: `ath.smoke.completed`
+## Legacy kind payload: `ath.smoke.completed`
 
-Emitted once at the end of an ATH smoke skill, on **both pass and fail** — the
-fail records are what make the backward-walk useful. `tool_version` is bumped
-whenever this payload shape changes (additive changes — new optional fields —
-do not require a `tool_version` bump but are good practice to note).
+This payload shape is retained for trace-history compatibility and explicit
+caller-supplied trace context. It is not automatically emitted by a RuntimeSmoke
+run, and emitting a `result: "pass"` record does not prove or override a smoke
+result. Do not add procedural smoke skills that compute and emit their own
+acceptance verdict. RuntimeSmoke's result and transcript remain authoritative.
+`tool_version` is bumped whenever this payload shape changes (additive changes —
+new optional fields — do not require a `tool_version` bump but are good practice
+to note).
 
 ### Payload fields
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
-| `skill` | string | yes | Skill that produced the verdict, e.g. `ath-smoke-fullloop`. |
-| `skill_version` | string | yes | Skill frontmatter version. Defaults to the package version (the smoke skills track the package in lockstep). |
-| `result` | `"pass"` \| `"fail"` | yes | The smoke verdict. |
+| `skill` | string | yes | Legacy caller-supplied procedure identifier; it is not an accepted RuntimeSmoke identity. |
+| `skill_version` | string | yes | Legacy caller-supplied version field. |
+| `result` | `"pass"` \| `"fail"` | yes | Legacy caller assertion for trace history only; it is not the smoke result. |
 | `failed_step` | string \| null | yes | The step that failed, e.g. `"Step 5"`. `null` on pass. |
 | `summary` | string \| null | yes | One-line human summary of the run. `null` when not supplied. |
-| `artifacts` | string[] | yes | Trace-relative artifact paths — normally `media/<file>` produced by `ath-snap` (safe bare filenames also accepted). Absolute/rooted, `..`, and backslash paths are rejected by the emitter. `[]` when none. |
+| `artifacts` | string[] | yes | Artifact filenames (e.g. failure screenshots). `[]` when none. |
 
 ### Optional cross-engine payload context
 
@@ -138,16 +142,16 @@ runtime verdict.
 `code.commit.created`, a smoke's `parents` should point at the commit-completion
 event it tested (per the schema's linking conventions). Tracked as a follow-up.
 
-### Example
+### Historical payload example (not acceptance evidence)
 
 ```json
-{"schema_version":1,"event_id":"f1c2a3b4-5d6e-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-05-29T15:42:08.123Z","tool":"ath","tool_version":"0.3.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"26e6d1a","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.3.0","result":"pass","failed_step":null,"summary":"full death→ghost→finish→restart loop green","artifacts":[]}}
+{"schema_version":1,"event_id":"f1c2a3b4-5d6e-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"2026-05-29T15:42:08.123Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"26e6d1a","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"pass","failed_step":null,"summary":"full death→ghost→finish→restart loop green","artifacts":[]}}
 ```
 
 ### Failure example
 
 ```json
-{"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.3.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.3.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["media/fullloop_FAIL_gameview.png"]}}
+{"schema_version":1,"event_id":"a9b8c7d6-...","timestamp":"2026-05-29T15:55:01.004Z","tool":"ath","tool_version":"0.2.0","kind":"ath.smoke.completed","refs":{"project":"before-the-shade","commit":"deadbee","release":null,"design_doc":null,"task_id":null},"payload":{"skill":"ath-smoke-fullloop","skill_version":"0.2.0","result":"fail","failed_step":"Step 5","summary":"ghost_active stayed false after respawn","artifacts":["fullloop_FAIL_gameview.png","fullloop_FAIL_sceneview.png"]}}
 ```
 
 ## Deferred (not in the first cut)

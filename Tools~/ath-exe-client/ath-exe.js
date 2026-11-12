@@ -4,6 +4,10 @@
 // The historical path and ath-exe command remain compatibility entrypoints.
 // All runtime operations delegate to the engine-independent client.js.
 //
+// Smoke acceptance uses `runtime-smoke` for one declared workflow or
+// `runtime-smoke-suite` for a provenance-checked aggregate build gate. Other
+// subcommands are focused diagnostics and cannot approve a build gate.
+//
 // Subcommands:
 //   cmd    <command...>          fire one console command, print the result
 //                                (--raw: no corrId appended, no capture)
@@ -12,6 +16,8 @@
 //   snap   <label>               harness.snap, then poll the PNG path
 //   launch <exe>                 spawn the player opted-in, wait until ready
 //   attach <port>                connectivity check (harness.ping) on a port
+//   runtime-smoke <spec.json>    launch/watch one declared RuntimeSmoke
+//   runtime-smoke-suite <spec>   gate an ordered FSD suite against a fresh artifact copy
 //
 // Common flags: --port N  --timeout-ms N  --config <AthRemote.json>
 // Port resolves: --port -> config file -> 8787 (default).  `launch` with no
@@ -229,12 +235,58 @@ async function cmdVersion(positionals, flags) {
   return 0;
 }
 
+async function runRuntimeSmokeSpec(specPath, dependencies = {}) {
+  const printResult = dependencies.print || print;
+  try {
+    if (typeof specPath !== 'string' || specPath.length === 0) throw new Error('runtime-smoke requires a launch spec JSON path');
+    const spec = JSON.parse(fs.readFileSync(path.resolve(specPath), 'utf8'));
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('launch spec must be a JSON object');
+    if (!/^[0-9a-f]{64}$/i.test(spec.canonicalScriptHash || '') || spec.scriptHash != null)
+      throw Object.assign(new Error('launch spec must provide the compiled canonicalScriptHash; raw scriptHash is not accepted'), { code: 'launch_input_invalid' });
+    // Keep the portable shared CLI usable when copied without Unity's optional
+    // RuntimeSmoke runner; load that integration only for its own commands.
+    const launch = dependencies.launch || require('./runtime-smoke-runner').launchRuntimeSmokeProcess;
+    const result = await launch(spec);
+    printResult(result);
+    return result && result.accepted === true ? 0 : 1;
+  } catch (error) {
+    printResult({ accepted: false, state: 'failed', failureCode: error.code || 'launch_spec_invalid', diagnostic: String(error.message || error).replace(/[\r\n]/g, ' ').slice(0, 512) });
+    return 2;
+  }
+}
+
+async function runRuntimeSmokeSuiteSpec(specPath, dependencies = {}) {
+  const printResult = dependencies.print || print;
+  try {
+    if (typeof specPath !== 'string' || specPath.length === 0) throw new Error('runtime-smoke-suite requires a suite spec JSON path');
+    const spec = JSON.parse(fs.readFileSync(path.resolve(specPath), 'utf8'));
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) throw new Error('suite spec must be a JSON object');
+    const runSuite = dependencies.runSuite || require('./runtime-smoke-runner').runRuntimeSmokeSuite;
+    const result = await runSuite(spec);
+    printResult(result);
+    return result && result.accepted === true ? 0 : 1;
+  } catch (error) {
+    printResult({ accepted: false, state: 'failed', failureCode: error.code || 'suite_spec_invalid', diagnostic: String(error.message || error).replace(/[\r\n]/g, ' ').slice(0, 512) });
+    return 2;
+  }
+}
+
+async function cmdRuntimeSmokeSuite(positionals) {
+  if (positionals.length !== 1) return fail('runtime-smoke-suite requires exactly one suite spec JSON path');
+  return runRuntimeSmokeSuiteSpec(positionals[0]);
+}
+async function cmdRuntimeSmoke(positionals) {
+  if (positionals.length !== 1) return fail('runtime-smoke requires exactly one launch spec JSON path');
+  return runRuntimeSmokeSpec(positionals[0]);
+}
+
 // ---- output / errors ----
 function print(obj) { process.stdout.write(JSON.stringify(obj, null, 2) + '\n'); }
 function fail(msg) { process.stderr.write(`ath-exe: ${msg}\n`); return 2; }
 
 const COMMANDS = { cmd: cmdCmd, state: cmdState, wait: cmdWait, snap: cmdSnap, launch: cmdLaunch, attach: cmdAttach,
-  capabilities: cmdCapabilities, version: cmdVersion, execute: cmdExecute, reset: cmdReset, smoke: cmdSmoke, trace: cmdTrace };
+  capabilities: cmdCapabilities, version: cmdVersion, execute: cmdExecute, reset: cmdReset, smoke: cmdSmoke, trace: cmdTrace,
+  'runtime-smoke': cmdRuntimeSmoke, 'runtime-smoke-suite': cmdRuntimeSmokeSuite };
 
 async function main(argv = process.argv.slice(2)) {
   const [sub, ...rest] = argv;
@@ -253,4 +305,5 @@ if (require.main === module) {
     .catch((e) => { process.stderr.write(`ath-exe: ${e.message}\n`); process.exit(1); });
 }
 
-module.exports = { parseArgv, resolvePort, sendCommand, getFreePort, main, AthClient, buildLaunchArgs };
+module.exports = { parseArgv, resolvePort, sendCommand, getFreePort, main, AthClient, buildLaunchArgs,
+  runRuntimeSmokeSpec, runRuntimeSmokeSuiteSpec };
