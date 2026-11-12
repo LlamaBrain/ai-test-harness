@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Retain the independent-review repair changelog fragment and reproducible source range for integration (v0.10.5).
+
 - Keep centered mixed-size glyph cohorts inconclusive without replacing font-height measurement with a minimum-component threshold; retain single-font ascender/descender, punctuation and raster-overshoot behavior (v0.10.4).
 - Bound native audit groups and preparation memory, enforce independent screen deadlines, and retain ordered, digest-bound results on disk instead of aggregate stdout; isolate missing or malformed screenshot preparation by screen (v0.10.4).
 - Add real 100/256/1024-screen audit verification for invalid-item positions, resource bounds and detector reuse to Windows/Linux CI; bound dependency-log artifact traversal (v0.10.4).

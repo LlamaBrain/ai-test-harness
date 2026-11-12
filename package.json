@@ -1,6 +1,6 @@
 {
   "name": "com.llamabrainlabs.ai-test-harness",
-  "version": "0.10.4",
+  "version": "0.10.5",
   "displayName": "AI Test Harness",
   "description": "Unity host-owned RuntimeSmoke workflows, portable Node CLI/MCP tooling, and an independently installable Unreal plugin. Shared command, state, wait, event and screenshot diagnostics preserve protocol v1; legacy skill files do not establish RuntimeSmoke acceptance.",
   "unity": "2022.3",
