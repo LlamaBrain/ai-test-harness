@@ -35,8 +35,24 @@ namespace LlamaBrainLabs.Ath
             adapterPresent = adapter != null;
             bridgePresent  = bridge  != null;
 
+            if (key != null && key.StartsWith("event:", System.StringComparison.Ordinal))
+            {
+                value = AthServices.Observations.HasEvent(key.Substring(6)).ToString().ToLowerInvariant();
+                return;
+            }
+            if (key != null && key.StartsWith("async_success:", System.StringComparison.Ordinal))
+            {
+                var completed = AthServices.Observations.FindAsync(key.Substring(14));
+                if (completed == null) { status = "not_ready"; return; }
+                value = completed.Value.Success.ToString().ToLowerInvariant();
+                return;
+            }
+
             switch (key)
             {
+                case "engine_name":
+                    value = "unity";
+                    return;
                 // ---- identity / readiness ----
                 case "in_gameplay":
                     if (adapter == null) { status = "not_ready"; return; }
@@ -52,7 +68,7 @@ namespace LlamaBrainLabs.Ath
                     return;
 
                 case "host_name":
-                    value = adapter?.HostName ?? "<none>";
+                    value = AthServices.Host?.HostName ?? "<none>";
                     return;
 
                 case "bridge_ready":
@@ -60,7 +76,7 @@ namespace LlamaBrainLabs.Ath
                     return;
 
                 case "adapter_ready":
-                    value = (adapter != null).ToString().ToLowerInvariant();
+                    value = (AthServices.Host != null).ToString().ToLowerInvariant();
                     return;
 
                 case "game_ready":
@@ -175,10 +191,11 @@ namespace LlamaBrainLabs.Ath
                         return;
                     }
 
-                    if (adapter != null)
+                    var host = AthServices.Host;
+                    if (host != null && host.IsValid)
                     {
                         customStateAttempted = true;
-                        if (adapter.TryGetCustomState(key, out var custom))
+                        if (host.TryGetState(key, out var custom))
                         {
                             value = custom ?? "";
                             return;

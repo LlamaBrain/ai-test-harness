@@ -1,5 +1,11 @@
 # Using the AI Test Harness
 
+This guide preserves Unity Editor workflows. For the engine-independent CLI,
+standalone MCP, generic fixture smoke and Editor-free evidence emission, see
+[shared-tooling.md](shared-tooling.md). Unreal installation and acceptance are
+documented in [unreal.md](unreal.md). Configure distinct MCP tool prefixes when
+using both integrations so tool selection remains unambiguous.
+
 This document is the operator's guide for driving the harness from a
 Claude session against a Unity host project. It assumes the host has
 already implemented `IAthHostAdapter` (see `adapter-contract.md`) and

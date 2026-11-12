@@ -2,7 +2,34 @@
 
 Historical roadmap snapshot from ATH dogfooding against BeforeTheShade. Current workflow authoring and acceptance follow `Documentation~/runtime-smoke-usage.md` and `Documentation~/runtime-smokes.md`. The skill, template, and command/wait smoke proposals below are historical; new acceptance belongs in host-owned RuntimeSmoke workflows.
 
-## Shipped
+## Cross-engine migration (current)
+
+- Shared Node protocol/client, CLI aliases, MCP and smoke/trace tooling.
+- Additive generic Unity host boundary with legacy adapter compatibility.
+- Reusable native Unreal plugin, ATH-owned fixture and world observations.
+- Standalone Captain evidence emission into the consuming project.
+- Real KinecadeSandbox (stock Lyra, Unreal 5.8.3) acceptance using existing maps.
+
+See [architecture audit](Documentation~/cross-engine-architecture.md),
+[Unreal procedure](Documentation~/unreal.md), and the
+[verification matrix](Documentation~/verification.md). Compilation, PIE,
+standalone, rendering, lifecycle, packaged Development and Unity regression are
+individual gates; implemented source does not mark them complete.
+
+Local acceptance now includes 58 shared Node tests, 15 installer/acceptance tests,
+nine engine-free C# checks, 34 real Unity regressions, nine native Unreal tests,
+and real PIE, standalone and packaged Development smokes. Rendered evidence and
+Captain traces were captured in standalone and the package. Normal Shipping
+compiled with no ATH products/link inputs and its staged process exposed no ATH
+listener even with the enable flag supplied. These results are tied to their recorded revisions. The
+demonstrated runtime package exercises one Win64 DX12 Lyra map;
+broader production-content/platform coverage is not implied.
+
+BeforeTheShade's retired gameplay procedure is retained under
+`HostWorkflows~/BeforeTheShade/`. Generic distribution contains the portable
+Unreal fixture workflow; Unity acceptance uses host-owned RuntimeSmoke documents.
+
+## Historical shipped work
 
 ### Phase 1 — Runtime core (`v0.1.0-preview.1`)
 `IAthHostAdapter` portability seam, `AthHostEvents`, `AthServices` (Register/Unregister with idempotent semantics), `AthBridge` (DontDestroyOnLoad singleton, edge-sticky `*SinceLastReset` flags, 16-slot async ring buffer, validity-guarded `GameReady`), `AthBootstrap` (`RuntimeInitializeOnLoadMethod`), `AthAsyncOpRecord`, `AthRuntimeFlag`, `Logging/AthLog` (CMD/OK/ERR sentinel helpers). All file-gated by `#if UNITY_EDITOR || DEVELOPMENT_BUILD`.
@@ -38,6 +65,8 @@ The former plan to move `ath-smoke-fullloop` into a BTS plugin and keep procedur
 
 ### Phase 8 — Fresh-project minimal-adapter boundary check
 Install the package into a clean Unity project, wire only `Samples~/MinimalHostAdapter`, and confirm the adapter transport and typed state contract work without host-specific code. This boundary check validates that Runtime does not depend on host Commands/Editor code and that `autoReferenced` works in a project with no host `Assets/` code. It does not establish RuntimeSmoke acceptance; use the checked-in host workflow and shared RuntimeSmoke runner for that.
+
+Historical BTS observations include incomplete traversal coverage and an intermittent ghost-cleanup race; confirm their current status in BTS-owned evidence. A generic `state_changed:<key>` diagnostic predicate was also proposed.
 
 ### ATH gets its own Claude Code setup
 The package has historically been dogfooded from BTS's working directory — its `.claude/` settings, MCP server config, skills, hooks, and CLAUDE.md memory live there. This roadmap proposal is historical and does not describe current package or BTS validation status. If revisited, package-development guidance should be scoped to AITH implementation work and must not add procedural smoke-acceptance skills or templates. AITH and BTS retain their own setup; they meet at the package protocol boundary.

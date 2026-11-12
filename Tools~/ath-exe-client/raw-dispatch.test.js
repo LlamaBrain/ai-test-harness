@@ -13,7 +13,7 @@ async function observeCommand(raw) {
       text += chunk.toString('utf8');
       if (!text.includes('\n')) return;
       observed.push(text.split('\n')[0]);
-      socket.end(JSON.stringify({correlationId:'test',status:'success',failReason:'',lines:[],elapsedMs:0,truncated:false}) + '\n');
+      socket.end(JSON.stringify({correlationId:'test',status:'success',failReason:'',lines:raw ? [] : ['OK:harness.ping id=test pong=true'],elapsedMs:0,truncated:false}) + '\n');
     });
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

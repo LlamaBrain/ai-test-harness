@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DefineConstants>ATH_REMOTE</DefineConstants>
+    <OutputPath>../../artifacts/active/core/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Runtime/Host/IAthHost.cs" Link="IAthHost.cs" />
+    <Compile Include="../../Runtime/Host/AthObservationStore.cs" Link="AthObservationStore.cs" />
+    <Compile Include="../../Runtime/Host/AthHostRegistration.cs" Link="AthHostRegistration.cs" />
+    <Compile Include="../../Runtime/AthHostEvents.cs" Link="AthHostEvents.cs" />
+    <Compile Include="../../Runtime/AthAsyncOpRecord.cs" Link="AthAsyncOpRecord.cs" />
+    <Compile Include="../../Runtime/AthRuntimeFlag.cs" Link="AthRuntimeFlag.cs" />
+  </ItemGroup>
+</Project>

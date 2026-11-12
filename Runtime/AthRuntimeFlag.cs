@@ -18,7 +18,7 @@ namespace LlamaBrainLabs.Ath
 
         // Bumped in lockstep with package.json's version field. Exposed through
         // package-version diagnostics and legacy trace metadata.
-        public const string PackageVersion = "0.10.2";
+        public const string PackageVersion = "0.10.3";
     }
 }
 #endif

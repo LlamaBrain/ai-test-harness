@@ -35,42 +35,19 @@ namespace LlamaBrainLabs.Ath
         private bool _gameReadyEventFired;
         public bool GameReady =>
             _gameReadyEventFired
-            || (AthServices.Adapter is { IsValid: true } a && a.GameReady);
+            || (AthServices.Host is { IsValid: true } a && a.GameReady);
 
         // ---- async-op ring buffer (mirror DirigibleTestBridge.cs:57-68) ----
-        private const int RING_CAPACITY = 16;
-        private readonly LinkedList<AthAsyncOpRecord> _asyncOps = new();
-
         public AthAsyncOpRecord? FindAsync(string correlationId)
-        {
-            foreach (var rec in _asyncOps)
-                if (rec.CorrelationId == correlationId) return rec;
-            return null;
-        }
+            => AthServices.Observations.FindAsync(correlationId);
 
-        public AthAsyncOpRecord? LastAsync()
-            => _asyncOps.Count == 0 ? (AthAsyncOpRecord?)null : _asyncOps.Last.Value;
+        public AthAsyncOpRecord? LastAsync() => AthServices.Observations.LastAsync();
 
         public void TrackAsync(string name, string correlationId, Task task)
         {
             // Fire-and-forget tracker — registers a record in the ring buffer
             // when the task completes.
-            _ = TrackAsyncInner(name, correlationId, task);
-        }
-
-        private async Task TrackAsyncInner(string name, string correlationId, Task task)
-        {
-            bool ok = true;
-            string err = null;
-            try { await task.ConfigureAwait(false); }
-            catch (Exception ex) { ok = false; err = ex.Message; }
-            PushAsync(new AthAsyncOpRecord(name, correlationId, ok, err));
-        }
-
-        private void PushAsync(AthAsyncOpRecord rec)
-        {
-            _asyncOps.AddLast(rec);
-            while (_asyncOps.Count > RING_CAPACITY) _asyncOps.RemoveFirst();
+            _ = AthServices.Observations.TrackAsync(name, correlationId, task);
         }
 
         // ---- attached adapter (cached so detach matches what was attached) ----
@@ -151,6 +128,7 @@ namespace LlamaBrainLabs.Ath
         // ---- harness.reset support ----
         public void ResetEdgeFlags()
         {
+            AthServices.Observations.ResetEvents();
             PlayerDiedSinceLastReset = false;
             PlayerSpawnedSinceLastReset = false;
             PlayerRespawnedSinceLastReset = false;
@@ -160,6 +138,13 @@ namespace LlamaBrainLabs.Ath
             // _gameReadyEventFired intentionally NOT reset here — game readiness
             // is a once-per-session signal, not an edge to re-arm. Scene unload
             // handles the cross-session reset.
+        }
+
+        internal void ResetSession()
+        {
+            ResetEdgeFlags();
+            _gameReadyEventFired = false;
+            AthServices.Observations.BeginSession();
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -176,8 +161,7 @@ namespace LlamaBrainLabs.Ath
         {
             // Reset edge flags so stale prior-session signals cannot satisfy
             // a fresh wait. Mirrors DirigibleTestBridge.cs:228.
-            ResetEdgeFlags();
-            _gameReadyEventFired = false;
+            ResetSession();
 
             // Defense: if the adapter has become invalid (its underlying host
             // singleton was destroyed during unload), detach now so its
@@ -188,6 +172,8 @@ namespace LlamaBrainLabs.Ath
 
         private void OnDestroy()
         {
+            if (Instance != this) return;
+            AthServices.Unregister();
             DetachFromAdapter();
             SceneManager.sceneLoaded   -= OnSceneLoaded;
             SceneManager.sceneUnloaded -= OnSceneUnloaded;

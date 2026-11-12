@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Integrate visual accessibility verification with the shared cross-engine client and current Unity RuntimeSmoke, preserving both CLI command surfaces and their revision-bound evidence (v0.10.3).
+
 - Accept optional manifest identifiers and unlocated required regions with explicit uncertainty, require policy provenance metadata, and separate native executable limits from screenshot limits for Linux static builds (v0.10.2).
 
 - Maintain native result determinism checks across sequential processes, concurrent processes and shared-model batch entries (v0.10.1).
@@ -26,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add offline visual analyze/audit/compare/report CLI operations, policy profiles, bounded native execution, immutable evidence receipts, and batch validation; native end-to-end verification remains pending (v0.7.0).
 
 - Record visual accessibility integration points, cross-engine compatibility, and verification baseline; implementation and runtime acceptance remain pending (v0.6.2).
+
+- Integrate the cross-engine Unity/Unreal host and shared tooling with dev's RuntimeSmoke, capture, and raw dispatch changes; preserve their separate verification and acceptance boundaries (v0.6.2).
+- Add the native Unreal plugin, generic host contracts, shared Node client and MCP server, capability discovery, session-guarded observations, and portable fixture tooling. See `Documentation~/verification.md` for the original revision-bound evidence.
+- Preserve the Unity `ath-snap` and optional Recorder capture tools, raw remote-console dispatch, and engine-free trace emission as diagnostic or review evidence. RuntimeSmoke retains its structured acceptance contract.
+- Keep the BeforeTheShade full-loop procedure as a retired host-specific reference and retain the generic Unreal fixture workflow separately.
 
 - Retain the historical migration-audit appendix and source-cleanup disposition while collecting all reviewed branch histories on dev (v0.6.1).
 - Re-audited current AITH RuntimeSmoke docs, API references, CLI/MCP examples, minimal-host guidance, and local links at reviewed commit `86929f51a61864a22bd85df4da8ffada953890a0` (0.5.2); consumer integration and runtime proofs remain host-owned. (v0.5.2)
@@ -105,6 +112,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   result/failure-context JSON, JUnit, MCP snapshots, and the Editor failure view.
 - MCP RuntimeSmoke status now includes the Editor window's run state, progress,
   checkpoint, artifact directory/names, and declared failed-run investigation actions.
+
+## [0.3.2] - 2026-11-11
+
+### Fixed
+- Reject malformed, truncated, oversized, and invalidly compressed PNG screenshots before reporting evidence as successful.
 
 ## [0.3.0] - 2026-06-16
 

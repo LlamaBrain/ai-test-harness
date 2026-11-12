@@ -3,99 +3,172 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Unity](https://img.shields.io/badge/Unity-2022.3%2B-black.svg)](https://unity.com)
 
-By **Michael Tiller** (<contact@michaeltiller.com>) · a [LlamaBrain](https://github.com/LlamaBrain) project, part of the [Captain SDLC](https://github.com/LlamaBrain/captain-sdlc) pipeline.
+By **Michael Tiller** (<contact@michaeltiller.com>), a
+[LlamaBrain](https://github.com/LlamaBrain) project in the
+[Captain SDLC](https://github.com/LlamaBrain/captain-sdlc) pipeline.
 
-A reusable Unity test harness with a host-neutral RuntimeSmoke runner and lower-level diagnostic transports, mirroring the [dirigible2D pattern](https://metagrue.com/2026/05/25/ai-test-harness/).
+ATH is a runtime testing and evidence framework for Unity and Unreal Engine.
+Agents use shared commands, named state, predicate waits, events, correlated
+asynchronous operations, screenshots and smoke reports through one CLI/MCP
+surface. Native engine integrations remain independently installable.
 
-> **Status:** v0.10.2. This package implements the host-neutral RuntimeSmoke compiler, typed assertions, coordinator, Editor window, MCP operations, and EXE runner. Consumer-specific registration and end-to-end validation remain separate: Editor/player runs, human review, and exact-artifact build-gate acceptance must be reported from that consumer's own evidence.
+The integration candidate is version `0.10.3`. Existing cross-engine verification
+is tied to the revisions recorded in the [verification matrix](Documentation~/verification.md);
+consumer integration, current CI and exact-artifact acceptance must be assessed
+against the actual revision and host evidence.
 
-Start with the [RuntimeSmoke usage and authoring guide](Documentation~/runtime-smoke-usage.md), then see the [RuntimeSmoke API contract](Documentation~/runtime-smokes.md). The older `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`, direct EXE console tools, and procedural smoke skills remain low-level diagnostics; they do not provide an alternate smoke acceptance path. See the [AITH documentation migration audit](Documentation~/runtime-smoke-migration-audit.md).
-
-## What it is
-
-The package has a typed smoke runner plus lower-level diagnostic transports:
-
-1. **RuntimeSmoke** — checked-in host workflows executed through the shared coordinator, structured results, and JSONL transcript. Host bridges provide declared game capabilities; AITH owns protocol and assertion semantics.
-2. **Editor controls** — the RuntimeSmoke window and typed MCP operations expose the host registry's workflows and run state.
-3. **Built-player runner** — `ath-exe runtime-smoke <spec.json>` watches one declared FSD workflow; `ath-exe runtime-smoke-suite <spec.json>` attests a fresh artifact copy, runs an ordered suite, and emits aggregate gate JSON/JUnit for development or `smoke_harness` builds.
-4. **Diagnostics** — `ath-cmd`, `ath-state`, `ath-wait`, `ath-trace-emit`, and direct EXE remote-console commands help inspect a host. They are not smoke acceptance tools. Legacy procedural skills are retired as acceptance guidance.
-
-Hosts implement `IAthHostAdapter` to expose their game state and lifecycle events to the harness. The package never references host types.
-
-## Compatibility
-
-| Component             | Status       | Verified                                                                                            |
-|-----------------------|--------------|-----------------------------------------------------------------------------------------------------|
-| Unity                 | required     | 6000.3.10f1                                                                                         |
-| Unity MCP             | hard dep     | `com.ivanmurzak.unity.mcp@0.76.0` (declared in `package.json`)                                      |
-| IngameDebugConsole    | hard peer    | yasirkula's `IngameDebugConsole.Runtime` asmdef. NOT in `package.json`. **Package will not compile without it.** |
-| Host project          | required     | works with default `Assembly-CSharp` via `autoReferenced` on the package's Runtime asmdef           |
-
-## Installing (host project)
-
-### 1. Configure the OpenUPM scoped registry
-
-Edit your host project's `Packages/manifest.json` to include:
-
-```json
-"scopedRegistries": [
-  { "name": "OpenUPM (ivanmurzak)", "url": "https://package.openupm.com",
-    "scopes": ["com.ivanmurzak"] },
-  { "name": "OpenUPM (yasirkula)", "url": "https://package.openupm.com",
-    "scopes": ["com.yasirkula"] }
-]
+```text
+Claude / Codex -> shared ATH MCP / CLI -> protocol, predicates, smoke, evidence
+                                                   |
+                              Unity integration / Unreal native plugin
+                                       |                   |
+                                  Unity project       Unreal project
 ```
 
-Packages cannot bring their own scoped registries; this is your responsibility as the host.
+Unity's host-neutral RuntimeSmoke compiler, coordinator, Editor window, typed MCP
+operations and built-player runners execute checked-in host workflows. Start with
+the [RuntimeSmoke usage guide](Documentation~/runtime-smoke-usage.md) and
+[contract](Documentation~/runtime-smokes.md). Direct commands, procedural smoke
+skills and caller-supplied trace results are diagnostics, not a substitute for
+the structured Unity RuntimeSmoke result and host build-gate evidence.
 
-### 2. Install peer dependencies
+The shared Node tooling builds and tests without either engine installed. The
+Unreal plugin uses native C++ and does not consume .NET assemblies or depend on
+Lyra. KinecadeSandbox, an existing Lyra project, is the real Unreal acceptance
+host. ATH-owned fixtures and native world state prove ATH without changing Lyra
+gameplay.
 
-- **Unity MCP** — resolves automatically once the registry is configured.
-- **IngameDebugConsole** — install `com.yasirkula.ingamedebugconsole` from OpenUPM. Verify the imported package contains the `IngameDebugConsole.Runtime` asmdef. (If you already have IngameDebugConsole imported as an asset under `Assets/Plugins/IngameDebugConsole/`, that's fine too — the asmdef name is the same.)
+## Quick start
 
-### 3. Install AI Test Harness
-
-Add to `Packages/manifest.json`:
-
-```json
-"com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
+```sh
+cd <ath>/Tools~/ath-exe-client
+npm test
+npm run check
+npm link
+ath version
+ath attach 8787
+ath cmd "harness.ping" --port 8787
+ath capabilities --port 8787
+ath state ath.fixture.ready --port 8787
+ath cmd "ath.fixture.increment" --port 8787
+ath wait "state_equals:ath.fixture.counter=1" --port 8787
+ath smoke fixture-smoke.json --port 8787 --project-root <consuming-project> --trace --rendered
 ```
 
-(Or pin a tagged release via git after publication: `"https://github.com/LlamaBrain/ai-test-harness.git#v0.10.2"`.)
+Use Node 18 or newer. `ath-exe` remains an alias, and direct
+`node Tools~/ath-exe-client/ath-exe.js ...` invocation remains supported. Runtime
+operations require a launched, explicitly instrumented host with the fixture
+capability. This fixture workflow is separate from Unity RuntimeSmoke acceptance.
+Omit `--rendered` only for an explicitly identified nonvisual fixture run.
 
-### 4. Implement the adapter
+Read [shared CLI/MCP usage](Documentation~/shared-tooling.md), the
+[wire protocol](Documentation~/protocol.md), and
+[architecture / compatibility audit](Documentation~/cross-engine-architecture.md).
 
-Create a class that implements `IAthHostAdapter` in your project (e.g., under `Assets/Game/Source/Testing/`). See `Documentation~/adapter-contract.md` for the full contract. A no-op example is available via Package Manager > Samples > "Minimal Host Adapter".
+## Visual accessibility verification
 
-### 5. Register the adapter at startup
+The CPU analyzer measures text size and contrast in existing screenshots, and
+the `visual analyze`, `audit`, `compare`, and `report` commands retain bounded
+evidence. Build the native executable and configure the pinned model as described
+in the [visual accessibility guide](Documentation~/visual-accessibility.md).
+Host-owned RuntimeSmoke workflows can use `visual.analysis.v1` with trusted
+capture, manifest, policy and analyzer bindings; see [RuntimeSmoke visual
+assertions](Documentation~/runtime-smoke-visual.md). External Unreal and other
+engine screenshots can use the same offline analysis contract.
 
-```csharp
-[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-private static void RegisterAth()
-{
-    LlamaBrainLabs.Ath.AthServices.Register(new MyAthAdapter());
-}
-```
+Results cover only the tested screens and declared regions. Inconclusive and
+failed analysis cannot establish a passing gate; measurements do not certify
+accessibility. Refer to the [visual verification record](Documentation~/visual-verification.md)
+for tested revisions, model identities, limits and retained evidence.
 
-### 6. Add host RuntimeSmoke workflows
+## Unity installation and compatibility
 
-Author host-owned workflow JSON in the project's RuntimeSmokes tree, then use the shared guide and the host's quickstart to register and run those documents. The package's old procedural skills are retained only as retired references and must not be used for smoke acceptance. See [RuntimeSmoke usage and authoring](Documentation~/runtime-smoke-usage.md).
+The root remains the existing UPM package
+`com.llamabrainlabs.ai-test-harness`. Existing `IAthHostAdapter`, `AthServices`,
+console commands, Editor MCP tools, remote protocol and build gates are preserved.
+The new generic host surface is additive; legacy adapters do not acquire new
+mandatory members.
 
-## What's in here
+1. Configure the consuming project's OpenUPM registries:
 
-- `Runtime/` — host contract, diagnostic commands, and host-neutral `RuntimeSmokes/` protocol.
-- `Editor/` — RuntimeSmoke window, typed MCP tools, and low-level diagnostic tools.
-- `Tools~/ath-exe-client/` — direct diagnostics plus the structured `runtime-smoke` artifact runner.
-- `Skills/` — legacy procedural guides retained as explicitly retired references; host workflows belong in the host's checked-in RuntimeSmoke documents.
-- `Samples~/MinimalHostAdapter/` — no-op adapter for a fresh-project package-boundary diagnostic.
-- `Documentation~/` — [RuntimeSmoke operator/authoring guide](Documentation~/runtime-smoke-usage.md), [RuntimeSmoke contract](Documentation~/runtime-smokes.md), migration audit, adapter contract, diagnostic transport guides, and trace events.
+   ```json
+   "scopedRegistries": [
+     {"name":"OpenUPM (ivanmurzak)","url":"https://package.openupm.com","scopes":["com.ivanmurzak"]},
+     {"name":"OpenUPM (yasirkula)","url":"https://package.openupm.com","scopes":["com.yasirkula"]}
+   ]
+   ```
 
-## Optional capture and raw diagnostic commands
+2. Install `com.yasirkula.ingamedebugconsole` (or the existing asset version with
+   `IngameDebugConsole.Runtime`). It remains a hard peer dependency. Unity MCP
+   `com.ivanmurzak.unity.mcp@0.76.0` remains declared in `package.json`.
+3. Add the package reference to `Packages/manifest.json`:
 
-`ath-snap` captures Game-view PNGs; `ath-record` uses the optional Unity Recorder package for video and reports `recorder_unavailable` when it is absent. Captures are review artifacts; RuntimeSmoke remains the acceptance authority. Live capture/Recorder proof is retained as pending. The EXE client supports `cmd --raw` for commands with bare overloads, alongside the existing `runtime-smoke` and `runtime-smoke-suite` commands.
+   ```json
+   "com.llamabrainlabs.ai-test-harness": "file:../../ai-test-harness"
+   ```
 
-## Architecture notes
+4. Implement and register the existing adapter:
 
-The package never references host types. All host data flows through `IAthHostAdapter`. The runtime/commands asmdef split is an architectural seam for future transport swap-out — v0.2 still requires IngameDebugConsole as a peer dep.
+   ```csharp
+   [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+   private static void RegisterAth()
+       => LlamaBrainLabs.Ath.AthServices.Register(new MyAthAdapter());
+   ```
 
-ATH is the QA tool in the broader Captain SDLC pipeline. See the nerve center ([`LlamaBrain/captain-sdlc`](https://github.com/LlamaBrain/captain-sdlc)) for the cross-tool design, the trace schema, and the roadmap.
+5. Register the host's checked-in RuntimeSmoke workflows and run them through the
+   [authoring and usage guide](Documentation~/runtime-smoke-usage.md). Built-player
+   acceptance binds the declared workflow and suite results to the exact artifact.
+
+See [adapter contract](Documentation~/adapter-contract.md), the Package Manager
+**Minimal Host Adapter** sample, [Unity operator guide](Documentation~/using-ath.md),
+and [Unity player remote console](Documentation~/exe-harness.md).
+
+Unity's diagnostic console stays behind
+`UNITY_EDITOR || DEVELOPMENT_BUILD || ATH_REMOTE`, with a separate runtime
+remote-console opt-in. RuntimeSmoke also supports the `SMOKE_HARNESS` lane;
+that define does not by itself enable the remote console. Normal uninstrumented
+releases do not bind a listener.
+The existing Unity Editor tools remain available, including optional Recorder
+video; the shared MCP server does not replace Editor controls.
+`ath-snap` and `ath-record` supply optional review artifacts; Recorder reports
+`recorder_unavailable` when absent. Direct `ath-exe cmd --raw` supports bare
+overload diagnostics. Capture and raw dispatch do not themselves establish a
+RuntimeSmoke verdict.
+
+## Unreal installation
+
+Link or install `Unreal~/Ath` into an existing project's Plugins directory, build
+its native Editor target, and launch with `-ath-remote-console -ath-port=8787`.
+The module is excluded from normal Shipping/Test targets. Supported
+instrumentation uses non-Shipping builds with explicit runtime enablement.
+
+Follow [Unreal installation and KinecadeSandbox acceptance](Documentation~/unreal.md)
+for exact local engine/project observations, PIE selection, standalone,
+packaged Development, lifecycle and screenshot verification. Read
+[verification.md](Documentation~/verification.md) before interpreting any mode
+as verified.
+
+## Evidence and skills
+
+Shared smoke/trace emission needs no Unity Editor. It writes Captain
+`ath.smoke.completed` schema-v1 context and safe artifact references into the
+**consuming project's** `.captain-sdlc/trace/`. Its caller-supplied result does
+not replace RuntimeSmoke evidence. See [trace events](Documentation~/trace-events.md).
+
+Guidance and the Unreal fixture workflow live under [Skills/](Skills/README.md).
+The retired BeforeTheShade full-loop reference is preserved under
+[HostWorkflows~/BeforeTheShade/](HostWorkflows~/BeforeTheShade/ath-smoke-fullloop/SKILL.md),
+outside generic distribution. Host gameplay acceptance belongs in the consuming
+project's checked-in workflows.
+
+## Repository layout
+
+| Path | Responsibility |
+|---|---|
+| `Runtime/`, `Editor/`, `Tests/`, `Samples~/` | Unity UPM integration, RuntimeSmoke and regression tests. |
+| `Tools~/ath-exe-client/` | Shared protocol, client, CLI, MCP, RuntimeSmoke runners and trace reporting. |
+| `Tools~/ath-visual/` | Native CPU screenshot analyzer and visual fixtures. |
+| `Unreal~/Ath/` | Reusable native plugin and ATH fixture. |
+| `Tools~/unreal-acceptance/` | KinecadeSandbox consumer acceptance workflow. |
+| `Documentation~/` | Architecture, contracts, protocol, installation and evidence. |
+| `Skills/`, `HostWorkflows~/` | Generic workflows and isolated legacy host procedures. |

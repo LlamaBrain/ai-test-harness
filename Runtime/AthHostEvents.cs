@@ -26,23 +26,30 @@ namespace LlamaBrainLabs.Ath
     /// </summary>
     public sealed class AthHostEvents
     {
-        public event Action       GameReady;
-        public event Action       PlayerSpawned;
-        public event Action       PlayerRespawned;
-        public event Action       PlayerRestarted;
-        public event Action       PlayerDied;
-        public event Action       GoalReached;
-        public event Action       ItemConsumed;
-        public event Action<bool> PauseChanged;
+        public event Action<string, string> Observed = delegate { };
+        public event Action       GameReady = delegate { };
+        public event Action       PlayerSpawned = delegate { };
+        public event Action       PlayerRespawned = delegate { };
+        public event Action       PlayerRestarted = delegate { };
+        public event Action       PlayerDied = delegate { };
+        public event Action       GoalReached = delegate { };
+        public event Action       ItemConsumed = delegate { };
+        public event Action<bool> PauseChanged = delegate { };
 
-        public void RaiseGameReady()        => GameReady?.Invoke();
-        public void RaisePlayerSpawned()    => PlayerSpawned?.Invoke();
-        public void RaisePlayerRespawned()  => PlayerRespawned?.Invoke();
-        public void RaisePlayerRestarted()  => PlayerRestarted?.Invoke();
-        public void RaisePlayerDied()       => PlayerDied?.Invoke();
-        public void RaiseGoalReached()      => GoalReached?.Invoke();
-        public void RaiseItemConsumed()     => ItemConsumed?.Invoke();
-        public void RaisePauseChanged(bool isPaused) => PauseChanged?.Invoke(isPaused);
+        public void Raise(string name, string payload = "")
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 128 || Array.Exists(name.ToCharArray(), char.IsWhiteSpace))
+                throw new ArgumentException("Event names must be nonempty tokens of at most 128 characters.", nameof(name));
+            Observed.Invoke(name, payload ?? "");
+        }
+        public void RaiseGameReady()       { GameReady.Invoke(); Raise("game_ready"); }
+        public void RaisePlayerSpawned()   { PlayerSpawned.Invoke(); Raise("player_spawned"); }
+        public void RaisePlayerRespawned() { PlayerRespawned.Invoke(); Raise("player_respawned"); }
+        public void RaisePlayerRestarted() { PlayerRestarted.Invoke(); Raise("player_restarted"); }
+        public void RaisePlayerDied()      { PlayerDied.Invoke(); Raise("player_died"); }
+        public void RaiseGoalReached()    { GoalReached.Invoke(); Raise("goal_reached"); }
+        public void RaiseItemConsumed()   { ItemConsumed.Invoke(); Raise("item_consumed"); }
+        public void RaisePauseChanged(bool isPaused) { PauseChanged.Invoke(isPaused); Raise("pause_changed", isPaused.ToString().ToLowerInvariant()); }
     }
 }
 #endif

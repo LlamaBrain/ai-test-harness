@@ -1,0 +1,52 @@
+name: Shared ATH contracts
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check CLI syntax
+        working-directory: Tools~/ath-exe-client
+        run: npm run check
+      - name: Check acceptance CLI syntax
+        run: node --check Tools~/unreal-acceptance/kinecade.js
+      - name: Shared protocol, transport, orchestration and evidence tests
+        working-directory: Tools~/ath-exe-client
+        run: node --test
+      - name: Acceptance specification tests
+        run: node --test Tools~/unreal-acceptance/kinecade.test.js
+      - name: Portable Unreal installer tests
+        run: node --test Tools~/unreal-install/install.test.js
+      - name: Acceptance dry run without an engine installation
+        run: node Tools~/unreal-acceptance/kinecade.js --dry-run
+
+  host-contract:
+    name: .NET host contracts / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Compile and test production host contracts without Unity or Unreal
+        run: dotnet run --project Tools~/ath-core-tests/Ath.Core.Tests.csproj

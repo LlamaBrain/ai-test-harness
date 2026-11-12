@@ -1,5 +1,11 @@
 # Driving a built player — the EXE remote-console harness
 
+This document preserves Unity player build/stripping guidance. The Node package
+now also supplies the shared `ath` CLI and standalone MCP; `ath-exe` and its
+historical path remain supported. See [shared-tooling.md](shared-tooling.md) for
+cross-engine launch, fixture smoke and Editor-free traces, and [unreal.md](unreal.md)
+for native Unreal setup. Unity `ATH_REMOTE` controls do not configure Unreal.
+
 > **Acceptance boundary:** a sequence of direct `ath-exe launch/cmd/state/wait/snap`
 > calls is a low-level diagnostic, not a smoke PASS. For built-player smoke
 > acceptance use the declared FSD workflow and the provenance-checking

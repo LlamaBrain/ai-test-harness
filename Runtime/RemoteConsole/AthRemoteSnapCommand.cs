@@ -20,6 +20,17 @@ namespace LlamaBrainLabs.Ath.RemoteConsole
         public static void Snap(string label, string correlationId)
         {
             AthLog.Cmd("harness.snap", correlationId, label);
+            if (AthServices.Host is IAthScreenshotHost screenshotHost)
+            {
+                try
+                {
+                    var capture = screenshotHost.CaptureScreenshot(label, correlationId);
+                    if (capture.Status == "failed") AthLog.Err("harness.snap", correlationId, $"\"{AthLog.Esc(capture.Error)}\"");
+                    else AthLog.Ok("harness.snap", correlationId, $"path=\"{AthLog.Esc(capture.Value)}\" status=pending");
+                }
+                catch (Exception ex) { AthLog.ErrException("harness.snap", correlationId, ex); }
+                return;
+            }
             var server = AthRemoteConsoleServer.Active;
             if (server == null)
             {
