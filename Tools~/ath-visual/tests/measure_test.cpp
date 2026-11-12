@@ -1,4 +1,5 @@
 #include "analysis.hpp"
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <fstream>
@@ -42,6 +43,12 @@ int main() {
             cv::rectangle(screenshot,{40,25,13,h-10},cv::Scalar(255,255,255),2);
             auto result=measure(screenshot,{"HpH",{10,10,80,h+20},true,1.0},policy);
             require(result["measuredHeightPx"]==h,"resolution fixture extent");
+            auto fullFont=measure(screenshot,{"HpH",{10,10,80,h+20},true,1.0},Policy{"test","1",double(h),4.5});
+            require(fullFont["heightOutcome"]=="pass","same-font ascenders and descenders establish their full height");
+            auto withXHeight=screenshot.clone();
+            cv::rectangle(withXHeight,{80,25,6,h-10},cv::Scalar(255,255,255),cv::FILLED);
+            auto completeFont=measure(withXHeight,{"HpHx",{10,10,80,h+20},true,1.0},Policy{"test","1",double(h),4.5});
+            require(completeFont["heightOutcome"]=="pass","same-font x-height glyphs retain crossing ascender/descender evidence");
             require(cv::imwrite("fixture-"+std::to_string(resolution)+".png",screenshot),"fixture PNG write");
         }
         cv::Mat complex(80,120,CV_8UC3);
@@ -76,6 +83,36 @@ int main() {
         for(int x:{20,40})cv::rectangle(mixed,{x,40,6,20},cv::Scalar(255,255,255),cv::FILLED);
         for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
         require(measure(mixed,{"mixed",{5,5,180,90},true,1.0},Policy{"test","1",26,4.5})["heightOutcome"]!="pass","mixed sizes cannot union-pass");
+        mixed.setTo(cv::Scalar(0,0,0));
+        for(int x:{20,40})cv::rectangle(mixed,{x,30,6,20},cv::Scalar(255,255,255),cv::FILLED);
+        for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
+        auto centered=measure(mixed,{"centered20-40",{5,5,180,90},true,1.0},Policy{"test","1",26,4.5});
+        require(centered["heightOutcome"]=="inconclusive","centered20/40 mixed sizes must be inconclusive instead of union-pass");
+        bool centeredLeftPass=false;
+        for(int threshold=1;threshold<=60;++threshold) {
+            auto outcome=measure(mixed,{"centered20-40",{5,5,180,90},true,1.0},Policy{"test","1",double(threshold),4.5})["heightOutcome"];
+            require(outcome!="pass","centered20/40 cohort cannot establish a common font height");
+            if(outcome!="pass")centeredLeftPass=true;
+            require(!centeredLeftPass||outcome!="pass","tightening centered mixed-size threshold cannot turn uncertainty into pass");
+        }
+        mixed.setTo(cv::Scalar(0,0,0));
+        cv::rectangle(mixed,{20,29,6,20},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(mixed,{40,35,6,20},cv::Scalar(255,255,255),cv::FILLED);
+        for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
+        require(measure(mixed,{"offset20-40",{5,5,180,90},true,1.0},Policy{"test","1",26,4.5})["heightOutcome"]=="inconclusive","nested mixed sizes remain ambiguous when short glyphs have different vertical offsets");
+        mixed.setTo(cv::Scalar(0,0,0));
+        cv::rectangle(mixed,{20,29,6,20},cv::Scalar(255,255,255),cv::FILLED);
+        cv::rectangle(mixed,{40,35,6,23},cv::Scalar(255,255,255),cv::FILLED);
+        for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);
+        require(measure(mixed,{"jittered-size-cohort",{5,5,180,90},true,1.0},Policy{"test","1",26,4.5})["heightOutcome"]=="inconclusive","crossing glyphs within a small-size cohort cannot validate a separate large-size cohort");
+        cv::Mat fontRoles(140,200,CV_8UC3,cv::Scalar(0,0,0));
+        for(const auto& extents:std::vector<std::vector<int>>{{31,67,39,78,29,78,39,78,30,74,40,78},{36,90,48,106,33,106,48,106,35,100,49,106}}) {
+            fontRoles.setTo(cv::Scalar(0,0,0));
+            int x=20;
+            for(size_t i=0;i<extents.size();i+=2,x+=20) cv::rectangle(fontRoles,{x,extents[i],6,extents[i+1]-extents[i]+1},cv::Scalar(255,255,255),cv::FILLED);
+            const int fullHeight=*std::max_element(extents.begin(),extents.end())-*std::min_element(extents.begin(),extents.end())+1;
+            require(measure(fontRoles,{"ascender-descender-roles",{5,5,180,125},true,1.0},Policy{"test","1",double(fullHeight),4.5})["heightOutcome"]=="pass","crossing single-font roles survive a full-height glyph surrounding a cap");
+        }
         mixed.setTo(cv::Scalar(0,0,0));
         for(int x:{20,40})cv::rectangle(mixed,{x,35,6,25},cv::Scalar(255,255,255),cv::FILLED);
         for(int x:{60,80})cv::rectangle(mixed,{x,20,6,40},cv::Scalar(255,255,255),cv::FILLED);

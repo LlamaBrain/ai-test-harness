@@ -105,6 +105,14 @@ jobs:
           else
             build/visual/ath_visual_benchmark build/models/text_detection_en_ppocrv3_2023may.onnx > build/visual/benchmark.json
           fi
+      - name: Bounded native audit workloads and invalid-item isolation
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            analyzer=build/visual/Release/ath-visual.exe
+          else
+            analyzer=build/visual/ath-visual
+          fi
+          python Tools~/visual-verification/check-batch-workloads.py --analyzer "$analyzer" --model build/models/text_detection_en_ppocrv3_2023may.onnx --fixture build/font-fixtures/representative-1080-light.png --out build/batch-workloads
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -112,7 +120,7 @@ jobs:
           path: |
             build/visual/CMakeFiles/CMakeConfigureLog.yaml
             build/visual/vcpkg-manifest-install.log
-            build/vcpkg/buildtrees/**/*.log
+            build/vcpkg/buildtrees/*/*.log
             build/visual/Testing
             build/visual/example-*
             build/visual/fixture-*.png
@@ -121,3 +129,4 @@ jobs:
             build/font-fixtures
             build/font-results
             build/cli-results
+            build/batch-workloads/verification.json

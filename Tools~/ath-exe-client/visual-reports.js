@@ -89,9 +89,10 @@ async function audit(options) {
       pending.push({ screen, options: { ...options, input: path.join(root, screen.screenshot), manifest, policy: screen.policy ? path.join(manifestRoot, screen.policy) : options.policy, out: path.join(out, screen.id) } });
     } catch (error) { entries.push({ id: screen.id, outcome: 'infrastructure-error', message: String(error.message).slice(0, 1024) }); }
   }
-  // Native batches share one loaded detector. Bound each batch to its declared timeout.
-  for (let offset = 0; offset < pending.length; offset += 1024) {
-    const group = pending.slice(offset, offset + 1024);
+  // Keep prepared/result payloads bounded; each native process shares one model.
+  // The transport separately enforces every screen's configured timeout.
+  for (let offset = 0; offset < pending.length; offset += 8) {
+    const group = pending.slice(offset, offset + 8);
     try {
       const results = await visual().analyzeBatch(group.map(item => item.options), path.join(out, 'batch-' + offset + '.json'));
       for (let i = 0; i < group.length; i++) {
@@ -99,6 +100,12 @@ async function audit(options) {
         if (analyzed.result.outcome === 'infrastructure-error') entries.push({ id, outcome: 'infrastructure-error', message: analyzed.result.error });
         else if (!['manifest', 'manifest-driven'].includes(analyzed.result.coverage.mode)) entries.push({ id, outcome: 'infrastructure-error', message: 'Strict audit requires manifest coverage' });
         else entries.push({ id, outcome: analyzed.result.outcome, receipt: id + '/receipt.json' });
+      }
+      if (results.terminationUnconfirmed) {
+        for (const item of pending.slice(offset + group.length)) entries.push({
+          id: item.screen.id, outcome: 'infrastructure-error', message: results.terminationError
+        });
+        break;
       }
     } catch (error) { for (const item of group) entries.push({ id: item.screen.id, outcome: 'infrastructure-error', message: String(error.message).slice(0, 1024) }); }
   }

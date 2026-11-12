@@ -1,4 +1,5 @@
 #include "analysis.hpp"
+#include "batch_digest.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -119,17 +120,49 @@ int main(int argc,char** argv) {
         if(args.contains("--batch")) {
             if(args.contains("--input")||args.contains("--manifest")||args.contains("--annotated")||args.contains("--policy")) throw std::runtime_error("Batch items own input, manifest, policy and annotation options");
             auto batch=readJson(args.at("--batch"));
-            if(batch.at("schemaVersion")!=1||!batch.at("items").is_array()||batch.at("items").empty()||batch.at("items").size()>1024) throw std::runtime_error("Invalid batch schema or item count");
+            const bool progress=batch.at("schemaVersion")==2;
+            if((batch.at("schemaVersion")!=1&&!progress)||!batch.at("items").is_array()||batch.at("items").empty()||batch.at("items").size()>(progress?8:1024)) throw std::runtime_error("Invalid batch schema or item count");
+            if(progress) {
+                if(args.contains("--output")) throw std::runtime_error("Progress batches write results to each item's output path");
+                for(const auto& item:batch.at("items"))
+                    if(!item.contains("output")||!item.at("output").is_string()||item.at("output").get<std::string>().empty()) throw std::runtime_error("Progress batch items require output paths");
+            }
             Json results=Json::array(); bool error=false,failed=false,uncertain=false;
+            size_t index=0;
             for(const auto& item:batch.at("items")) {
+                if(progress) std::cout<<Json{{"schemaVersion",2},{"index",index},{"event","started"}}.dump()<<std::endl;
                 Json entry;
                 try {
                     std::map<std::string,std::string> itemArgs;
                     for(const auto* key:{"input","manifest","policy","annotated"}) if(item.contains(key)) itemArgs[std::string("--")+key]=item.at(key).get<std::string>();
                     entry=execute(itemArgs,session);
                 } catch(const std::exception& e) {entry={{"schemaVersion",1},{"outcome","infrastructure-error"},{"error",e.what()}};}
+                std::string writeError;
+                std::string resultSha256;
+                size_t resultBytes=0;
+                if(progress) {
+                    try {
+                        const auto json=entry.dump(2)+"\n";
+                        exclusive(item.at("output").get<std::string>(),reinterpret_cast<const unsigned char*>(json.data()),json.size());
+                        resultSha256=batchDigest(json);resultBytes=json.size();
+                    } catch(const std::exception& e) {
+                        writeError=std::string(e.what()).substr(0,512);
+                        entry={{"schemaVersion",1},{"outcome","infrastructure-error"},{"error",writeError}};
+                    }
+                }
                 error|=entry["outcome"]=="infrastructure-error"; failed|=entry["outcome"]=="fail"; uncertain|=entry["outcome"]=="inconclusive";
-                results.push_back(entry);
+                if(progress) {
+                    Json notification={{"schemaVersion",2},{"index",index},{"event","finished"},{"outcome",entry["outcome"]}};
+                    if(!writeError.empty()) notification["error"]=writeError;
+                    else {notification["resultSha256"]=resultSha256;notification["resultBytes"]=resultBytes;}
+                    std::cout<<notification.dump()<<std::endl;
+                } else results.push_back(entry);
+                ++index;
+            }
+            if(progress) {
+                const auto outcome=error?"infrastructure-error":failed?"fail":uncertain?"inconclusive":"pass";
+                std::cout<<Json{{"schemaVersion",2},{"event","complete"},{"outcome",outcome},{"count",index}}.dump()<<std::endl;
+                return error?3:failed?1:uncertain?2:0;
             }
             result={{"schemaVersion",1},{"outcome",error?"infrastructure-error":failed?"fail":uncertain?"inconclusive":"pass"},{"results",results}};
         } else result=execute(args,session);

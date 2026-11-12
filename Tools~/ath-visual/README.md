@@ -32,6 +32,15 @@ inconclusive, pass. Batch items cannot select another executable or model.
 Library callers can retain an `AnalysisSession` to reuse loaded model state;
 one session is sequential and must not be called concurrently.
 
+AITH audits use batch schema 2 with at most eight items per process. Each item
+also supplies an exclusive `output` path. Full result JSON is written there;
+stdout carries only ordered `started`, `finished`, and final `complete` records.
+Each finished record binds its result file with `resultBytes` and `resultSha256`.
+The caller enforces a separate deadline for every started screen and a bounded
+model-startup budget. Rebuild the native analyzer when upgrading the audit client;
+an older analyzer without this protocol fails closed. Single-image analysis and
+direct schema-1 batch callers retain their existing contracts.
+
 ## Version 1 inputs
 
 Policy: `{"schemaVersion":1,"id":"project","version":"1","source":"project://accessibility/policy/v1","minHeightPx":26,"minContrastRatio":4.5}`.

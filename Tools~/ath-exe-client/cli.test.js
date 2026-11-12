@@ -88,3 +88,14 @@ test('CLI cannot report success for malformed/no-response state', async t => {
   assert.equal(result.code, 1);
   assert.equal(JSON.parse(result.stdout).result, 'fail');
 });
+
+test('visual audit isolates a missing screenshot instead of invalidating valid screens', async () => {
+  await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,visual,createScreens}) => {
+    const fixture = createScreens(3,{invalid:1});
+    let result;
+    const code = await visual.command(['audit',root],{manifest:fixture.manifest,policy:fixture.policy,out:path.join(root,'audit'),analyzer:process.execPath},value=>{result=value;});
+    assert.equal(code,3);
+    assert.deepEqual(result.entries.map(entry=>entry.outcome),['pass','infrastructure-error','pass']);
+    assert.deepEqual(result.entries.map(entry=>entry.id),fixture.screens.map(screen=>screen.id));
+  });
+});

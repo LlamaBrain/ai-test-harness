@@ -119,10 +119,12 @@ Json measure(const cv::Mat& image,const Region& region,const Policy& policy) {
     }
     tallest=0;for(int i=1;i<count;++i) if(!attached[i]) tallest=std::max(tallest,glyphBottom[i]-glyphTop[i]+1);
     int commonTop=0,commonBottom=r.height,minGlyphTop=r.height,maxGlyphTop=0,minGlyphBottom=r.height,maxGlyphBottom=0,shortest=tallest;
+    std::vector<std::pair<int,int>> glyphExtents;
     for(int i=1;i<count;++i) {
         int h=glyphBottom[i]-glyphTop[i]+1;
         if(stats.at<int>(i,cv::CC_STAT_AREA)<3||h<=3) continue;
         if(attached[i]) continue;
+        glyphExtents.emplace_back(glyphTop[i],glyphBottom[i]);
         minGlyphTop=std::min(minGlyphTop,glyphTop[i]);maxGlyphTop=std::max(maxGlyphTop,glyphTop[i]);
         minGlyphBottom=std::min(minGlyphBottom,glyphBottom[i]);maxGlyphBottom=std::max(maxGlyphBottom,glyphBottom[i]);
         shortest=std::min(shortest,h);
@@ -130,23 +132,67 @@ Json measure(const cv::Mat& image,const Region& region,const Policy& policy) {
         commonBottom=std::min(commonBottom,glyphBottom[i]);
     }
     if(commonTop>commonBottom) {result["message"]="Multiple text lines cannot share a height measurement";return result;}
-    // Joint upper/lower bands support ordinary ascenders and descenders. A
-    // height split sharing only one baseline is unresolved mixed-size evidence.
+    // Crossing upper/lower bands support ordinary ascenders and descenders.
+    // A height split on one baseline, or nested size cohorts without that
+    // crossing support, cannot establish one font height.
     // The classification never depends on the selected policy threshold.
     int upperBand=maxGlyphTop-minGlyphTop,lowerBand=maxGlyphBottom-minGlyphBottom;
     // Round glyphs may overshoot flat glyphs by one raster pixel at each edge;
     // compare the bands independently rather than allowing only one total pixel.
     bool rasterOvershoot=upperBand<=1&&lowerBand<=1;
-    bool sizeAmbiguous=!rasterOvershoot&&tallest-shortest>1&&(upperBand<=1||lowerBand<=1||std::max(upperBand,lowerBand)>2*std::min(upperBand,lowerBand));
+    const int heightSpread=tallest-shortest;
+    // Strict interval containment beyond one raster pixel at both edges is
+    // unresolved size evidence. Crossing ascender/descender intervals and
+    // ordinary one-pixel overshoot do not have this relation. Test each interval
+    // rather than only global bands: vertical jitter must not hide a cohort.
+    std::sort(glyphExtents.begin(),glyphExtents.end());
+    std::vector<int> glyphHeights;
+    for(const auto& [start,end]:glyphExtents) glyphHeights.push_back(end-start+1);
+    std::sort(glyphHeights.begin(),glyphHeights.end());
+    glyphHeights.erase(std::unique(glyphHeights.begin(),glyphHeights.end()),glyphHeights.end());
+    int largestGap=0,nextGap=0,cohortSplit=0;
+    for(size_t i=1;i<glyphHeights.size();++i) {
+        const int gap=glyphHeights[i]-glyphHeights[i-1];
+        if(gap>largestGap) {nextGap=largestGap;largestGap=gap;cohortSplit=glyphHeights[i-1];}
+        else nextGap=std::max(nextGap,gap);
+    }
+    const bool separatedCohorts=largestGap>1&&largestGap>2*nextGap;
+    // Crossing cap/descender roles can explain a full-height glyph around a
+    // cap. With distinct size cohorts, crossings must bridge the size gap;
+    // vertical jitter within one cohort is not evidence of a shared font.
+    // Prefix/suffix minima keep this test O(n log n), including varied fonts.
+    std::vector<int> prefix(glyphHeights.size()+1,r.height),suffix(prefix);
+    auto addMinimum=[](std::vector<int>& tree,size_t i,int value) {for(;i<tree.size();i+=i&-i)tree[i]=std::min(tree[i],value);};
+    auto minimum=[&](const std::vector<int>& tree,size_t i) {int value=r.height;for(;i;i-=i&-i)value=std::min(value,tree[i]);return value;};
+    int cohortBottom[2]={r.height,r.height};
+    bool nestedSizes=false,crossingRoles=false;size_t outer=0;int outerBottom=-1;
+    for(const auto& [glyphStart,glyphEnd]:glyphExtents) {
+        while(outer<glyphExtents.size()&&glyphExtents[outer].first<glyphStart-1) {
+            const auto& [start,end]=glyphExtents[outer++];
+            const int h=end-start+1;
+            const size_t index=std::lower_bound(glyphHeights.begin(),glyphHeights.end(),h)-glyphHeights.begin();
+            addMinimum(prefix,index+1,end);addMinimum(suffix,glyphHeights.size()-index,end);
+            cohortBottom[h>cohortSplit]=std::min(cohortBottom[h>cohortSplit],end);
+            outerBottom=std::max(outerBottom,end);
+        }
+        if(outerBottom>glyphEnd+1) nestedSizes=true;
+        const int h=glyphEnd-glyphStart+1;
+        const size_t lower=std::lower_bound(glyphHeights.begin(),glyphHeights.end(),h-1)-glyphHeights.begin();
+        const size_t upper=std::upper_bound(glyphHeights.begin(),glyphHeights.end(),h+1)-glyphHeights.begin();
+        const int crossingBottom=separatedCohorts?cohortBottom[!(h>cohortSplit)]:std::min(minimum(prefix,lower),minimum(suffix,glyphHeights.size()-upper));
+        crossingRoles|=crossingBottom<glyphEnd-1;
+    }
+    nestedSizes&=!crossingRoles;
+    bool sizeAmbiguous=!rasterOvershoot&&heightSpread>1&&(nestedSizes||upperBand<=1||lowerBand<=1||std::max(upperBand,lowerBand)>2*std::min(upperBand,lowerBand));
     const int height=bottom-top+1;
     const bool boundary=top==0||bottom==r.height-1||cv::countNonZero(mask.col(0))||cv::countNonZero(mask.col(r.width-1));
     result["measuredHeightPx"]=height;
     result["contrastRatio"]=independentContrast?Json(*independentContrast):Json(nullptr);
-    result["measurementConfidence"]=boundary?.25:.8;
+    result["measurementConfidence"]=boundary||sizeAmbiguous?.25:.8;
     result["clippingOutcome"]=boundary?"inconclusive":"pass";
     result["heightOutcome"]=boundary?"inconclusive":height<policy.minHeightPx?(region.representativeGlyphs?"fail":"inconclusive"):sizeAmbiguous?"inconclusive":"pass";
     result["contrastOutcome"]=boundary||!independentContrast?"inconclusive":*independentContrast>=policy.minContrastRatio?"pass":"fail";
-    result["message"]=boundary?"Foreground touches region boundary":region.representativeGlyphs?"Visible pixel extent measured with 2:1 boundary inclusion":"Visible extent measured; absent representative glyphs cannot establish an undersize failure";
+    result["message"]=boundary?"Foreground touches region boundary":sizeAmbiguous?"Glyph extents cannot establish a common font height":region.representativeGlyphs?"Visible pixel extent measured with 2:1 boundary inclusion":"Visible extent measured; absent representative glyphs cannot establish an undersize failure";
     return result;
 }
 AnalysisSession::AnalysisSession(const std::string& model) {

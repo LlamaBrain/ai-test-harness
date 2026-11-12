@@ -15,6 +15,20 @@ node Tools~/ath-exe-client/ath-exe.js visual audit captures --manifest audit.jso
 
 Output directories must be new. `--timeout-ms` bounds execution; `ATH_VISUAL_ANALYZER` may replace `--analyzer`. When consuming an existing screenshot receipt, supply its hash with `--expected-sha256`. Exit codes are 0 pass, 1 fail, 2 inconclusive, and 3 infrastructure error. Treat every nonzero code as an unaccepted verification gate. `result.json`, `receipt.json`, and `annotated.png` retain measurements and artifact identities; the original screenshot is never annotated in place. Comparison requires compatible screen, resolution, locale, scale, and policy identity and reports decreases in measured size or contrast.
 
+For audits, `--timeout-ms` applies independently to each screen. Native groups
+contain at most eight screens and 64 MiB of encoded PNG input, with a separate
+30-second worker-startup allowance and a total budget equal to startup plus the
+screens' configured deadlines. Large results remain in per-screen files, bound to
+the worker's completion records by SHA-256. Missing or malformed screens remain
+visible as infrastructure errors without replacing the other screens' outcomes.
+A timed-out worker is stopped; completed evidence is retained and unstarted
+screens resume in a fresh worker. If termination cannot be confirmed, the audit
+starts no further workers and retains infrastructure errors for all remaining
+screens. Protocol or terminal-identity errors fail the
+implicated group closed. Use the rebuilt analyzer shipped with the upgraded
+client; these audit changes do not alter version-1 RuntimeSmoke documents or
+single-screenshot analysis.
+
 `xag101-console` and `xag101-pc` apply their documented default-size targets. `steam-adjustable` evaluates the reachable-size target but adds an inconclusive adjustability finding: a screenshot cannot demonstrate that a user can adjust the setting. Profile JSON retains source, version, and scope. Use `--policy project-policy.json` for project-specific thresholds instead of editing the analyzer.
 
 ## Engine-neutral manifest

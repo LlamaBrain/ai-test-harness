@@ -62,6 +62,97 @@ test('missing expected audit input produces durable infrastructure error', async
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('missing and malformed screenshots are isolated at the start, middle and end', async () => {
+  for (const invalid of [0,2,4]) for (const malformed of [false,true]) {
+    await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,reports,createScreens})=>{
+      const fixture=createScreens(5,{invalid,malformed});
+      const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out:path.join(root,'audit'),analyzer:process.execPath});
+      assert.deepEqual(result.entries.map(entry=>entry.id),fixture.screens.map(screen=>screen.id));
+      assert.deepEqual(result.entries.map(entry=>entry.outcome),fixture.screens.map((_,i)=>i===invalid?'infrastructure-error':'pass'));
+      assert.equal(reports.report(path.join(root,'audit')).entries.length,5);
+    });
+  }
+});
+
+test('audits bound detector batches and give each screen its own execution budget', async () => {
+  await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,log,reports,createScreens})=>{
+    const fixture=createScreens(19,{delayMs:80});
+    const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out:path.join(root,'audit'),analyzer:process.execPath,timeoutMs:250});
+    assert.equal(result.entries.length,19);assert.equal(result.outcome,'pass');
+    const batches=fs.readFileSync(log,'utf8').trim().split('\n').map(line=>JSON.parse(line));
+    assert.ok(batches.every(batch=>batch.count<=8),'native batches are limited to eight screens');
+    assert.deepEqual(result.entries.map(entry=>entry.id),fixture.screens.map(screen=>screen.id));
+  });
+});
+
+test('an expired screen preserves completed evidence and resumes unstarted screens', async () => {
+  for (const slow of [0,2,4]) await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,log,reports,createScreens})=>{
+    const fixture=createScreens(5,{delayMs:Array.from({length:5},(_,index)=>index===slow?700:0)});
+    const out=path.join(root,'audit');
+    const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out,analyzer:process.execPath,timeoutMs:250});
+    assert.deepEqual(result.entries.map(entry=>entry.outcome),fixture.screens.map((_,index)=>index===slow?'infrastructure-error':'pass'));
+    assert.match(result.entries[slow].message,/screen timed out/);
+    assert.equal(reports.report(out).entries.length,5);
+    const calls=fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);
+    assert.deepEqual(calls.map(call=>call.count),slow===4?[5]:[5,4-slow]);
+  });
+});
+
+test('result payloads exceeding the stdout budget remain complete on disk', async () => {
+  await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,reports,createScreens})=>{
+    const fixture=createScreens(8,{regions:1024});
+    const out=path.join(root,'audit');
+    const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out,analyzer:process.execPath});
+    assert.equal(result.outcome,'pass');assert.equal(result.entries.length,8);
+    const bytes=result.entries.reduce((sum,entry)=>sum+fs.statSync(path.join(out,entry.id,'result.json')).size,0);
+    assert.ok(bytes>4*1024*1024,'the real result payload exceeds the bounded stdout channel');
+    assert.equal(reports.report(out).entries.length,8);
+  });
+});
+
+test('encoded input byte limits bound groups before hundreds of buffers can accumulate', async () => {
+  await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,log,reports,createScreens})=>{
+    const fixture=createScreens(4,{encodedBytes:17*1024*1024});
+    const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out:path.join(root,'audit'),analyzer:process.execPath});
+    assert.equal(result.outcome,'pass');assert.equal(result.entries.length,4);
+    const calls=fs.readFileSync(log,'utf8').trim().split('\n').map(JSON.parse);
+    assert.deepEqual(calls.map(call=>call.count),[3,1]);
+    assert.ok(calls.every(call=>call.inputBytes<=64*1024*1024));
+  });
+});
+
+test('batch results cannot substitute unbound or changed file bytes', async () => {
+  for (const mode of ['tamper','missing-digest']) await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,reports,createScreens})=>{
+    const fixture=createScreens(3,{resultMode:['',mode,'']});
+    const out=path.join(root,'audit');
+    const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out,analyzer:process.execPath});
+    assert.deepEqual(result.entries.map(entry=>entry.outcome),['pass','infrastructure-error','pass']);
+    assert.match(result.entries[1].message,/digest|identity|size/i);
+    assert.equal(fs.existsSync(path.join(out,fixture.screens[1].id,'receipt.json')),false);
+    assert.equal(reports.report(out).outcome,'infrastructure-error');
+  });
+});
+
+test('finished items cannot pass without a valid native terminal contract', async () => {
+  for (const terminalMode of ['missing-complete','wrong-aggregate','wrong-exit']) await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,reports,createScreens})=>{
+    const fixture=createScreens(3,{terminalMode});
+    const out=path.join(root,'audit');
+    const result=await reports.audit({input:root,manifest:fixture.manifest,policy:fixture.policy,out,analyzer:process.execPath});
+    assert.deepEqual(result.entries.map(entry=>entry.outcome),['infrastructure-error','infrastructure-error','infrastructure-error'],terminalMode);
+    assert.equal(reports.report(out).outcome,'infrastructure-error');
+  });
+});
+
+test('malformed native progress returns bounded item errors instead of escaping the batch', async () => {
+  for (const terminalMode of ['finished-without-index','null-progress']) await require('./visual-batch-fixture').withFakeAnalyzer(async ({root,visual,createScreens})=>{
+    const fixture=createScreens(2,{terminalMode});
+    const results=await visual.analyzeBatch(fixture.screens.map(screen=>({input:path.join(root,screen.screenshot),manifest:path.join(root,screen.manifest),policy:fixture.policy,out:path.join(root,screen.id),analyzer:process.execPath})),path.join(root,'batch.json'));
+    assert.equal(results.length,2);
+    assert.ok(results.every(result=>result.result.outcome==='infrastructure-error'));
+    assert.ok(results.every(result=>result.result.error.length<=1024));
+  });
+});
+
 test('report binds input, manifest, policy and context to retained evidence', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ath-visual-binding-'));
   try {

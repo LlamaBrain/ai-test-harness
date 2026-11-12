@@ -5,6 +5,9 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { assertNoSymlinkPath, writeAtomicNew } = require('./runtime-smoke-runner');
 const codes = { pass: 0, fail: 1, inconclusive: 2, 'infrastructure-error': 3 };
+const MAX_BATCH_ITEMS = 8;
+const MAX_BATCH_INPUT_BYTES = 64 * 1024 * 1024;
+const MAX_RESULT_BYTES = 16 * 1024 * 1024;
 const sha = data => crypto.createHash('sha256').update(data).digest('hex');
 function safePath(file) {
   const absolute = path.resolve(file), root = path.parse(absolute).root;
@@ -129,21 +132,30 @@ function prepareAnalysis(options) {
     if (staged !== source.path) writeAtomicNew(fs, staged, source.bytes);
     args.push('--' + name, staged);
   }
+  // Only the PNG header is needed to bind result dimensions. The exclusive
+  // snapshot and digests retain the full evidence without retaining its buffer
+  // for every screen while a detector batch is running.
+  const header = Buffer.from(input.bytes.subarray(0, 24));
+  for (const source of sources) delete source.bytes;
+  input.bytes = header;
   return { options, timeoutMs, input, out, sources, args, effectivePolicy };
 }
 function finishAnalysis(prepared, execution) {
   const { options, input, out, sources } = prepared;
   let { effectivePolicy } = prepared;
-  for (const source of sources) if (readEvidence(source.path, (['analyzer', 'model'].includes(source.kind) ? 128 : 32) * 1024 * 1024).sha256 !== source.sha256) throw new Error('Evidence changed during analysis');
+  let manifest = null;
+  for (const source of sources) {
+    const verified = readEvidence(source.path, (['analyzer', 'model'].includes(source.kind) ? 128 : 32) * 1024 * 1024);
+    if (verified.sha256 !== source.sha256) throw new Error('Evidence changed during analysis');
+    if (source.kind === 'policy') effectivePolicy = JSON.parse(verified.bytes);
+    if (source.kind === 'manifest') manifest = JSON.parse(verified.bytes);
+  }
   const result = validateResult(JSON.parse(execution.stdout), execution.code);
-  const policySource = sources.find(s => s.kind === 'policy');
-  if (policySource) effectivePolicy = JSON.parse(policySource.bytes);
-  const manifestSource = sources.find(s => s.kind === 'manifest');
   for (const source of [input, ...sources.filter(s => ['manifest', 'policy'].includes(s.kind))]) {
     const staged = path.join(out, source === input ? 'input.png' : 'input-' + source.kind + '.json');
     if (readEvidence(staged).sha256 !== source.sha256) throw new Error('Staged evidence changed during analysis');
   }
-  validateBindings(result, input, manifestSource ? JSON.parse(manifestSource.bytes) : null, effectivePolicy);
+  validateBindings(result, input, manifest, effectivePolicy);
   if (effectivePolicy && (!result.policy || ['id', 'version', 'source', 'minHeightPx', 'minContrastRatio'].some(key => result.policy[key] !== effectivePolicy[key]))) throw new Error('Analyzer policy identity or thresholds mismatch');
   require('./visual-profiles').applyProfileScope(result, effectivePolicy);
   if (input.bytes.length < 24 || input.bytes.toString('ascii', 12, 16) !== 'IHDR' || input.bytes.readUInt32BE(16) !== result.image.width || input.bytes.readUInt32BE(20) !== result.image.height) throw new Error('Decoded dimensions do not match input PNG');
@@ -155,7 +167,7 @@ function finishAnalysis(prepared, execution) {
   const annotation = path.join(out, 'annotated.png');
   if (fs.existsSync(annotation)) { const a = readEvidence(annotation); artifacts.push({ path: 'annotated.png', sha256: a.sha256, byteLength: a.byteLength }); }
   const receipt = { schemaVersion: 1, correlationId: options.correlationId || null, workflowId: options.workflowId || null, outcome: result.outcome,
-    context: result.context || (options.manifest ? JSON.parse(sources.find(s => s.kind === 'manifest').bytes) : null),
+    context: result.context || manifest,
     policySha256: sources.find(s => s.kind === 'policy')?.sha256 || (result.policy ? sha(Buffer.from(JSON.stringify(result.policy))) : null),
     input: { path: input.path, sha256: input.sha256, byteLength: input.byteLength, ...result.image },
     sources: sources.slice(1).map(({ kind, path, sha256, byteLength }) => ({ kind, path, sha256, byteLength })), artifacts };
@@ -177,23 +189,139 @@ function validateBatchResult(batch, code, count) {
 }
 async function analyzeBatch(optionsList, batchFile) {
   if (!Array.isArray(optionsList) || !optionsList.length || optionsList.length > 1024) throw new Error('Batch requires 1..1024 inputs');
-  const prepared = optionsList.map(prepareAnalysis);
-  const first = prepared[0];
-  if (prepared.some(p => path.resolve(p.options.analyzer) !== path.resolve(first.options.analyzer) || p.options.model !== first.options.model)) throw new Error('Batch requires the same analyzer and model');
-  const items = prepared.map(p => {
-    const item = {};
-    for (let i = 0; i < p.args.length; i += 2) if (p.args[i] !== '--model') item[p.args[i].slice(2)] = p.args[i + 1];
-    return item;
+  const results = new Array(optionsList.length);
+  let prepared = [], encodedBytes = 0, invocation = 0, identity, fatalTerminationError;
+  const failure = error => ({ result: { schemaVersion: 1, outcome: 'infrastructure-error', error: String(error.message || error).slice(0, 1024) }, exitCode: 3 });
+  async function executeGroup() {
+    let remaining = prepared;
+    while (remaining.length) {
+      const first = remaining[0], file = safePath(invocation++ === 0 ? batchFile : batchFile + '.' + (invocation - 1) + '.json');
+      const items = remaining.map(p => {
+        const item = { output: path.join(p.out, 'native-result.json') };
+        for (let i = 0; i < p.args.length; i += 2) if (p.args[i] !== '--model') item[p.args[i].slice(2)] = p.args[i + 1];
+        return item;
+      });
+      let execution;
+      try {
+        writeAtomicNew(fs, file, JSON.stringify({ schemaVersion: 2, items }) + '\n');
+        const args = ['--batch', file];
+        if (first.options.model) args.push('--model', path.resolve(first.options.model));
+        execution = await invokeBatch(path.resolve(first.options.analyzer), args, remaining);
+      } catch (error) { for (const p of remaining) results[p.index] = failure(error); break; }
+      if (execution.terminationUnconfirmed) fatalTerminationError = execution.error;
+      if (execution.error && (execution.timeoutIndex === undefined || execution.terminationUnconfirmed)) {
+        // A protocol/exit failure invalidates the group's claimed computation.
+        // Only a known, confirmed per-screen timeout can salvage prior results.
+        for (const p of remaining) results[p.index] = failure(execution.error);
+        break;
+      }
+      for (const [index, record] of execution.finished) {
+        const p = remaining[index];
+        try {
+          const evidence = readEvidence(items[index].output, MAX_RESULT_BYTES);
+          if (!Number.isInteger(record.resultBytes) || record.resultBytes < 1 || !/^[0-9a-f]{64}$/.test(record.resultSha256 || '') || record.resultBytes !== evidence.byteLength || record.resultSha256 !== evidence.sha256) throw new Error('Native result digest or size identity mismatch');
+          const nativeResult = JSON.parse(evidence.bytes);
+          if (nativeResult.outcome !== record.outcome) throw new Error('Native result differs from its completed item record');
+          results[p.index] = finishAnalysis(p, { code: codes[nativeResult.outcome], stdout: JSON.stringify(nativeResult) });
+          try { fs.unlinkSync(items[index].output); } // Owned intermediate; receipt owns result.json.
+          catch (error) { if (!['ENOENT', 'EACCES', 'EPERM', 'EBUSY'].includes(error.code)) throw error; }
+        } catch (error) { results[p.index] = failure(record.error || error); }
+      }
+      if (!execution.error) {
+        for (const p of remaining) if (!results[p.index]) results[p.index] = failure('Native batch omitted a required item');
+        break;
+      }
+      if (execution.timeoutIndex !== undefined && !execution.terminationUnconfirmed) {
+        const timedOut = remaining[execution.timeoutIndex];
+        results[timedOut.index] = failure(execution.error);
+        // Completed screens retain their independent evidence. A killed screen
+        // loses its detector, so only not-yet-started screens need a fresh one.
+        remaining = remaining.filter((p, i) => i > execution.timeoutIndex && !results[p.index]);
+      } else {
+        for (const p of remaining) if (!results[p.index]) results[p.index] = failure(execution.error);
+        break;
+      }
+    }
+    prepared = []; encodedBytes = 0;
+  }
+  for (let index = 0; index < optionsList.length; index++) {
+    if (fatalTerminationError) { results[index] = failure(fatalTerminationError); continue; }
+    let item;
+    try {
+      item = prepareAnalysis(optionsList[index]); item.index = index;
+      const key = JSON.stringify([path.resolve(item.options.analyzer), item.options.model ? path.resolve(item.options.model) : null]);
+      if (identity && identity !== key) throw new Error('Batch requires the same analyzer and model');
+      identity = key;
+    } catch (error) { results[index] = failure(error); continue; }
+    if (prepared.length && (prepared.length >= MAX_BATCH_ITEMS || encodedBytes + item.input.byteLength > MAX_BATCH_INPUT_BYTES)) await executeGroup();
+    if (fatalTerminationError) { results[index] = failure(fatalTerminationError); continue; }
+    prepared.push(item); encodedBytes += item.input.byteLength;
+  }
+  if (prepared.length) await executeGroup();
+  if (fatalTerminationError) Object.defineProperties(results, {
+    terminationUnconfirmed: { value: true },
+    terminationError: { value: String(fatalTerminationError.message).slice(0, 1024) }
   });
-  const file = safePath(batchFile);
-  writeAtomicNew(fs, file, JSON.stringify({ schemaVersion: 1, items }) + '\n');
-  const args = ['--batch', file];
-  if (first.options.model) args.push('--model', path.resolve(first.options.model));
-  const execution = await invoke(path.resolve(first.options.analyzer), args, first.timeoutMs);
-  const results = validateBatchResult(JSON.parse(execution.stdout), execution.code, prepared.length);
-  return results.map((result, i) => {
-    try { return finishAnalysis(prepared[i], { code: codes[result.outcome], stdout: JSON.stringify(result) }); }
-    catch (error) { return { result: { schemaVersion: 1, outcome: 'infrastructure-error', error: String(error.message).slice(0, 1024) }, exitCode: 3 }; }
+  return results;
+}
+
+function invokeBatch(executable, args, prepared) {
+  return new Promise(resolve => {
+    const child = spawn(executable, args, { shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
+    const finished = new Map();
+    let stdout = '', bytes = 0, active, next = 0, complete, error, timeoutIndex, terminationTimer, terminating = false, settled = false;
+    const startupMs = 30000;
+    const totalTimer = setTimeout(() => terminate('Analyzer batch exceeded its total execution budget'), startupMs + prepared.reduce((sum, p) => sum + p.timeoutMs, 0));
+    let itemTimer = setTimeout(() => terminate('Analyzer batch startup timed out'), startupMs);
+    function done(code, terminationUnconfirmed = false) {
+      if (settled) return; settled = true;
+      clearTimeout(totalTimer); clearTimeout(itemTimer); clearTimeout(terminationTimer);
+      if (!error && (!complete || finished.size !== prepared.length || code !== codes[complete.outcome])) error = new Error('Native batch omitted or contradicted its completion record');
+      resolve({ code, finished, error, timeoutIndex, terminationUnconfirmed });
+    }
+    function terminate(reason, timedOut) {
+      if (error || settled) return;
+      error = new Error(reason); timeoutIndex = timedOut; terminating = true;
+      clearTimeout(itemTimer);
+      // kill() can emit error synchronously. Install the confirmation deadline
+      // first, and only a close event can confirm that this worker has stopped.
+      terminationTimer = setTimeout(() => {
+        error = new Error(reason + '; process termination unconfirmed');
+        child.stdout.destroy(); child.stderr.destroy(); child.unref(); done(null, true);
+      }, 2000);
+      try { child.kill('SIGKILL'); } catch { /* Await close or the confirmation deadline. */ }
+    }
+    function record(line) {
+      if (error || !line.trim()) return;
+      let value;
+      try { value = JSON.parse(line); } catch { terminate('Invalid native batch progress JSON'); return; }
+      if (!value || typeof value !== 'object' || Array.isArray(value)) { terminate('Invalid native batch progress record'); return; }
+      if (value.schemaVersion !== 2) { terminate(value.error || 'Unsupported native batch progress schema'); return; }
+      if (value.event === 'started' && !complete && active === undefined && value.index === next && next < prepared.length) {
+        clearTimeout(itemTimer); active = next;
+        const started = active;
+        itemTimer = setTimeout(() => terminate('Analyzer screen timed out after ' + prepared[started].timeoutMs + 'ms', started), prepared[started].timeoutMs);
+      } else if (value.event === 'finished' && !complete && active !== undefined && Number.isInteger(value.index) && active === value.index && Object.hasOwn(codes, value.outcome)) {
+        clearTimeout(itemTimer); finished.set(active, value); next++; active = undefined;
+        itemTimer = setTimeout(() => terminate('Analyzer batch stalled between screens'), startupMs);
+      } else if (value.event === 'complete' && !complete && active === undefined && next === prepared.length && value.count === prepared.length && value.outcome === aggregate([...finished.values()].map(item => item.outcome))) {
+        clearTimeout(itemTimer); complete = value;
+      } else terminate('Native batch progress identity or ordering mismatch');
+    }
+    function receive(chunk, isError) {
+      if (settled || error) return;
+      bytes += Buffer.byteLength(chunk, 'utf8');
+      if (bytes > 4 * 1024 * 1024) { terminate('Analyzer output exceeds 4 MiB'); return; }
+      if (isError) return;
+      stdout += chunk;
+      if (stdout.length > 65536 && !stdout.includes('\n')) { terminate('Native batch progress line exceeds 64 KiB'); return; }
+      let newline;
+      while ((newline = stdout.indexOf('\n')) >= 0) { const line = stdout.slice(0, newline); stdout = stdout.slice(newline + 1); if (line.length > 65536) terminate('Native batch progress line exceeds 64 KiB'); else record(line); }
+    }
+    child.stdout.on('data', chunk => receive(chunk, false)); child.stderr.on('data', chunk => receive(chunk, true));
+    child.on('error', cause => { if (!terminating && !settled) { error = cause; done(null); } });
+    child.on('close', code => { if (stdout.trim() && !error) record(stdout); done(code); });
   });
 }
 async function command(positionals, flags, print = value => process.stdout.write(JSON.stringify(value, null, 2) + '\n')) {

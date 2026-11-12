@@ -1,4 +1,33 @@
-# Reproduce the Unity / RuntimeSmoke visual verification
+# Visual verification helpers
+
+## Native batch audits
+
+After building the native analyzer, fetching the pinned model, and generating a
+real-font fixture with `font-fixtures.py`, run:
+
+```powershell
+python Tools~/visual-verification/check-batch-workloads.py `
+  --analyzer $nativeAnalyzerPath --model $verifiedModelPath `
+  --fixture $representativeFixturePath --out $freshOutputDirectory
+```
+
+The output directory must be new. The helper runs the actual `ath-exe visual
+audit` command against 100, 256 and 1,024 screenshots, each containing four
+declared regions copied from the real-font fixture. It verifies every receipt,
+artifact digest, result count and deterministic screen order; exercises missing
+and malformed screenshots at the beginning, middle and end; and checks a real
+one-millisecond per-screen deadline. It also compares one eight-screen worker
+with eight single-screen processes to report detector reuse costs.
+
+`verification.json` records runtime source and tool hashes, process-inclusive
+timings, output and evidence sizes, and sampled Node/process-tree resident
+memory. Default acceptance limits are 512 MiB Node RSS, 1 GiB process-tree RSS,
+4 MiB per command output stream, and 512 MiB evidence per workload. Sampling
+cannot establish an unsampled allocation peak. These repeated real-font regions
+exercise batch transport and evidence handling; they do not establish broader
+detector coverage. The Windows/Linux workflow runs this helper independently.
+
+## Unity / RuntimeSmoke
 
 This is an optional verification helper, not another smoke runner or a new acceptance gate. It runs the repository's existing NUnit tests. Authored runtime acceptance still belongs to `RuntimeSmokeSuiteExecutor` and `RuntimeSmokeCoordinator`. The engine-free native build/tests remain independently usable without Unity.
 
