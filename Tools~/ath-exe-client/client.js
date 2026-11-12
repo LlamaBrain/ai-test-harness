@@ -5,6 +5,7 @@
 const net = require('node:net');
 const fs = require('node:fs');
 const path = require('node:path');
+const zlib = require('node:zlib');
 const { performance } = require('node:perf_hooks');
 const proto = require('./protocol');
 
@@ -13,6 +14,8 @@ const DEFAULT_TIMEOUT_MS = 5000;
 const DEFAULT_POLL_MS = 250;
 const MAX_REQUEST_BYTES = 8 * 1024;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
+const MAX_SCREENSHOT_BYTES = 32 * 1024 * 1024;
+const MAX_DECODED_BYTES = 128 * 1024 * 1024;
 
 function positive(value, name) {
   if (!Number.isFinite(value) || value <= 0) throw new TypeError(`${name} must be positive and finite`);
@@ -89,12 +92,140 @@ function commandSucceeded(response, raw = false, expectedCommand) {
   return raw || terminal?.kind === 'OK' && (!expectedCommand || terminal.command === expectedCommand);
 }
 
-function pngInfo(bytes) {
+async function pngInfo(bytes, deadline, signal) {
   const signature = Buffer.from('89504e470d0a1a0a', 'hex');
-  if (bytes.length < 45 || !bytes.subarray(0, 8).equals(signature) || bytes.toString('ascii', 12, 16) !== 'IHDR') return null;
-  if (!bytes.subarray(bytes.length - 12).equals(Buffer.from('0000000049454e44ae426082', 'hex'))) return null;
-  const width = bytes.readUInt32BE(16), height = bytes.readUInt32BE(20);
-  return width > 0 && height > 0 ? { width, height } : null;
+  if (bytes.length < 57 || !bytes.subarray(0, 8).equals(signature)) return null;
+  let offset = 8, width, height, depth, color, interlace, seenHeader = false;
+  let seenData = false, dataEnded = false, palette = 0, processed = 0;
+  const data = [];
+  while (offset + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    if (length > bytes.length - offset - 12) return null;
+    const type = bytes.toString('ascii', offset + 4, offset + 8);
+    const chunk = bytes.subarray(offset + 8, offset + 8 + length);
+    let crc = 0xffffffff;
+    for (const b of bytes.subarray(offset + 4, offset + 8 + length)) {
+      crc ^= b;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+      if (++processed % 65536 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+        checkAbort(signal);
+        if (performance.now() >= deadline) return null;
+      }
+    }
+    if (((crc ^ 0xffffffff) >>> 0) !== bytes.readUInt32BE(offset + 8 + length)) return null;
+    offset += length + 12;
+    if (!seenHeader) {
+      if (type !== 'IHDR' || length !== 13) return null;
+      width = chunk.readUInt32BE(0); height = chunk.readUInt32BE(4);
+      depth = chunk[8]; color = chunk[9]; interlace = chunk[12];
+      const depths = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
+      if (!width || !height || !depths[color]?.includes(depth) || chunk[10] || chunk[11] || interlace > 1) return null;
+      seenHeader = true;
+    } else if (type === 'IDAT') {
+      if (dataEnded || (color === 3 && !palette)) return null;
+      seenData = true; data.push(chunk);
+    } else if (type === 'IEND') {
+      if (length || !seenData || offset !== bytes.length) return null;
+      const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color];
+      const passes = interlace ? [[0,0,8,8],[4,0,8,8],[0,4,4,8],[2,0,4,4],[0,2,2,4],[1,0,2,2],[0,1,1,2]] : [[0,0,1,1]];
+      let expected = 0;
+      const rows = [];
+      for (const [x, y, dx, dy] of passes) {
+        const w = Math.max(0, Math.ceil((width - x) / dx));
+        const h = Math.max(0, Math.ceil((height - y) / dy));
+        if (!w || !h) continue;
+        const row = Math.ceil(w * channels * depth / 8) + 1;
+        expected += row * h;
+        if (!Number.isSafeInteger(expected) || expected > MAX_DECODED_BYTES) return null;
+        rows.push([row, h, w]);
+      }
+      try {
+        const compressed = Buffer.concat(data);
+        const result = await new Promise((resolve, reject) => {
+          let settled = false;
+          let outputSize = 0;
+          const output = Buffer.allocUnsafe(expected);
+          const inflator = zlib.createInflate();
+          const finish = (error, value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', aborted);
+            inflator.destroy();
+            error ? reject(error) : resolve(value);
+          };
+          const aborted = () => finish(abortError());
+          const timer = setTimeout(() => finish(null, null), Math.max(1, deadline - performance.now()));
+          signal?.addEventListener('abort', aborted, { once: true });
+          inflator.on('data', chunk => {
+            if (outputSize + chunk.length > expected) return finish(null, null);
+            chunk.copy(output, outputSize);
+            outputSize += chunk.length;
+          });
+          inflator.on('error', error => finish(error));
+          inflator.on('end', () => finish(null, { buffer: output.subarray(0, outputSize), bytesRead: inflator.bytesWritten }));
+          inflator.end(compressed);
+        });
+        checkAbort(signal);
+        if (!result || performance.now() >= deadline || result.bytesRead !== compressed.length) return null;
+        const decoded = result.buffer;
+        if (decoded.length !== expected) return null;
+        let pos = 0, checked = 0;
+        for (const [row, count, pixels] of rows) {
+          let previous = color === 3 ? Buffer.alloc(row - 1) : null;
+          for (let i = 0; i < count; i++, pos += row) {
+            const filter = decoded[pos];
+            if (filter > 4) return null;
+            if (color === 3) {
+              const current = Buffer.allocUnsafe(row - 1);
+              for (let j = 0; j < current.length; j++) {
+                const left = j ? current[j - 1] : 0, up = previous[j], upperLeft = j ? previous[j - 1] : 0;
+                let predictor = 0;
+                if (filter === 1) predictor = left;
+                else if (filter === 2) predictor = up;
+                else if (filter === 3) predictor = Math.floor((left + up) / 2);
+                else if (filter === 4) {
+                  const p = left + up - upperLeft, a = Math.abs(p - left), b = Math.abs(p - up), c = Math.abs(p - upperLeft);
+                  predictor = a <= b && a <= c ? left : b <= c ? up : upperLeft;
+                }
+                current[j] = (decoded[pos + 1 + j] + predictor) & 255;
+                if (++checked % 65536 === 0) {
+                  await new Promise(resolve => setImmediate(resolve));
+                  checkAbort(signal);
+                  if (performance.now() >= deadline) return null;
+                }
+              }
+              for (let pixel = 0; pixel < pixels; pixel++) {
+                const bit = pixel * depth;
+                if (((current[bit >>> 3] >>> (8 - depth - (bit & 7))) & ((1 << depth) - 1)) >= palette) return null;
+                if (++checked % 65536 === 0) {
+                  await new Promise(resolve => setImmediate(resolve));
+                  checkAbort(signal);
+                  if (performance.now() >= deadline) return null;
+                }
+              }
+              previous = current;
+            }
+            if (++checked % 65536 === 0) {
+              await new Promise(resolve => setImmediate(resolve));
+              checkAbort(signal);
+              if (performance.now() >= deadline) return null;
+            }
+          }
+        }
+      } catch (error) { if (error.code === 'ABORT_ERR') throw error; return null; }
+      return { width, height };
+    } else {
+      if (seenData) dataEnded = true;
+      if (type === 'PLTE') {
+        if (palette || seenData || !length || length > 768 || length % 3 || color === 0 || color === 4) return null;
+        palette = length / 3;
+        if (color === 3 && palette > (1 << depth)) return null;
+      } else if (type === 'IHDR' || !/^[A-Za-z]{4}$/.test(type) || type[0] === type[0].toUpperCase()) return null;
+    }
+  }
+  return null;
 }
 
 class AthClient {
@@ -185,16 +316,27 @@ class AthClient {
       checkAbort(signal);
       try {
         const stat = fs.statSync(source);
-        if (stat.isFile() && stat.size > 0 && stat.size === lastSize) {
-          const content = fs.readFileSync(source);
-          const info = pngInfo(content);
+        if (stat.isFile() && stat.size > 0 && stat.size <= MAX_SCREENSHOT_BYTES && stat.size === lastSize) {
+          const fd = fs.openSync(source, 'r');
+          let content;
+          try {
+            const buffer = Buffer.allocUnsafe(stat.size + 1);
+            let count = 0, n;
+            while (count < buffer.length && (n = fs.readSync(fd, buffer, count, buffer.length - count, null)) > 0) count += n;
+            content = buffer.subarray(0, count);
+          } finally { fs.closeSync(fd); }
+          const info = content.length === stat.size ? await pngInfo(content, deadline, signal) : null;
           if (info) {
+            checkAbort(signal);
+            if (performance.now() >= deadline) break;
             let output = path.resolve(source);
             if (outDir) {
               fs.mkdirSync(outDir, { recursive: true });
               output = path.resolve(outDir, path.basename(source));
-              if (output !== path.resolve(source)) fs.copyFileSync(source, output);
+              if (output !== path.resolve(source)) fs.writeFileSync(output, content);
             }
+            checkAbort(signal);
+            if (performance.now() >= deadline) break;
             return { status: 'ok', path: output, bytes: content.length, ...info };
           }
         }

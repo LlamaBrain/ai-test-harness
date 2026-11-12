@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are verified by unit tests. Footage capture is not yet released — it ships in a
   later version once the Recorder/OBS pieces are proven.
 
+## [0.3.2] - 2026-11-11
+
+### Fixed
+- Reject malformed, truncated, oversized, and invalidly compressed PNG screenshots before reporting evidence as successful.
+
 ## [0.3.0] - 2026-06-16
 
 ### Added

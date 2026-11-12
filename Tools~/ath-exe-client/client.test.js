@@ -154,9 +154,8 @@ test('command fails closed without a terminal but raw dispatch remains compatibl
 test('screenshot requires a complete PNG, copies into evidence dir and respects deadline', async t => {
   const dir = temp(t);
   const image = path.join(dir, 'shot.png');
-  // Header + IHDR dimensions + final IEND (the runtime encoder owns CRC validation).
-  const png = Buffer.concat([Buffer.from('89504e470d0a1a0a0000000d494844520000000200000003080600000000000000', 'hex'),
-    Buffer.from('0000000049454e44ae426082', 'hex')]);
+  // A complete 2x3 RGBA PNG with compressed image data and valid chunk CRCs.
+  const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000002000000030806000000b9eade810000001149444154789c63f8cfc0f01f8419301800a1790bf54dc49a070000000049454e44ae426082', 'hex');
   fs.writeFileSync(image, png.subarray(0, 24));
   const client = await serve(t, () => envelope('harness.snap', `status=pending path=${quote(image)}`));
   setTimeout(() => fs.writeFileSync(image, png), 20);
@@ -167,6 +166,59 @@ test('screenshot requires a complete PNG, copies into evidence dir and respects 
   assert.ok(fs.existsSync(result.path));
   fs.writeFileSync(image, 'not a png');
   assert.equal((await client.screenshot('invalid', { timeoutMs: 25 })).status, 'timeout');
+});
+
+test('screenshot rejects a PNG-shaped file with no image data', async t => {
+  const dir = temp(t);
+  const image = path.join(dir, 'invalid.png');
+  const malformed = Buffer.concat([
+    Buffer.from('89504e470d0a1a0a0000000d494844520000000200000003080600000000000000', 'hex'),
+    Buffer.from('0000000049454e44ae426082', 'hex'),
+  ]);
+  fs.writeFileSync(image, malformed);
+  const client = await serve(t, () => envelope('harness.snap', `status=pending path=${quote(image)}`));
+  assert.equal((await client.screenshot('invalid', { timeoutMs: 60 })).status, 'timeout');
+});
+
+test('screenshot rejects corrupt and oversized image evidence', async t => {
+  const dir = temp(t);
+  const image = path.join(dir, 'invalid.png');
+  const client = await serve(t, () => envelope('harness.snap', `status=pending path=${quote(image)}`));
+  const png = Buffer.from('89504e470d0a1a0a0000000d4948445200000002000000030806000000b9eade810000001149444154789c63f8cfc0f01f8419301800a1790bf54dc49a070000000049454e44ae426082', 'hex');
+  png[45] ^= 1; // Corrupt the image data while leaving its CRC unchanged.
+  fs.writeFileSync(image, png);
+  assert.equal((await client.screenshot('corrupt', { timeoutMs: 40 })).status, 'timeout');
+  fs.truncateSync(image, 32 * 1024 * 1024 + 1);
+  assert.equal((await client.screenshot('oversized', { timeoutMs: 40 })).status, 'timeout');
+});
+
+test('screenshot validates palette indices and rejects trailing compressed data', async t => {
+  const image = path.join(temp(t), 'indexed.png');
+  const client = await serve(t, () => envelope('harness.snap', `status=pending path=${quote(image)}`));
+  const fixtures = [
+    ['89504e470d0a1a0a0000000d494844520000000100000001080300000028cb34bb00000003504c5445000000a77a3dda0000000a49444154789c63600400000300024bf5ddea0000000049454e44ae426082', 'timeout'],
+    ['89504e470d0a1a0a0000000d494844520000000100000001080300000028cb34bb00000003504c5445000000a77a3dda0000000e49444154789c63600000000200016a756e6b5a91c7f80000000049454e44ae426082', 'timeout'],
+    ['89504e470d0a1a0a0000000d494844520000000100000001080300000028cb34bb00000003504c5445000000a77a3dda0000000a49444154789c636000000002000148afa4710000000049454e44ae426082', 'ok'],
+  ];
+  for (const [hex, expected] of fixtures) {
+    fs.writeFileSync(image, Buffer.from(hex, 'hex'));
+    assert.equal((await client.screenshot('indexed', { timeoutMs: expected === 'ok' ? 300 : 50 })).status, expected);
+  }
+});
+
+test('screenshot validation responds to cancellation for large files', async t => {
+  const image = path.join(temp(t), 'large.png');
+  const header = Buffer.from('89504e470d0a1a0a0000000d4948445200000002000000030806000000b9eade81', 'hex');
+  const chunk = Buffer.alloc(8 * 1024 * 1024 + 12);
+  chunk.writeUInt32BE(chunk.length - 12, 0);
+  chunk.write('IDAT', 4);
+  fs.writeFileSync(image, Buffer.concat([header, chunk, Buffer.from('0000000049454e44ae426082', 'hex')]));
+  const client = await serve(t, () => envelope('harness.snap', `status=pending path=${quote(image)}`));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30);
+  try {
+    await assert.rejects(client.screenshot('large', { timeoutMs: 1000, signal: controller.signal }), { code: 'ABORT_ERR' });
+  } finally { clearTimeout(timer); }
 });
 
 test('smoke runs arbitrary state assertions and always records a failed result', async t => {
